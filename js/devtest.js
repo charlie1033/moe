@@ -118,6 +118,11 @@ const MOE_DEV = {
       T.hero('mage', 1, 1); enterMap(1); const ms = G.mons.filter(m => !m.boss), rg = ms.filter(m => m.def.ranged).length;
       T.ok(ms.length < 120, '第一夜怪太多：' + ms.length); T.ok(rg / ms.length < 0.2, '第一夜遠程怪太多：' + rg + '/' + ms.length);
     },
+    '召喚師：開局有骨矛、召喚物生命變厚': T => {
+      const P = T.hero('summoner', 3, 1); T.ok(P.skills[0] === 'bonespear' && hasSkillGem(P, 'bonespear'), '召喚師開局沒有骨矛');
+      enterMap(1); T.quiet(); const m = G.mons.find(x => !x.boss); input.wx = m.x; input.wy = m.y; G.pl.mana = 999; useSkill(0); T.ok(G.projs.some(p => p.team === 'ally'), '骨矛沒有射出去');
+      G.pl.cd = {}; G.pl.act = 0; useSkill(1); T.run(1); T.ok(G.mins.length && G.mins[0].maxLife >= 90, '骷髏生命沒有變厚');
+    },
     '面板、設定頁、夢之門都打得開': T => {
       T.hero('summoner', 60, 21);
       for (const p of ['inv', 'char', 'skills', 'craft', 'journal', 'help', 'shop', 'stash', 'tree']) { UI.toggle(p, true); if (p === 'tree') TreeView.draw(); UI.toggle(p, false); G.P.treePend = []; }
