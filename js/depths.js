@@ -70,7 +70,7 @@ Hook.on('update', dt => {
   if (F.wr_hunt && G.time > (w.huntT || 0)) { w.huntT = G.time + 0.5; for (const m of G.mons) if (!m.aggro && !m.boss && Math.abs(m.x - pl.x) < 560 && Math.abs(m.y - pl.y) < 360) m.aggro = true; }
   if (F.wr_thorn && G.time > (w.thornT || 0)) {
     w.thornT = G.time + 2.2;
-    if (w.refDmg === undefined) { const m = G.mons.find(x => !x.boss && x.rarity === 'normal' && !x.swarm && x.dmg); w.refDmg = m ? (m.dmg[0] + m.dmg[1]) / 2 : 0; }
+    if (!w.refDmg) { const m = G.mons.find(x => !x.dead && !x.boss && x.rarity === 'normal' && !x.swarm && x.dmg) || makeMonster(w.theme.monsters[0], 0, 0, w.mlvl, 'normal', w.theme); w.refDmg = (m.dmg[0] + m.dmg[1]) / 2; }   // v2.15 首領巢穴裡沒有小怪：用一隻參考怪算傷害
     const p = randomFloorNear(pl.x + rnd(-110, 110), pl.y + rnd(-80, 80), 30);
     if (w.refDmg) G.zones.push({ x: p.x, y: p.y, r: 44, dps: w.refDmg * 0.7, elem: 'chaos', t: 0, dur: 5, color: '#4aa04a' });
   }

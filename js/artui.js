@@ -984,3 +984,96 @@ ArtUI.load();
     g.restore();
   });
 })();
+
+// =============================================================
+//  v2.15 牆邊圓滑（使用者覺得地圖方方正正）：碰撞還是格子，只有「畫出來的輪廓」變圓
+//  ・建地圖畫布時（Hook 'worldCanvas'，在岩漿水塘畫好之後），看每個格子交點的四個格子：
+//      只有一格是牆（牆的凸角）→ 把那格牆的角削圓（從旁邊的地板拿同位置的像素補上）
+//      三格是牆、一格地板（凹角）→ 在那格地板的角補一個小圓弧的牆（從上下那格牆拿像素）
+//  ・長直的牆邊隨機凸出一點小弧（不是每格都一樣），牆腳隨機散一些碎石（冰原是冰晶）
+//  ・營地不做（營地的房子是貼圖，削角會切到房子）
+// =============================================================
+(function () {
+  if (typeof Hook === 'undefined') return;
+  const R = 18;   // 圓角半徑（格子 32，太小看不出來）
+  Hook.on('worldCanvas', w => {
+    if (!ArtUI.on() || !w.canvas || !w.grid || w.kind === 'town') return;
+    const W = w.W, H = w.H, deco = w.deco;
+    const wall = (x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x]));
+    const g = w.canvas.getContext('2d');
+    const src = document.createElement('canvas'); src.width = w.canvas.width; src.height = w.canvas.height; src.getContext('2d').drawImage(w.canvas, 0, 0);
+    const rnd = (x, y, k) => { const h = hash2(x * 7 + k * 131, y * 13 + k * 17); return (h % 1000) / 1000; };
+    // 把 (cx,cy) 這個角、往 (sx,sy) 方向 r×r 的那一小塊，換成從 (dx,dy) 偏移拿來的像素（只換角落圓弧外面那一片）
+    //   效能：同一個偏移量的形狀全部收進同一個路徑，最後每種偏移量只畫一次（不用每個角都裁切一次）
+    const GR = new Map(), D = 20;
+    const grp = (dx, dy) => { const k = dx + ',' + dy; let o = GR.get(k); if (!o) GR.set(k, o = { p: new Path2D(), dx, dy }); return o.p; };
+    const flush = () => {
+      for (const o of GR.values()) { const pt = g.createPattern(src, 'no-repeat'); pt.setTransform(new DOMMatrix([1, 0, 0, 1, -o.dx, -o.dy])); g.fillStyle = pt; g.fill(o.p); }
+      GR.clear();
+    };
+    const corner = (cx, cy, sx, sy, dx, dy, r) => { const p = grp(dx, dy); p.moveTo(cx, cy); p.lineTo(cx, cy + sy * r); p.arcTo(cx, cy, cx + sx * r, cy, r); p.closePath(); };
+    const fillet = (cx, cy, sx, sy, dx, dy, r) => {   // 凹角：角落補一塊四分之一圓（圓心在角上）
+      const p = grp(dx, dy); p.moveTo(cx, cy);
+      p.arc(cx, cy, r, sx > 0 ? (sy > 0 ? 0 : -Math.PI / 2) : (sy > 0 ? Math.PI / 2 : Math.PI), sx > 0 ? (sy > 0 ? Math.PI / 2 : 0) : (sy > 0 ? Math.PI : Math.PI * 1.5)); p.closePath();
+    };
+    for (let vy = 1; vy < H; vy++) for (let vx = 1; vx < W; vx++) {
+      const tl = wall(vx - 1, vy - 1), tr = wall(vx, vy - 1), bl = wall(vx - 1, vy), br = wall(vx, vy), n = tl + tr + bl + br;
+      const cx = vx * TS, cy = vy * TS, r = R + Math.round(rnd(vx, vy, 1) * 4 - 2);
+      if (n === 1) {   // 凸角：削那格牆的角，像素從上下那格地板拿
+        if (tl) corner(cx, cy, -1, -1, 0, D, r); else if (tr) corner(cx, cy, 1, -1, 0, D, r);
+        else if (bl) corner(cx, cy, -1, 1, 0, -D, r); else corner(cx, cy, 1, 1, 0, -D, r);
+      } else if (n === 3) {   // 凹角：那格地板的角補小圓弧，像素從上下那格牆拿
+        const k = Math.round(r * 0.75);
+        if (!tl) fillet(cx, cy, -1, -1, 0, D, k); else if (!tr) fillet(cx, cy, 1, -1, 0, D, k);
+        else if (!bl) fillet(cx, cy, -1, 1, 0, -D, k); else fillet(cx, cy, 1, 1, 0, -D, k);
+      }
+    }
+    // 牆面（有磚紋那一段）露在外面的兩端：上角也削圓（像素從旁邊那格拿）→ 一階一階的牆看起來比較像圓滑的岩塊
+    const EXT = ArtUI.depth() ? 16 : 0;
+    for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+      if (!wall(x, y) || wall(x, y + 1)) continue;   // 只看牆的正面（下面是地板）
+      const px = x * TS, top = y * TS + 10 - (wall(x, y - 1) && y > 0 ? EXT : 0), r = Math.round(R * 0.8 + rnd(x, y, 71) * 4);
+      if (!wall(x - 1, y)) corner(px, top, 1, 1, -D, 0, r);
+      if (!wall(x + 1, y)) corner(px + TS, top, -1, 1, D, 0, r);
+    }
+    // 長直牆邊：隨機凸出一點小弧（從旁邊那格牆，拿一個半橢圓伸進地板）
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (wall(x, y)) continue;
+      const px = x * TS, py = y * TS;
+      for (const [nx, ny, horiz] of [[x, y - 1, true], [x - 1, y, false], [x + 1, y, false]]) {
+        if (!wall(nx, ny) || rnd(x, y, nx - x + 3 * (ny - y) + 5) > 0.32) continue;
+        const len = 8 + rnd(x, y, 9) * 10, dep = 3 + rnd(x, y, 11) * 3, off = 4 + rnd(x, y, 13) * (TS - 8 - len), p = grp((nx - x) * TS, (ny - y) * TS);
+        // 只畫伸進地板的那半個橢圓（另一半在牆上，偏移量對牆來說是錯的）
+        if (horiz) { const ex = py, ecx = px + off + len / 2; p.moveTo(ecx + len / 2, ex); p.ellipse(ecx, ex, len / 2, dep, 0, 0, Math.PI); p.closePath(); }
+        else if (nx < x) { const ex = px, ecy = py + off + len / 2; p.moveTo(ex, ecy - len / 2); p.ellipse(ex, ecy, dep, len / 2, 0, -Math.PI / 2, Math.PI / 2); p.closePath(); }
+        else { const ex = px + TS, ecy = py + off + len / 2; p.moveTo(ex, ecy + len / 2); p.ellipse(ex, ecy, dep, len / 2, 0, Math.PI / 2, Math.PI * 1.5); p.closePath(); }
+      }
+    }
+    flush();
+    // 長直牆邊：隨機凸出一點小弧＋牆腳碎石
+    const th = w.theme || {}, ice = th.id === 'ice';
+    // 碎石顏色＝旁邊那格牆的平均顏色（把整張地圖縮成一格一點，只讀一次）
+    const tiny = document.createElement('canvas'); tiny.width = W; tiny.height = H; const tg = tiny.getContext('2d'); tg.imageSmoothingEnabled = true; tg.drawImage(src, 0, 0, W, H);
+    const TD = tg.getImageData(0, 0, W, H).data;
+    const colAt = (x, y, k) => { const i = (y * W + x) * 4, f = v => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(TD[i])},${f(TD[i + 1])},${f(TD[i + 2])})`; };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (wall(x, y)) continue;
+      const px = x * TS, py = y * TS;
+      // 牆腳碎石
+      const near = wall(x, y - 1) || wall(x - 1, y) || wall(x + 1, y) || wall(x, y + 1);
+      if (!near || rnd(x, y, 21) > 0.4) continue;
+      const cnt = 1 + Math.floor(rnd(x, y, 23) * 3);
+      const wx = wall(x, y - 1) ? x : wall(x - 1, y) ? x - 1 : wall(x + 1, y) ? x + 1 : x, wy = wall(x, y - 1) ? y - 1 : wall(x, y + 1) && wx === x ? y + 1 : y;
+      const inMap = wx >= 0 && wy >= 0 && wx < W && wy < H;
+      for (let i = 0; i < cnt; i++) {
+        let sx = px + 3 + rnd(x, y, 30 + i) * (TS - 6), sy = py + 3 + rnd(x, y, 40 + i) * (TS - 6);
+        if (wall(x, y - 1)) sy = py + 3 + rnd(x, y, 50 + i) * 7; else if (wall(x - 1, y)) sx = px + 2 + rnd(x, y, 50 + i) * 7; else if (wall(x + 1, y)) sx = px + TS - 3 - rnd(x, y, 50 + i) * 7;
+        const s = 1.5 + rnd(x, y, 60 + i) * 2.5;
+        if (ice) { g.fillStyle = 'rgba(220,245,255,0.8)'; g.beginPath(); g.moveTo(sx, sy - s * 1.6); g.lineTo(sx + s * 0.7, sy + s * 0.5); g.lineTo(sx - s * 0.7, sy + s * 0.5); g.fill(); continue; }
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(sx + 0.8, sy + s * 0.5, s * 1.1, s * 0.55, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = inMap ? colAt(wx, wy, 1.15) : '#665'; g.beginPath(); g.ellipse(sx, sy, s, s * 0.7, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = inMap ? colAt(wx, wy, 1.7) : '#998'; g.fillRect(Math.round(sx - s * 0.4), Math.round(sy - s * 0.5), Math.max(1, s * 0.6), 1);
+      }
+    }
+  });
+})();

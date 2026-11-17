@@ -51,7 +51,10 @@ const MOE_DEV = {
         T.ok(T.near(ev).kind === 'mapev', kind + ' 沒被選到'); UI.interact(); T.ok(ev.done, kind + ' 沒啟動'); T.run(0.3);
       }
       const n = w.stage.n; for (let k = 1; k < n; k++) { G.loot = []; T.ok(T.near(G.world.gate).kind === 'gate', '出口門沒被選到'); UI.interact(); T.ok(G.world.stage.i === k + 1, '沒進下一區'); }
-      T.ok(G.mons.some(m => m.boss), '最後一區沒有看守者'); const b = G.mons.find(m => m.boss); b.life = 0; killMonster(b); T.run(0.3);
+      T.ok(G.world.bossGate && !G.mons.some(m => m.boss), '最後一區應該是首領之門'); T.ok(T.near(G.world.bossGate).kind === 'bossgate', '首領之門沒被選到');
+      UI.interact(); T.ok(!G.world.bossRoom, '封印中不該進得去'); BossRoom.skip(); T.ok(G.world.bossRoom && G.mons.some(m => m.boss), '沒有進到首領巢穴');
+      G.mons.find(m => m.boss).awake = true; T.run(6); T.ok(G.teles.length || G.zones.length || G.mons.length > 1 || (G.world.haz && G.world.haz.pend.length), '巢穴機關沒有發動');
+      const b = G.mons.find(m => m.boss); b.life = 0; killMonster(b); T.run(0.3);
     },
     '所有場景與營地都能畫': T => {
       T.hero('mage', 60, 21);
@@ -73,7 +76,7 @@ const MOE_DEV = {
     '地圖色調：每種場景都有色調、首領房有裂紋': T => {
       T.hero('mage', 30, 12);
       for (let t = 1; t <= 10; t++) { enterMap(t); T.ok(MapTint.T[G.world.theme.id], '場景 ' + G.world.theme.id + ' 沒有色調'); render(); }
-      enterMap(3); while (G.world.stage && G.world.stage.i < G.world.stage.n) nextStage(); T.ok((MapTint.veins(G.world) || []).length > 5, '首領房沒有裂紋');
+      enterMap(3); while (G.world.stage && G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); T.ok((MapTint.veins(G.world) || []).length > 5, '首領房沒有裂紋');
     },
     '終局：怪群加大、蟲群、夢潮裂隙': T => {
       T.hero('mage', 80, 26); let sw = 0, tide = null, cnt = 0;
@@ -105,12 +108,12 @@ const MOE_DEV = {
     '夢的深度：倍率、世界規則、盡頭': T => {
       T.ok(Math.abs(depthScale(20) - 1.4) < 1e-9 && Math.abs(depthScale(40) - 1.8) < 1e-9 && depthScale(5) === 1, '深度倍率不對');
       const P = T.hero('mage', 95, 40); T.ok(depthRules(15).length === 0 && depthRules(23).length === 1 && depthRules(38).length === 4, '世界規則條數不對');
-      P.deepRules[38] = ['wr_blast', 'wr_colossus', 'wr_guard', 'wr_thorn']; P.deepMods[38] = []; enterMap(38); while (G.world.stage.i < G.world.stage.n) nextStage();
+      P.deepRules[38] = ['wr_blast', 'wr_colossus', 'wr_guard', 'wr_thorn']; P.deepMods[38] = []; enterMap(38); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip();
       const F = G.world.mm.flags; T.ok(F.wr_blast && F.wr_colossus && F.wr_guard && F.wr_thorn && G.world.mm.q >= 40, '世界規則沒有套到地圖');
       T.ok(G.mons.filter(m => m.name.startsWith('護衛・')).length === 3 && G.mons.find(m => m.boss).colossus, '護衛或巨像沒生效');
-      const m = G.mons.find(x => !x.boss && x.rarity === 'normal'); killMonster(m); T.ok(G.world.blasts.length === 1, '餘燼沒有留下爆炸'); T.run(3); T.ok(!G.world.blasts.length && G.zones.length > 0, '爆炸沒結束或荊棘沒長');
+      const m = makeMonster(G.world.theme.monsters[0], G.pl.x + 60, G.pl.y, G.world.mlvl, 'normal', G.world.theme); G.mons.push(m); killMonster(m); T.ok(G.world.blasts.length === 1, '餘燼沒有留下爆炸'); T.run(3); T.ok(!G.world.blasts.length && G.zones.length > 0, '爆炸沒結束或荊棘沒長');
       T.ok(!P.deepRules[38], '進圖後世界規則沒有重抽'); T.ok(!rollMapMods(30).some(id => MAP_MOD_BY_ID[id].rule), '世界規則被當成一般詞綴骰到');
-      P.deepMods[40] = []; enterMap(40); while (G.world.stage.i < G.world.stage.n) nextStage(); killMonster(G.mons.find(m => m.boss)); T.ok(P.maxTier === 40 && P.depthEnd, '第 40 夜沒有封頂');
+      P.deepMods[40] = []; enterMap(40); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); killMonster(G.mons.find(m => m.boss)); T.ok(P.maxTier === 40 && P.depthEnd, '第 40 夜沒有封頂');
     },
     '新手保護：前期升級快、第一夜怪少而且遠程少': T => {
       T.ok(xpNeed(1) < 80 && xpNeed(11) < xpNeed(12) && xpNeed(12) === 3026, '前期經驗曲線不對');
