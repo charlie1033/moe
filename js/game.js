@@ -15,6 +15,14 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- 地圖格子 ----------
 function solidTile(tx, ty) { const w = G.world; if (tx < 0 || ty < 0 || tx >= w.W || ty >= w.H) return true; return w.grid[ty * w.W + tx] === 0; }
 function solidAt(x, y) { return solidTile(Math.floor(x / TS), Math.floor(y / TS)); }
+// v2.16.2 角色面向的方向：正在按方向鍵就照按鍵；沒按就照最後移動的方向；都沒有就照臉朝左或右
+function faceDir() {
+  const pl = G.pl, k = input.keys; let mx = 0, my = 0;
+  if (k.KeyW || k.ArrowUp) my -= 1; if (k.KeyS || k.ArrowDown) my += 1; if (k.KeyA || k.ArrowLeft) mx -= 1; if (k.KeyD || k.ArrowRight) mx += 1;
+  if (input.joy && Math.hypot(input.joy.x, input.joy.y) > 0.15) { mx = input.joy.x; my = input.joy.y; }
+  if (!mx && !my) { mx = pl.mdx || pl.facing || 1; my = pl.mdy || 0; }
+  const L = Math.hypot(mx, my) || 1; return { x: mx / L, y: my / L };
+}
 function blockedCircle(x, y, r) {
   const s = r * 0.8;
   return solidAt(x - s, y - s) || solidAt(x + s, y - s) || solidAt(x - s, y + s) || solidAt(x + s, y + s)
@@ -1700,6 +1708,7 @@ function update(dt) {
     moveEnt(pl, mx / l * sp * dt, my / l * sp * dt);
     pl.walk += dt * 10;
     if (mx && pl.act <= 0) pl.facing = mx > 0 ? 1 : -1;
+    pl.mdx = mx / l; pl.mdy = my / l;   // v2.16.2 最後移動的方向（空白鍵位移照這個方向）
   }
   input.wx = input.mx + G.cam.x; input.wy = input.my + G.cam.y;
   // 技能

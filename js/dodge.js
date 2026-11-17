@@ -12,7 +12,7 @@ function playerDodge() {
   const k = input.keys; let mx = 0, my = 0;
   if (k.KeyW || k.ArrowUp) my -= 1; if (k.KeyS || k.ArrowDown) my += 1; if (k.KeyA || k.ArrowLeft) mx -= 1; if (k.KeyD || k.ArrowRight) mx += 1;
   if (input.joy && Math.hypot(input.joy.x, input.joy.y) > 0.15) { mx = input.joy.x; my = input.joy.y; }
-  if (!mx && !my) { mx = input.wx - pl.x; my = input.wy - pl.y; }
+  if (!mx && !my) { const f = faceDir(); mx = f.x; my = f.y; }   // v2.16.2 沒按方向鍵：往角色面向的方向（不是滑鼠）
   const l = Math.hypot(mx, my) || 1;
   pl.rollVx = mx / l * DODGE.dist / DODGE.time; pl.rollVy = my / l * DODGE.dist / DODGE.time;
   pl.roll = DODGE.time; pl.iframe = DODGE.iframe; pl.dodgeCd = DODGE.cd;

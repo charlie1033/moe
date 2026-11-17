@@ -1,6 +1,6 @@
 // =============================================================
 //  v2.15.3 小地圖標記：地圖事件、精英怪、守護者、首領之門
-//  ・事件：探索過的地方才顯示；還沒用過的亮、用過的暗。顏色：神殿＝神殿的顏色、深淵＝紫、精髓＝淡藍、瞻望＝淡黃、
+//  ・事件：探索過的地方才顯示；用過的就從小地圖消失（進行中的照樣顯示）。顏色：神殿＝神殿的顏色、深淵＝紫、精髓＝淡藍、瞻望＝淡黃、
 //          寶箱＝金、夢潮裂隙＝藍、獻祭圈＝紅、迷霧＝灰綠
 //  ・精英怪：看得到的範圍（離你 520 以內，或探索過的地方）才顯示：黃色精英＝黃點、藍色精英＝藍點、守護者＝橘色大點
 //  ・首領之門：封印中＝暗紫、打開＝金色閃爍
@@ -16,8 +16,8 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
   // 事件
   for (const ev of w.events || []) {
     if (!seen(ev.x, ev.y)) continue;
-    const col = ev.kind === 'shrine' ? (SHRINES[ev.type] || {}).color || '#fff' : MINI_EV_COLOR[ev.kind] || '#ffffff', used = ev.done && !ev.active;
-    g.globalAlpha = used ? 0.3 : 1;
+    if (ev.done && !ev.active) continue;   // v2.16.2 用過的事件不再顯示
+    const col = ev.kind === 'shrine' ? (SHRINES[ev.type] || {}).color || '#fff' : MINI_EV_COLOR[ev.kind] || '#ffffff';
     const [px, py] = P(ev.x, ev.y), r = Math.max(2.5, s * 1.2);
     g.fillStyle = col; g.beginPath(); g.moveTo(px, py - r - 1); g.lineTo(px + r, py); g.lineTo(px, py + r + 1); g.lineTo(px - r, py); g.closePath(); g.fill();
     g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke(); g.globalAlpha = 1;

@@ -6,6 +6,7 @@
 //     'enterMap'(tier) 進地圖之後　'build'() 能力重算之後　'drawWorld'(g) 畫完地圖物件之後（世界座標）
 //     'drawOver'(g) 畫完角色和怪物之後（世界座標）　'light'(cut, cx, cy) 在黑暗上挖光（cut(螢幕x, 螢幕y, 半徑, 強度)）　'glow'(g, cx, cy) 黑暗之後畫彩色光（螢幕座標）
 //     'stage'(w) 每一區的怪和事件放好之後　'worldCanvas'(w) 地圖底圖畫好之後（畫進底圖、只畫一次）　'drawHUD'(g) 下方介面全部畫完之後（螢幕座標）　'drawMinimap'(g, mx, my, s) 小地圖上加標記（世界座標 / TS * s + mx）
+//     'cast'(sid, c) 放完技能之後（c＝這次施放算好的數值）
 //  Interact.add(種類, find, use)   按 F 互動：find(pl, w) 回傳 [{ ref, label, r? }]（r＝互動距離，預設 60）
 //     系統會挑「離角色最近」的那個放進 G.nearAct，按 F 時呼叫 use(ref)
 //  SettingsRows.add(分頁, html, bind)   在 Esc → 設定的某一頁最下面多加一列

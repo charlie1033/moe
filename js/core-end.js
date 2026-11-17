@@ -14,6 +14,7 @@
   const _draw = drawStageExtras; drawStageExtras = function (g) { _draw(g); Hook.emit('drawWorld', g); };
   const _bwc = buildWorldCanvas; buildWorldCanvas = function (w) { const r = _bwc(w); Hook.emit('worldCanvas', w); return r; };   // v2.12.1 地圖底圖畫好之後（要畫進底圖、只畫一次的東西）
   const _hud = drawHUD; drawHUD = function (g) { const r = _hud.apply(this, arguments); Hook.emit('drawHUD', g); return r; };   // v2.13.9 畫面下方介面全部畫完之後（美術外框也畫完了）
+  const _cast = castSkill; castSkill = function (sid, c) { const r = _cast.apply(this, arguments); Hook.emit('cast', sid, c); return r; };   // v2.16.2 放完技能之後（技能型傳奇用）
   const _interact = UI.interact.bind(UI);
   UI.interact = function () { return Interact.use() || _interact(); };
 })();

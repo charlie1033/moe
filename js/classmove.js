@@ -40,8 +40,8 @@ Hook.on('start', () => {
 // —— 施放 ——
 const _rollCM = playerDodge;
 function aimAt(dist) {
-  const pl = G.pl; let dx = input.wx - pl.x, dy = input.wy - pl.y; const L = Math.hypot(dx, dy) || 1;
-  return { ax: dx / L, ay: dy / L, len: Math.min(dist, L) };
+  const f = faceDir();   // v2.16.2 空白鍵位移照角色面向的方向，不看滑鼠
+  return { ax: f.x, ay: f.y, len: dist };
 }
 function withAim(tx, ty, fn) { const ox = input.wx, oy = input.wy; input.wx = tx; input.wy = ty; try { fn(); } finally { input.wx = ox; input.wy = oy; } }
 playerDodge = function () {
