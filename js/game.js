@@ -287,7 +287,16 @@ function randomFloorNear(cx, cy, rad) {
     const x = cx + rnd(-rad, rad), y = cy + rnd(-rad, rad);
     if (!blockedCircle(x, y, 14)) return { x, y };
   }
-  return { x: cx, y: cy };
+  return nearestFloor(cx, cy);   // v2.14.4 附近都是牆：往外一圈一圈找最近的空地（以前直接回傳原點，傳送門、怪物會出現在牆裡）
+}
+// 離 (x, y) 最近、站得下的空地（找不到就回傳原點）
+function nearestFloor(x, y, maxR = 640) {
+  if (!blockedCircle(x, y, 14)) return { x, y };
+  for (let r = 16; r <= maxR; r += 16) {
+    const n = Math.max(8, Math.round(r / 6));
+    for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (!blockedCircle(px, py, 14)) return { x: px, y: py }; }
+  }
+  return { x, y };
 }
 function spawnPack(cx, cy, w) {
   // v1.4：越後面的夜，怪物群越大、菁英越多（第 10 夜約 1.45 倍數量，最多 2.2 倍）

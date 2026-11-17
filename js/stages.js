@@ -4,6 +4,7 @@
 //     區數越多，打倒看守者時的額外獎勵越好
 //  ② 每個場景有自己的地形：森林有河和樹、沼澤有水塘、熔岩洞窟有岩漿池、沙漠和草原比較開闊……
 //     障礙物不會擋死路（放完會檢查每個地方都走得到，河流會自動留橋）
+//  ④ v2.14.4 房間的直角削圓、直牆隨機凹凸（organicEdges）；東西卡在牆裡會自動移到最近的空地
 //  ③ 角色腳下顯示小小的生命條和魔力條
 // =============================================================
 const BIOME = {
@@ -21,6 +22,46 @@ const BIOME = {
 const DECO_NAME = { 1: '樹', 2: '水', 3: '岩石', 4: '仙人掌', 5: '石柱', 6: '冰晶', 7: '骨堆', 8: '岩漿', 9: '石筍', 10: '巨菇', 11: '灌木', 12: '枯樹', 13: '虛空水晶', 14: '虛空裂隙', 15: '木橋' };
 const POOL_KINDS = new Set([2, 8, 14]);   // 這幾種是一整片（水塘、岩漿、裂隙）
 
+// v2.14.4 讓地形邊緣自然一點（一格 32 像素的格子不變，碰撞照格子算；美術那邊會把牆邊畫得更圓滑）
+//  ① 凸出去的直角（房間四個角）：削掉 1 格，大房間再削旁邊 1 格，變成圓角
+//  ② 長直的牆邊：用低頻雜訊決定哪裡往內凸 1 格（牆長出來）、哪裡往外凹 1 格（牆被挖進去）
+//  安全規則：往內凸只做在「後面至少還有 3 格空地、左右也是空地」的地方，所以 1～2 格寬的走道永遠不會被堵住
+function organicEdges(w, protect) {
+  const W = w.W, H = w.H, g = w.grid, at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : g[y * W + x];
+  const noise = (x, y) => { const v = hash2(Math.floor(x / 3) + 911, Math.floor(y / 3) + (w.tier || 1) * 37); return (v % 1000) / 1000; };
+  const D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const wide = (x, y, dx, dy) => at(x - dx, y - dy) && at(x - 2 * dx, y - 2 * dy) && at(x - 3 * dx, y - 3 * dy) && at(x + dy, y + dx) && at(x - dy, y - dx);
+  const toWall = [], toFloor = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    if (protect(x, y)) continue;
+    const i = y * W + x;
+    if (g[i]) {
+      // ① 直角：兩個相鄰方向是牆、對角內側是寬敞的地
+      for (const [ax, ay, bx, by] of [[1, 0, 0, 1], [1, 0, 0, -1], [-1, 0, 0, 1], [-1, 0, 0, -1]]) {
+        if (!at(x + ax, y + ay) && !at(x + bx, y + by) && at(x - ax, y - ay) && at(x - bx, y - by) && at(x - ax - bx, y - ay - by) && at(x - 2 * ax, y - 2 * ay) && at(x - 2 * bx, y - 2 * by)) {
+          if (Math.random() < 0.85) toWall.push(i);
+          // 大房間：直角旁邊再削一格，圓得更明顯
+          if (at(x - 3 * ax, y - 3 * ay) && at(x - 3 * bx, y - 3 * by) && Math.random() < 0.5) { toWall.push((y - ay) * W + x - ax); toWall.push((y - by) * W + x - bx); }
+        }
+      }
+      // ② 直牆往內凸
+      const walls = D.filter(([dx, dy]) => !at(x + dx, y + dy));
+      if (walls.length === 1) { const [dx, dy] = walls[0]; if (wide(x, y, dx, dy) && noise(x, y) < 0.18) toWall.push(i); }
+    } else {
+      // ② 直牆往外凹：這格牆只有一面是地，而且後面還是牆（挖了不會穿到別的地方）
+      const fl = D.filter(([dx, dy]) => at(x + dx, y + dy));
+      if (fl.length === 1) { const [dx, dy] = fl[0]; if (!at(x - dx, y - dy) && !at(x - dx + dy, y - dy + dx) && !at(x - dx - dy, y - dy - dx) && noise(x + 50, y + 50) < 0.16) toFloor.push(i); }
+    }
+  }
+  for (const i of toWall) g[i] = 0;
+  for (const i of toFloor) g[i] = 1;
+  // 清掉孤零零的一格牆（四面都是地）和死角的一格地（三面是牆）
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    if (protect(x, y)) continue;
+    const i = y * W + x, n = D.reduce((s, [dx, dy]) => s + (at(x + dx, y + dy) ? 1 : 0), 0);
+    if (!g[i] && n === 4) g[i] = 1; else if (g[i] && n <= 1) g[i] = 0;
+  }
+}
 function biomeApply(w) {
   const B = BIOME[w.theme && w.theme.id]; if (!B) return;
   const W = w.W, H = w.H, g = w.grid; w.deco = new Uint8Array(W * H);
@@ -36,6 +77,8 @@ function biomeApply(w) {
     }
     add.forEach(i => g[i] = 1);
   }
+  // v2.14.4 地形不要方方正正：房間的直角削圓、長直的牆邊隨機凹進凸出（只動夠寬的地方，不會把路堵死）
+  organicEdges(w, protect);
   const floorCount = () => { let n = 0; for (let i = 0; i < g.length; i++) if (g[i]) n++; return n; };
   const reach = () => { const s = { x: Math.floor(w.start.x + w.start.w / 2), y: Math.floor(w.start.y + w.start.h / 2) }; const seen = new Uint8Array(W * H), q = [s.y * W + s.x]; seen[q[0]] = 1; let n = 0; while (q.length) { const i = q.pop(); n++; for (const d of [1, -1, W, -W]) { const j = i + d; if (!seen[j] && g[j]) { seen[j] = 1; q.push(j); } } } return { n, seen }; };
   // 河流（森林、沼澤）：橫過整張圖，之後自動補橋
@@ -192,3 +235,14 @@ drawPlayer = function (g, ...a) {
   if (!S.flags.bloodMagic) { g.fillStyle = '#3a68e0'; g.fillRect(x, y + 5, W * Math.max(0, Math.min(1, pl.mana / (S.maxMana || 1))), 2); }
   return r;
 };
+// v2.14.4 保險：每半秒檢查一次，卡在牆裡的怪物、召喚物、掉落物、傳送門，移到最近的空地（以前偶爾會出現在地圖外面）
+let _safeT = 0;
+Hook.on('update', dt => {
+  if ((_safeT += dt) < 0.5) return; _safeT = 0;
+  const w = G.world; if (!w || !w.grid || w.kind === 'town') return;
+  const fix = o => { if (o && solidAt(o.x, o.y)) { const p = nearestFloor(o.x, o.y); o.x = p.x; o.y = p.y; } };
+  for (const m of G.mons) if (!m.dead) fix(m);
+  for (const m of G.mins) fix(m);
+  for (const l of G.loot) fix(l);
+  fix(w.portal);
+});

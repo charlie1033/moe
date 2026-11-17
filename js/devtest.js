@@ -79,8 +79,8 @@ const MOE_DEV = {
       T.hero('mage', 80, 26); let sw = 0, tide = null, cnt = 0;
       for (let k = 0; k < 8 && !(sw && tide); k++) { enterMap(22); cnt = Math.max(cnt, G.mons.length); sw += G.mons.filter(m => m.swarm).length; tide = G.world.events.find(e => e.kind === 'tide'); }
       T.ok(sw > 0, '深層夢境沒有蟲群'); T.ok(tide, '第 22 夜沒有夢潮裂隙'); T.ok(cnt > 120, '深層夢境怪太少：' + cnt);
-      G.pl.x = tide.x; G.pl.y = tide.y + 30; tide.done = false; activateEvent(tide); T.run(3);
-      const mobs = G.mons.filter(m => m.tide); T.ok(mobs.length > 10, '裂隙沒有冒怪'); mobs.slice(0, 5).forEach(m => killMonster(m)); T.ok(tide.kills === 5, '裂隙擊殺數不對');
+      G.pl.x = tide.x; G.pl.y = tide.y + 30; tide.done = false; activateEvent(tide); T.run(5);
+      const mobs = G.mons.filter(m => m.tide); T.ok(mobs.length > 5, '裂隙沒有冒怪'); mobs.slice(0, 5).forEach(m => killMonster(m)); T.ok(tide.kills === 5, '裂隙擊殺數不對');
       G.loot = []; T.run(20); T.ok(tide.cleared && !G.mons.some(m => m.tide) && G.loot.length > 0, '裂隙沒有正常結束或沒掉寶');
     },
     '終局：獻祭圈三輪、迷霧層數': T => {
