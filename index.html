@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>夢疑 MOE v2.12.6</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root { --bg:#07060a; --panel:#141118; --line:#5a4a30; --gold:#e8c878; --text:#e0d6c0; --dim:#988c74; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
+    font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif; user-select:none; }
+  body { display:flex; align-items:center; justify-content:center; }
+  #game { display:block; image-rendering:pixelated; cursor:crosshair; }
+  body.crafting, body.crafting * { cursor:copy !important; }
+  .panel { position:fixed; display:none; background:linear-gradient(#18141c,#0f0c12); border:2px solid var(--line);
+    box-shadow:0 0 0 1px #000, 0 10px 40px rgba(0,0,0,.7); z-index:10; }
+  .panel.show { display:block; }
+  .ph { padding:8px 12px; border-bottom:1px solid var(--line); color:var(--gold); font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .x { cursor:pointer; color:var(--dim); padding:0 4px; } .x:hover { color:#fff; }
+  button { font-family:inherit; background:#2a2018; color:var(--gold); border:1px solid var(--line); padding:5px 12px; cursor:pointer; font-size:14px; }
+  button:hover:not(:disabled) { background:#3a2c1e; color:#fff; } button:disabled { opacity:.4; cursor:default; }
+  /* 背包 */
+  #inv { right:8px; top:8px; width:452px; }
+  #doll { position:relative; height:216px; margin:6px; background:rgba(0,0,0,.25); }
+  .cell { position:absolute; background:#0b090d; border:1px solid #3a3226; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
+  .cell:hover { border-color:#d8c080; background:#1a1610; }
+  .cell img { width:34px; height:34px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+  .cell .iname { font-size:9px; line-height:1.1; text-align:center; white-space:nowrap; }
+  .slabel { font-size:11px; color:#4a4236; }
+  .r-magic { background:#0d0e1e; border-color:#3a40a0; } .r-rare { background:#1a180a; border-color:#8a8030; } .r-unique { background:#1e0f06; border-color:#a0582a; }
+  #flaskbar { display:flex; align-items:center; gap:4px; padding:2px 8px 6px; font-size:11px; color:var(--dim); }
+  #flaskbar .flabel { writing-mode:vertical-rl; letter-spacing:2px; color:#c8b890; }
+  .fcell { position:relative !important; width:42px; height:42px; }
+  .fcell.ready { border-color:#9fff9f; animation:pulse 1s infinite; }
+  .fkey { position:absolute; left:1px; top:1px; z-index:1; font-size:9px; line-height:11px; padding:0 3px; border-radius:2px; color:#1a1208; background:linear-gradient(#f4dc98,#c8a050); }
+  .fhint { flex:1; font-size:10px; line-height:1.4; padding-left:4px; }
+  .ftier { position:absolute; right:2px; bottom:1px; font-size:9px; color:#e8d8a0; }
+  .cell.picked { border-color:#9fff9f; box-shadow:inset 0 0 6px #9fff9f; }
+  #flaskbar .fcell .iname { display:none; }
+  #curbar { display:flex; gap:4px; padding:4px 8px; flex-wrap:wrap; }
+  .curbtn { display:flex; align-items:center; gap:2px; background:#0b090d; border:1px solid #3a3226; padding:2px 6px 2px 2px; cursor:pointer; font-size:12px; }
+  .curbtn img { width:22px; height:22px; }
+  .curbtn.sel { border-color:#fff; background:#3a3020; }
+  #invgrid { position:relative; display:grid; grid-template-columns:repeat(10, 42px); gap:2px; padding:6px 8px; }
+  #invgrid .cell { position:relative; width:42px; height:42px; }
+  #invgrid .cell .iname { display:none; }
+  .ihint { font-size:11px; color:var(--dim); padding:2px 10px 8px; line-height:1.5; }
+  /* 商人／倉庫 */
+  #shop, #stash, #gemshop { left:8px; top:8px; width:452px; max-height:calc(100vh - 16px); overflow:auto; }
+  .gsrow { display:flex; align-items:center; gap:8px; padding:5px 10px; border-bottom:1px solid #221c16; font-size:13px; } .gsrow img { width:34px; height:34px; flex:none; }
+  .gsrow .gsn { flex:1; } .gsrow .gsn small { color:var(--dim); font-size:11px; display:block; } .gsrow.own { opacity:.55; }
+  .shards { display:flex; flex-wrap:wrap; gap:4px 12px; padding:0 10px; font-size:12px; }
+  .shopgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:8px 10px 10px; }
+  .shopitem { border:1px solid #3a3226; background:#0b090d; padding:6px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .shopitem:hover { border-color:#d8c080; }
+  .shopitem img { width:40px; height:40px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.8)); }
+  .sname { font-size:12px; line-height:1.3; min-height:32px; } .sprice { font-size:11px; color:#d8c8a0; }
+  .shopitem button { padding:2px 10px; font-size:12px; }
+  #stashTabs { display:flex; gap:4px; padding:8px 8px 0; } #stashTabs button { font-size:12px; padding:3px 8px; } #stashTabs button.on { background:#5a4426; color:#fff; }
+  #stashGrid { display:grid; grid-template-columns:repeat(10, 42px); gap:2px; padding:6px 8px 10px; }
+  #stashGrid .cell { position:relative; width:42px; height:42px; } #stashGrid .cell .iname { display:none; }
+  /* 珠寶 */
+  #jewels { left:8px; top:8px; width:720px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow:auto; }
+  #jewelBody { padding-bottom:10px; }
+  .jsock { width:24px; height:24px; border:2px solid #5a4a30; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:#1a1410; cursor:pointer; background:#0b090d; }
+  .jsock.full { border-color:#e8d8b0; font-weight:bold; } .jsock.ready { border-color:#9fff9f; color:#9fff9f; animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 8px #9fff9f; } }
+  .jcell { width:72px; height:52px; border:1px solid #2e2820; text-align:center; vertical-align:top; padding:2px; color:#5a5040; cursor:default; }
+  .jcell.has { color:#e0d6c0; cursor:pointer; background:rgba(255,255,255,.03); } .jcell.has:hover { border-color:#d8c080; }
+  .jcell.sel { border:2px solid #9fff9f; background:rgba(120,255,120,.08); }
+  .sdots { position:absolute; bottom:1px; right:2px; display:flex; gap:1px; } .sdots i { width:6px; height:6px; border:1px solid #c8b890; border-radius:50%; display:block; }
+  .tip-sock { font-size:12px; color:#c8b890; text-align:center; }
+  /* 角色 */
+  #char { left:8px; top:8px; width:380px; max-height:calc(100vh - 16px); overflow:auto; }
+  #charBody { padding:6px 12px 12px; font-size:13px; }
+  .csec { color:var(--gold); margin:10px 0 4px; border-bottom:1px solid #3a3020; padding-bottom:2px; }
+  .crow { display:flex; justify-content:space-between; gap:8px; padding:1px 0; } .crow b { font-weight:normal; color:#fff; text-align:right; }
+  .cnote { font-size:11px; color:var(--dim); line-height:1.5; }
+  .c-str { color:#ff8a7a !important; } .c-dex { color:#8aff8a !important; } .c-int { color:#8ab0ff !important; }
+  /* 技能 */
+  #skills { left:8px; top:8px; width:600px; max-height:calc(100vh - 16px); overflow:auto; }
+  #skillSlots { padding:4px 10px; }
+  .socks { display:flex; gap:4px; margin:5px 0 3px; flex-wrap:wrap; }
+  .sock { border:1px dashed #4a4030; padding:2px 3px; display:flex; flex-wrap:wrap; align-items:center; gap:3px; font-size:10px; border-radius:4px; }
+  .sock select { font-size:12px; width:104px; border:none; background:#0b090d; }
+  .sock.on { border-style:solid; background:rgba(60,200,170,.08); } .sock.bad { border-style:solid; border-color:#a03030 !important; }
+  .csec2 { color:var(--gold); margin:10px 10px 0; border-bottom:1px solid #3a3020; padding-bottom:2px; font-size:14px; }
+  select { font-family:inherit; background:#0b090d; color:var(--text); border:1px solid var(--line); padding:3px; font-size:13px; }
+  .skico { width:30px; height:30px; vertical-align:middle; margin-right:6px; flex:none; } .skico.big { width:34px; height:34px; margin:0; }
+  .skd { font-size:12px; color:#c8bca4; margin-top:3px; }
+  /* 天賦 */
+  #tree { inset:0; border:none; background:#0c0a10; }
+  #tree.show { display:flex; flex-direction:column; }
+  #treeCanvas { flex:1; width:100%; display:block; cursor:grab; }
+  .thint { font-size:12px; color:var(--dim); }
+  /* 地圖裝置 */
+  #mapdev { left:50%; top:50%; transform:translate(-50%,-50%); width:560px; max-height:80vh; overflow:auto; }
+  .mrow { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #2a241c; font-size:14px; }
+  .mdesc { font-size:12px; color:var(--dim); line-height:1.6; }
+  #mapdev { width:680px; max-width:96vw; }
+  .msec { color:var(--gold); padding:10px 12px 4px; border-bottom:1px solid var(--line); font-size:15px; }
+  .mrow.deep { background:rgba(80,50,120,.12); } .mrow.keeper { background:rgba(120,60,20,.15); }
+  .mmods { display:flex; flex-wrap:wrap; gap:4px; margin:4px 0; } .mmods span { font-size:11px; color:#d0b8ff; border:1px solid #5a4a7a; padding:0 5px; }
+  .mbonus { font-size:12px; color:#9fff9f; }
+  .hubrow { display:flex; flex-wrap:wrap; gap:6px; padding:6px 12px; } .hubrow button { font-size:12px; }
+  .mchap { color:#ffd780; font-size:13px; padding:6px 12px 0; }
+  .mgrade { font-size:12px; color:#1a1410; background:#c8a060; padding:0 5px; border-radius:3px; }
+  .mbtns { display:flex; flex-direction:column; gap:3px; align-items:stretch; } .mbtns .sm { font-size:11px; padding:2px 6px; }
+  /* 選角 */
+  #menu { inset:0; border:none; background:radial-gradient(ellipse at center, #1c1420 0%, #07060a 70%); overflow:auto; }
+  #menu.show { display:flex; flex-direction:column; align-items:center; justify-content:safe center; padding:16px 0; }
+  #menuBody { display:flex; flex-direction:column; align-items:center; }
+  .title { font-size:52px; color:var(--gold); letter-spacing:12px; text-shadow:0 0 24px rgba(232,160,80,.4); }
+  .subtitle { color:var(--dim); margin-bottom:24px; letter-spacing:3px; }
+  .classes { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+  .ccard { width:230px; padding:14px; border:2px solid #3a3020; background:rgba(0,0,0,.4); cursor:pointer; text-align:center; }
+  .ccard:hover { border-color:#8a7040; } .ccard.sel { border-color:var(--gold); background:rgba(80,60,30,.35); }
+  .ccard img { image-rendering:pixelated; width:80px; height:80px; }
+  .cname { font-size:22px; margin:4px 0; } .cattr { font-size:12px; color:var(--dim); }
+  .cdesc { font-size:13px; margin:8px 0; line-height:1.6; min-height:62px; } .cskills { font-size:12px; color:#8fd0ff; }
+  .nrow { margin-top:20px; display:flex; gap:10px; align-items:center; }
+  input { font-family:inherit; background:#0b090d; color:var(--text); border:1px solid var(--line); padding:5px 8px; font-size:14px; width:140px; }
+  .or { color:var(--dim); font-size:12px; margin:8px 0 14px; }
+  .freenote { margin-top:16px; font-size:12px; color:var(--dim); max-width:720px; text-align:center; }
+  /* 死亡 */
+  #death { left:50%; top:40%; transform:translate(-50%,-50%); padding:24px 40px; text-align:center; }
+  #death h2 { color:#d04040; margin:0 0 10px; font-size:30px; letter-spacing:6px; }
+  /* 說明 */
+  #help { left:50%; top:50%; transform:translate(-50%,-50%); width:600px; max-height:86vh; overflow:auto; }
+  #help .hb { padding:10px 16px 16px; font-size:13px; line-height:1.8; }
+  #help kbd { display:inline-block; min-width:22px; text-align:center; background:#2a2018; border:1px solid var(--line); padding:0 5px; font-family:inherit; color:var(--gold); }
+  #help h4 { color:var(--gold); margin:10px 0 2px; }
+  /* 劇情 */
+  #story { left:50%; top:50%; transform:translate(-50%,-50%); width:620px; max-width:94vw; padding:26px 34px 18px; z-index:30;
+    background:linear-gradient(#120e16,#08060a); border-color:#8a6a3a; }
+  .sttitle { color:var(--gold); font-size:22px; letter-spacing:4px; margin-bottom:16px; text-align:center; }
+  .sttext { font-size:16px; line-height:2; white-space:pre-wrap; min-height:150px; color:#e8dcc8; }
+  .stfoot { display:flex; justify-content:space-between; align-items:center; margin-top:14px; color:var(--dim); font-size:12px; }
+  /* 日誌 */
+  #journal { left:50%; top:50%; transform:translate(-50%,-50%); width:680px; max-width:96vw; max-height:88vh; overflow:auto; }
+  #journalBody { padding:4px 14px 14px; font-size:13px; }
+  .jent { border-left:3px solid #8a6a3a; padding:4px 10px; margin:6px 0; line-height:1.7; position:relative; }
+  .jent b { color:var(--gold); } .jent .replay { position:absolute; right:4px; top:4px; font-size:11px; padding:1px 8px; }
+  .jnote { color:var(--dim); font-size:12px; text-align:right; }
+  .jperson { margin:6px 0 10px; } .jperson > b { color:#ffd780; font-size:14px; }
+  .jlock { font-size:12px; color:#8a7f6a; padding:2px 10px; }
+  .lhead { color:#ffd780; margin-top:8px; border-bottom:1px solid #3a3020; font-size:13px; }
+  .lrow { padding:3px 0; border-bottom:1px solid #221c16; line-height:1.7; } .lrow.dim { color:#5a5040; }
+  .restag { display:inline-block; padding:0 4px; border:1px solid #4a4030; font-size:11px; margin-right:2px; }
+  .restag.weak { color:#9fff9f; border-color:#3a8a3a; } .restag.immune { color:#ff9a9a; border-color:#8a3a3a; }
+  /* 選角多角色 */
+  .warnbox { border:1px solid #a03030; background:rgba(120,20,20,.3); padding:10px 14px; margin-bottom:12px; font-size:13px; line-height:1.7; max-width:720px; }
+  .slots { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; width:520px; max-width:94vw; }
+  .slot { display:flex; align-items:center; gap:10px; border:1px solid #3a3020; background:rgba(0,0,0,.4); padding:4px 10px; }
+  .slot img { image-rendering:pixelated; width:40px; height:40px; } .sinfo { flex:1; font-size:13px; line-height:1.5; }
+  .slot .del { background:#2a1414; color:#d08080; }
+  .classes .ccard { width:210px; padding:10px; } .ccard img { width:64px; height:64px; } .cdesc { min-height:0; font-size:12px; }
+  .nrow button { margin-left:6px; }
+  /* 功能按鈕列、HUD 熱區、任務框（遊戲中才顯示） */
+  #menubar, #hudhot, #questbox { position:fixed; display:none; transform-origin:top left; }
+  body.playing #menubar, body.playing #hudhot, body.playing #questbox { display:block; }
+  #menubar { z-index:6; width:90px; }
+  .mbtn { position:relative; width:88px; height:32px; margin-bottom:4px; padding:0 6px 0 3px; box-sizing:border-box;
+    background:linear-gradient(90deg, rgba(20,14,10,.55), rgba(32,24,16,.92)); border:1px solid rgba(120,98,60,.7); border-radius:16px 4px 4px 16px;
+    display:flex; flex-direction:row; align-items:center; gap:7px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.55); transition:transform .08s, border-color .08s; }
+  .mbtn:hover { border-color:#e8c878; transform:translateX(-3px); background:linear-gradient(90deg, rgba(40,28,16,.7), rgba(58,42,24,.95)); }
+  .mbtn.on { border-color:#9fff9f; } .mbtn.on .mico { border-color:#9fff9f; }
+  .mico { position:relative; flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 40% 35%, #4a3820, #120c06 75%); border:1px solid #8a7044; color:#f0d48a; }
+  .mico svg { width:16px; height:16px; display:block; }
+  .mbtn:hover .mico { color:#fff2c0; border-color:#e8c878; }
+  .mname { font-size:12px; color:#e8dcc0; letter-spacing:1px; white-space:nowrap; text-shadow:0 1px 2px #000; }
+  .mkey { position:absolute; right:-6px; bottom:-5px; min-width:14px; height:14px; padding:0 2px; box-sizing:border-box; border-radius:3px;
+    font-size:10px; line-height:12px; text-align:center; font-weight:bold; color:#1a1208; background:linear-gradient(#f4dc98,#c8a050); border:1px solid #2a1c0c; }
+  .mbadge { position:absolute; right:-6px; top:-5px; font-size:10px; padding:0 4px; border-radius:8px; display:none; }
+  .mbadge.red { display:block; background:#c02020; color:#fff; } .mbadge.info { display:block; background:#1a2a3a; color:#9fd8ff; border:1px solid #3a6a8a; }
+  .mkey2 { font-size:11px; color:#1a1410; background:#e8c878; padding:0 5px; border-radius:3px; }
+  /* ---------- 手機／平板觸控 ---------- */
+  .touchonly { display:none; } body.touch .touchonly { display:inline-block; }
+  .tonly { display:none; } body.touch .tonly { display:block; margin-bottom:8px; }
+  #salvBtn.on { background:#7a2a1a; color:#fff; }
+  #touchui { position:fixed; display:none; transform-origin:top left; width:960px; height:540px; z-index:3; touch-action:none; }
+  body.touch.playing #touchui { display:block; }
+  body.touch #menubar { display:none !important; }
+  body.touch #game { touch-action:none; }
+  #tzone { position:absolute; inset:0; touch-action:none; }
+  #tjoy { position:absolute; display:none; width:112px; height:112px; border-radius:50%; pointer-events:none;
+    background:radial-gradient(circle, rgba(255,240,200,.06) 40%, rgba(255,240,200,.14) 70%); border:2px solid rgba(232,200,120,.45); }
+  #tknob { position:absolute; left:32px; top:32px; width:48px; height:48px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, rgba(255,240,200,.7), rgba(200,160,90,.45)); border:2px solid rgba(255,240,200,.7); }
+  .tbtn { position:absolute; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden; touch-action:none;
+    background:radial-gradient(circle at 40% 35%, var(--sc, #3a2c1e), rgba(10,8,6,.85) 85%); border:2px solid rgba(232,200,120,.7);
+    box-shadow:0 2px 8px rgba(0,0,0,.6); color:#fff4d0; font-size:13px; opacity:.85; }
+  .tbtn.main { border-width:3px; }
+  .tbtn.on { transform:scale(.92); opacity:1; border-color:#fff; }
+  .tbtn.bad { filter:grayscale(.8) brightness(.6); }
+  .tico { width:84%; height:84%; position:relative; z-index:1; pointer-events:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+  .tcd { position:absolute; inset:0; border-radius:50%; z-index:2; display:flex; align-items:center; justify-content:center; font-style:normal; font-size:15px; font-weight:bold; color:#fff; text-shadow:0 1px 3px #000; pointer-events:none; }
+  .tbtn.talk { background:linear-gradient(#6a5a2a, #1a1408); font-size:14px; font-weight:bold; display:none; border-radius:24px; padding:0 16px; white-space:nowrap; min-width:48px; }
+  .tbtn.menu { border-radius:10px; font-size:24px; background:linear-gradient(#3a2c1e,#151009); }
+  .tbadge { position:absolute; right:3px; top:3px; width:10px; height:10px; border-radius:50%; background:#e03030; display:none; }
+  #tmenupanel { left:50%; top:50%; transform:translate(-50%,-50%); width:520px; z-index:25; }
+  .tmgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; padding:12px; }
+  .tmbtn { position:relative; display:flex; align-items:center; gap:10px; padding:12px; font-size:17px; color:#e8dcc0; cursor:pointer;
+    background:linear-gradient(#2a2018,#151009); border:1px solid #6a5a3a; border-radius:8px; }
+  .tmbtn:active { border-color:#e8c878; }
+  .tmbtn .mico { width:34px; height:34px; } .tmbtn .mico svg { width:20px; height:20px; }
+  .tmbadge { position:absolute; right:6px; top:4px; font-size:11px; padding:0 5px; border-radius:8px; background:#1a2a3a; color:#9fd8ff; }
+  .tmbadge.red { background:#c02020; color:#fff; }
+  #rotate { position:fixed; inset:0; z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    background:#07060a; color:var(--gold); font-size:20px; }
+  #rotate div { font-size:56px; }
+  @media (orientation: portrait) { body.touch #rotate { display:flex; } }
+  /* 畫面小的時候（手機），面板跟著縮小，太高就可以上下捲動 */
+  .panel:not(#tree):not(#menu) { zoom:var(--pz, 1); max-height:calc((100vh - 16px) / var(--pz, 1)); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; }
+  body.touch #inv { width:466px; }
+  #menu > * { zoom:var(--pz, 1); }
+  body.touch #tip { transform:scale(var(--pz, 1)); transform-origin:top left; }
+  body.touch .ph .x { font-size:22px; padding:0 10px; }
+  #hudhot { z-index:4; width:960px; height:540px; pointer-events:none; } .hspot { position:absolute; pointer-events:auto; cursor:help; }
+  #questbox { z-index:5; width:250px; background:rgba(8,6,10,.72); border:1px solid rgba(140,120,80,.6); padding:4px 8px 6px; font-size:12px; }
+  .qhead { color:var(--gold); cursor:pointer; font-size:12px; } .qch { color:#ffe9a8; }
+  .qstep { color:#e0d6c0; padding:1px 0 1px 4px; line-height:1.45; } .qstep.done { color:#6a8a6a; text-decoration:line-through; }
+  .qstep.boss { color:#ff9a7a; font-weight:bold; } .qstep.boss.done { color:#6a8a6a; font-weight:normal; }
+  .qhint { color:#a89c88; font-size:11px; padding-left:18px; } .qreward { color:#c8b890; font-size:11px; margin-top:3px; border-top:1px solid #2e2820; padding-top:2px; }
+  /* 提示框 */
+  #tip { position:fixed; display:none; z-index:50; pointer-events:none; max-width:720px; }
+  .tipcols { display:flex; gap:6px; align-items:flex-start; }
+  #tip > :not(.tipcols), .tipcol { background:rgba(8,6,10,.96); border:1px solid #6a5a3a; }
+  #tip > :not(.tipcols) { padding:0; }
+  #tip { background:rgba(8,6,10,.96); border:1px solid #6a5a3a; padding:8px 12px; width:max-content; }
+  #tip:has(.tipcols) { background:none; border:none; padding:0; }
+  .tipcol { padding:8px 12px; width:300px; } .tipcol.cmp { opacity:.85; }
+  .tip-cmp { font-size:11px; color:var(--dim); margin-bottom:4px; }
+  .tip-head { text-align:center; } .tip-name { font-size:16px; text-align:center; } .tip-base { font-size:14px; }
+  .tip-sub { font-size:11px; color:var(--dim); text-align:center; margin-bottom:4px; }
+  .tip-prop { font-size:13px; color:#b8b0a0; text-align:center; } .tip-req { font-size:12px; color:#a8a090; text-align:center; margin-top:2px; }
+  .tip-sep { height:1px; background:linear-gradient(90deg,transparent,#6a5a3a,transparent); margin:5px 0; }
+  .tip-mod { font-size:13px; color:#8890ff; text-align:center; } .tip-tier { font-size:10px; color:#5a5a7a; margin-left:6px; }
+  .tip-flavor { font-size:12px; color:#b06a30; font-style:italic; text-align:center; margin-top:6px; }
+  .tip-boss { font-size:12px; color:#ff8060; text-align:center; margin-top:4px; }
+  .tip-hint { font-size:11px; color:#8a8070; text-align:center; margin-top:6px; }
+  .c-normal { color:#d8d8d8; } .c-magic { color:#8890ff; } .c-rare { color:#ffff77; } .c-unique { color:#e8803a !important; }
+  .c-mod { color:#8890ff; } .c-bad { color:#ff6a6a !important; } .c-good { color:#9fff9f; }
+
+  /* =========================================================
+     v1.1 介面主題：深色皮革＋金屬邊框（放在最後，會蓋過上面的樣式）
+     ========================================================= */
+  .panel { background:
+      radial-gradient(ellipse at 50% 0%, rgba(150,110,60,.13), transparent 55%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.014) 0 2px, transparent 2px 7px),
+      linear-gradient(#1b1519, #0c090d);
+    border:1px solid #8a6a3a; border-radius:4px;
+    box-shadow:0 0 0 1px #000, 0 0 0 3px #261c12, 0 0 0 4px #6a5230, 0 16px 50px rgba(0,0,0,.85), inset 0 0 40px rgba(0,0,0,.55); }
+  /* 四個角的金色花紋（上方兩角） */
+  .panel::before, .panel::after { content:''; position:absolute; top:3px; width:22px; height:22px; pointer-events:none; z-index:3;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M1.5 21 V7 Q1.5 1.5 7 1.5 H21' fill='none' stroke='%23d8b060' stroke-width='1.5'/%3E%3Cpath d='M5 21 V9 Q5 5 9 5 H21' fill='none' stroke='%236a5230' stroke-width='1'/%3E%3Crect x='3.2' y='3.2' width='3.6' height='3.6' transform='rotate(45 5 5)' fill='%23f0d080'/%3E%3C/svg%3E") no-repeat; }
+  .panel::before { left:3px; } .panel::after { right:3px; transform:scaleX(-1); }
+  #menu::before, #menu::after, #tree::before, #tree::after { display:none; }
+  .ph { position:sticky; top:0; z-index:2; background:linear-gradient(180deg, #3c2b18 0%, #1c140b 100%);
+    border-bottom:1px solid #8a6a3a; box-shadow:inset 0 1px 0 rgba(255,220,150,.16), 0 2px 0 rgba(0,0,0,.6);
+    color:#f2d692; font-weight:bold; letter-spacing:2px; text-shadow:0 1px 2px #000, 0 0 10px rgba(232,180,90,.35); padding-left:30px; padding-right:30px; }
+  .x { color:#b89a68; transition:color .1s, transform .1s; } .x:hover { color:#fff; transform:scale(1.15); }
+  button { background:linear-gradient(#3c2d1c, #1d150d); border:1px solid #8a6a3a; border-radius:3px; color:#f2d692;
+    box-shadow:inset 0 1px 0 rgba(255,220,150,.18), 0 1px 2px rgba(0,0,0,.6); text-shadow:0 1px 1px #000; transition:background .1s, box-shadow .1s, border-color .1s; }
+  button:hover:not(:disabled) { background:linear-gradient(#5c4426, #2a1e10); border-color:#e8c878; color:#fff4d0; box-shadow:0 0 10px rgba(232,180,90,.35), inset 0 1px 0 rgba(255,230,170,.3); }
+  button:active:not(:disabled) { transform:translateY(1px); }
+  select { background:#0f0b0d; color:#e8dcc0; border:1px solid #5a4630; border-radius:3px; }
+  .cell { background:radial-gradient(circle at 50% 40%, #17131b, #08060a); border-color:#3a3020; border-radius:3px; box-shadow:inset 0 0 6px rgba(0,0,0,.85); }
+  .cell:hover { border-color:#e8c878; box-shadow:inset 0 0 6px rgba(0,0,0,.85), 0 0 6px rgba(232,200,120,.4); }
+  .r-magic { background:radial-gradient(circle, rgba(80,90,220,.30), #0b0c18 72%); border-color:#4a50b0; }
+  .r-rare { background:radial-gradient(circle, rgba(210,190,60,.26), #15130a 72%); border-color:#a09030; }
+  .r-unique { background:radial-gradient(circle, rgba(230,120,40,.34), #1a0d06 72%); border-color:#c0682a; box-shadow:inset 0 0 8px rgba(255,120,40,.35); }
+  /* 物品說明框：依稀有度有不同顏色的標題帶 */
+  #tip, #tip > :not(.tipcols), .tipcol { background:linear-gradient(#15111a, #09070b); border:1px solid #8a6a3a; border-radius:3px;
+    box-shadow:0 0 0 1px #000, 0 8px 28px rgba(0,0,0,.85); }
+  #tip:has(.tipcols) { background:none; border:none; box-shadow:none; }
+  .tipcol { padding:8px 12px; }
+  .tip-head { padding:5px 10px 4px; margin-bottom:6px; border-radius:2px; border-bottom:1px solid #4a3a26;
+    background:linear-gradient(#2a2420, #15110e); }
+  .tip-head.c-magic { background:linear-gradient(#1e2250, #0e1028); border-color:#4a50b0; }
+  .tip-head.c-rare { background:linear-gradient(#3e3a14, #1c1a08); border-color:#a09030; }
+  .tip-head.c-unique { background:linear-gradient(#5a2a10, #2a1408); border-color:#c0682a; }
+  .tip-name { font-weight:bold; letter-spacing:1px; text-shadow:0 1px 2px #000; }
+  .tip-name .skico { width:24px; height:24px; margin-right:6px; vertical-align:-6px; }
+  .tip-sep { background:linear-gradient(90deg, transparent, #b08a4a 30%, #b08a4a 70%, transparent); opacity:.6; }
+  /* 捲軸 */
+  * { scrollbar-color:#6a5230 #0c0a0e; }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:#0c0a0e; }
+  ::-webkit-scrollbar-thumb { background:linear-gradient(#7a5e34, #4a3820); border-radius:4px; border:1px solid #1a1208; }
+  /* 選角畫面 */
+  .title { background:linear-gradient(#fff3c8 10%, #e8b860 55%, #8a5a20 95%); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 18px rgba(232,160,80,.4)) drop-shadow(0 2px 0 #2a1a08); }
+  .ccard { border:1px solid #4a3a24; border-radius:6px; background:linear-gradient(rgba(40,30,20,.55), rgba(8,6,6,.75));
+    box-shadow:inset 0 0 20px rgba(0,0,0,.6); transition:transform .12s, box-shadow .12s, border-color .12s; }
+  .ccard:hover { transform:translateY(-3px); border-color:#c8a060; box-shadow:0 8px 24px rgba(0,0,0,.6), 0 0 14px rgba(232,180,90,.25), inset 0 0 20px rgba(0,0,0,.5); }
+  .ccard img, .slot img { filter:drop-shadow(0 4px 4px rgba(0,0,0,.6)); }
+  .slot { border-radius:6px; border-color:#4a3a24; background:linear-gradient(90deg, rgba(40,30,20,.6), rgba(8,6,6,.6)); }
+  /* 任務框 */
+  #questbox { background:linear-gradient(90deg, rgba(14,10,8,.85), rgba(14,10,8,.55)); border:none; border-left:2px solid #c8a060; border-radius:0 4px 4px 0;
+    box-shadow:0 4px 14px rgba(0,0,0,.5); }
+  /* 按鍵提示 */
+  #help kbd { background:linear-gradient(#3c2d1c, #1d150d); border-color:#8a6a3a; border-radius:3px; box-shadow:0 2px 0 #000; color:#f2d692; }
+  .hb h4 { color:#f2d692; border-bottom:1px solid #4a3a26; padding-bottom:3px; letter-spacing:1px; }
+  /* 功能選單 v1.2：收在藍球左邊，點了往上彈出 */
+  #menubar { width:44px !important; height:44px; z-index:12 !important; }
+  #mtoggle, #portalbtn { position:relative; width:44px; height:44px; box-sizing:border-box; border-radius:8px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; color:#f2d692;
+    background:radial-gradient(circle at 40% 30%, #4a3820, #120c06 80%); border:1px solid #c8a060;
+    box-shadow:0 0 0 1px #000, 0 3px 8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,230,170,.25); }
+  #mtoggle svg { width:18px; height:18px; } #mtoggle span, .pbname { font-size:9px; letter-spacing:1px; color:#e8d8b0; }
+  #mtoggle:hover, #portalbtn:hover { border-color:#fff0b0; box-shadow:0 0 0 1px #000, 0 0 10px rgba(232,180,90,.5); }
+  #menubar.open #mtoggle { border-color:#9fff9f; }
+  .mtbadge { position:absolute; right:-4px; top:-4px; width:11px; height:11px; border-radius:50%; background:#e03030; border:1px solid #000; display:none; }
+  #mpop { position:absolute; right:0; bottom:52px; display:none; flex-direction:column; gap:4px; padding:6px; border-radius:8px;
+    background:linear-gradient(#1b1519, #0c090d); border:1px solid #8a6a3a; box-shadow:0 0 0 1px #000, 0 10px 30px rgba(0,0,0,.8); }
+  #menubar.open #mpop { display:flex; animation:popup .12s ease-out; }
+  @keyframes popup { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  #mpop .mbtn { width:112px; margin:0; }
+  #portalbtn { position:fixed; display:none; transform-origin:top left; z-index:6; }
+  body.playing #portalbtn { display:flex; }
+  #portalbtn .mico { width:22px; height:22px; border:none; background:none; } #portalbtn .mico svg { width:16px; height:16px; }
+  #portalbtn .mkey { right:-10px; bottom:-2px; }
+  #portalbtn.dim { opacity:.45; }
+  .pbcount { position:absolute; right:-6px; top:-6px; font-size:10px; padding:0 4px; border-radius:8px; background:#1a2a3a; color:#9fd8ff; border:1px solid #3a6a8a; }
+  /* v1.4 工坊與商人自動整理 */
+  #craft { left:8px; top:8px; width:540px; } .mc img { width:22px; height:22px; vertical-align:middle; margin-right:4px; }
+  .crow { display:flex; flex-wrap:wrap; gap:8px; padding:6px 10px; font-size:12px; color:var(--dim); } .crow label { display:flex; flex-direction:column; gap:2px; }
+  .crow select { font-size:13px; padding:2px; }
+  .cbtns { padding:4px 10px 10px; } .cbtns button { padding:6px 28px; font-size:15px; }
+  .cmodwrap { display:flex; gap:8px; padding:4px 10px 10px; align-items:flex-start; } .cmodtip { flex:0 0 220px; font-size:12px; }
+  .cops { flex:1; display:flex; flex-direction:column; gap:6px; }
+  .bulk { margin:6px 10px; padding:6px 8px; border:1px solid #4a3a24; border-radius:4px; background:rgba(0,0,0,.3); display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px; }
+  .bulkt { color:#f2d692; font-weight:bold; margin-right:2px; } .bulkh { flex-basis:100%; color:var(--dim); font-size:11px; }
+  .bchip { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border:1px solid #4a3a24; border-radius:10px; color:var(--c); cursor:pointer; }
+  .bchip.on { border-color:var(--c); background:rgba(255,255,255,.06); } .bchip { flex:0 0 auto; width:auto; } .bchip input { margin:0; width:auto !important; padding:0; flex:none; }
+  .bulk button { font-size:12px; padding:3px 10px; }
+  /* v1.5 技能頁：拖寶石到裝備上 */
+  #skills { width:500px; }
+  .gearrow { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #221c16; }
+  .gearrow.empty { opacity:.75; padding:3px 10px; }
+  .gearbox { position:relative; flex:none; width:44px; height:44px; border:1px solid #3a3020; border-radius:4px; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle, #17131b, #08060a); }
+  .gearbox img { width:36px; height:36px; } .gslabel { font-size:11px; color:#5a5040; }
+  .gkey { position:absolute; left:-4px; top:-5px; font-size:10px; line-height:13px; padding:0 4px; border-radius:3px; color:#1a1208; background:linear-gradient(#f4dc98,#c8a050); }
+  .gsock { flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; cursor:grab; touch-action:none; }
+  .gsock img { width:100%; height:100%; pointer-events:none; }
+  .gsock.skill { width:46px; height:46px; border:2px solid #8a6a3a; background:#0b090d; font-size:11px; color:#6a5a40; border-radius:8px; }
+  .gsock.skill.empty, .gsock.sup.empty { border-style:dashed; cursor:default; }
+  .gsock.skill.bad { border-color:#c04040; }
+  .gsocks { display:flex; gap:4px; flex:none; }
+  .gsock.sup { width:28px; height:28px; border:2px solid var(--c, #5a4a30); background:#0b090d; }
+  .gsock.sup.bad { border-color:#c04040; opacity:.6; }
+  .gsock.lock { width:28px; height:28px; border:1px dashed #3a3226; color:#4a4236; font-size:9px; cursor:default; }
+  .gsock.canDrop, .bagrow.canDrop { box-shadow:0 0 0 2px #9fff9f, 0 0 10px rgba(160,255,140,.6); }
+  .ginfo { flex:1; font-size:11px; color:#c8bca0; line-height:1.45; min-width:0; }
+  /* v2.4 技能寶石等級 */
+  .glv { color:#ffe6a0; font-weight:bold; } .gxp { height:4px; margin:3px 0 4px; background:#1a1610; border:1px solid #3a3020; border-radius:2px; overflow:hidden; } .gxp i { display:block; height:100%; background:linear-gradient(90deg,#3a8a6a,#8fe0b0); }
+  .gupbtn { font-size:11px !important; padding:2px 10px !important; border-color:#5fc090 !important; color:#c8ffe0 !important; animation:gupPulse 1.2s ease-in-out infinite; }
+  @keyframes gupPulse { 50% { box-shadow:0 0 8px rgba(120,255,180,.6); } }
+  .bgem b.gup { background:#1a3a2a; color:#9fffc0; border-color:#3a8a6a; }
+  .bagrow { display:flex; flex-wrap:wrap; gap:6px; padding:6px 10px 8px; align-items:flex-start; border-radius:4px; }
+  .bagt { width:100%; font-size:11px; color:var(--dim); }
+  .bgem { position:relative; width:58px; display:flex; flex-direction:column; align-items:center; cursor:grab; touch-action:none; border-radius:6px; padding:2px; }
+  .bgem:hover { background:rgba(255,230,160,.08); }
+  .bgem img { width:40px; height:40px; pointer-events:none; filter:drop-shadow(0 2px 2px #000); }
+  .bgem i { font-style:normal; font-size:10px; color:#d8ccb4; text-align:center; line-height:1.2; }
+  .bgem b { position:absolute; right:4px; top:0; font-size:10px; padding:0 4px; border-radius:7px; background:#1a2a3a; color:#9fd8ff; border:1px solid #3a6a8a; }
+  .bgem.bad img { filter:grayscale(.8) brightness(.6); } .mpct { color:#8fb8ff; font-size:9px; }
+  .bgem.picked { box-shadow:0 0 0 2px #fff0b0; background:rgba(255,230,160,.12); }
+  .gemghost { position:fixed; width:44px; height:44px; margin:-22px 0 0 -22px; pointer-events:none; z-index:200; filter:drop-shadow(0 4px 8px #000); }
+  /* v1.6 商人：買回 */
+  .bbgrid { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; padding:4px 10px 10px; }
+  .bbitem { display:flex; flex-direction:column; align-items:center; gap:2px; border:1px solid #3a3226; border-radius:4px; background:#0b090d; padding:4px 2px; text-align:center; }
+  .bbitem:hover { border-color:#d8c080; } .bbitem img { width:32px; height:32px; }
+  .bbn { font-size:10px; line-height:1.2; height:24px; overflow:hidden; } .bbitem .sprice { font-size:10px; } .bbitem button { font-size:11px; padding:1px 8px; }
+  /* 任務框 v1.2：小一點、更透明，滑鼠點擊會穿過去（只有標題可以點） */
+  #questbox { width:190px; padding:3px 7px 4px; font-size:11px; opacity:.78; pointer-events:none;
+    background:linear-gradient(90deg, rgba(10,8,6,.55), rgba(10,8,6,0)); box-shadow:none; border-left:2px solid rgba(200,160,96,.7); }
+  #questbox .qhead { pointer-events:auto; font-size:11px; display:inline-block; }
+  #questbox .qstep { font-size:11px; line-height:1.45; } #questbox .qhint, #questbox .qreward { font-size:10px; }
+  #keysink { position:fixed; left:-300px; top:0; width:2px; height:2px; opacity:0; border:0; padding:0; pointer-events:none; }
+  /* 物品比較面板（背包左邊） */
+  #cmp { right:470px; top:8px; z-index:11; max-width:620px; }
+  .cmpcols { display:flex; gap:6px; padding:8px; align-items:flex-start; }
+  .cmpcols .tipcol { flex:1; min-width:200px; max-width:290px; }
+  .cmpempty { color:var(--dim); text-align:center; font-size:12px; padding:16px 12px; }
+  .cmpdiff { margin:0 8px 6px; padding:6px 10px; background:rgba(0,0,0,.35); border:1px solid #3a3020; border-radius:3px; font-size:12px; }
+  .dfrow { display:flex; justify-content:space-between; gap:16px; color:#c8bca0; line-height:1.6; }
+  .dfrow.up b, .dfrow.up { color:#8fff8f; } .dfrow.down b, .dfrow.down { color:#ff7a7a; }
+  .cmpbtns { display:flex; flex-wrap:wrap; gap:6px; padding:0 8px 10px; }
+  .cell.selected { border-color:#fff0b0 !important; box-shadow:0 0 0 1px #fff0b0, 0 0 10px rgba(255,230,150,.6) !important; }
+  /* v2.0 遊戲自己的確認視窗（取代瀏覽器 confirm／alert） */
+  #gask { position:fixed; inset:0; z-index:5000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); }
+  #gask.show { display:flex; }
+  .gask-card { min-width:280px; max-width:min(440px, calc(100vw - 32px)); padding:18px 20px 14px; border:1px solid #8a6a3a; border-radius:6px;
+    background:linear-gradient(#2a2018, #1a140e); box-shadow:0 8px 30px rgba(0,0,0,.7); color:#eadcc0; font-size:14px; line-height:1.6; }
+  .gask-text { white-space:pre-line; margin-bottom:14px; }
+  .gask-btns { display:flex; gap:10px; justify-content:flex-end; }
+  .gask-btns button { padding:5px 16px; font-size:13px; }
+  .gask-yes { border-color:#c8a050 !important; color:#ffe6a0 !important; }
+
+  /* =========================================================
+     v2.4 AI 美術（body.artnew 時才生效；說明頁可以關掉）
+     ========================================================= */
+  #storyPortrait { display:none; }
+  body.artnew #menu { background-size:cover; background-position:center 30%; background-repeat:no-repeat; }
+  body.artnew .panel:not(#menu):not(#tree) { background:
+      linear-gradient(rgba(16,12,14,.86), rgba(8,6,8,.93)),
+      var(--panelTex) center / 384px repeat,
+      #0c090d; }
+  body.artnew .ph { background:linear-gradient(180deg, rgba(60,43,24,.92) 0%, rgba(28,20,11,.95) 100%), var(--panelTex) center / 256px; }
+  /* 職業卡：上面一張立繪，原本的像素小人縮到右上角 */
+  .ccard .cport { display:block; width:100% !important; height:auto !important; aspect-ratio:3/4; object-fit:cover; object-position:center 20%; border-radius:4px; margin-bottom:6px;
+    border:1px solid #3a2c1a; box-shadow:inset 0 0 20px #000; image-rendering:auto !important; filter:none !important; }
+  .ccard { position:relative; }
+  .ccard .cmini { position:absolute; right:12px; top:12px; width:40px !important; height:40px !important; background:rgba(8,6,6,.7); border:1px solid #5a4630; border-radius:4px; }
+  .ccard.sel .cport { border-color:var(--gold); box-shadow:0 0 12px rgba(232,180,90,.45); }
+  .classes .ccard.hasport { width:170px; }
+  /* 人物對話：左邊立繪 */
+  body.artnew #story.port.show { width:780px; display:grid; grid-template-columns:220px 1fr; grid-template-rows:1fr auto; column-gap:22px; padding:20px 26px 16px 20px; }
+  body.artnew #story.port #storyPortrait { display:block; grid-row:1 / span 2; width:220px; height:293px; object-fit:cover; border:1px solid #8a6a3a; border-radius:4px;
+    box-shadow:0 0 0 3px #1a120a, 0 6px 20px rgba(0,0,0,.7); align-self:start; }
+  body.artnew #story.port .sttitle { text-align:left; }
+  /* 日誌的人物小頭像 */
+  .jface { width:44px; height:58px; object-fit:cover; object-position:center 15%; border:1px solid #6a5230; border-radius:3px; float:left; margin:0 10px 4px 0; }
+  .jperson { overflow:hidden; }
+  @media (max-width: 720px) {
+    body.artnew #story.port.show { grid-template-columns:96px 1fr; column-gap:12px; padding:14px; }
+    body.artnew #story.port #storyPortrait { width:96px; height:128px; }
+    .classes .ccard.hasport { width:150px; }
+  }
+  /* v2.6.1 堆疊物品（通貨、材料、寶石佔背包格子） */
+  #curbar { display:none !important; }
+  .cell .stackn { position:absolute; right:2px; bottom:1px; font-size:11px; font-weight:bold; color:#fff; text-shadow:0 0 2px #000, 0 0 3px #000; pointer-events:none; }
+  .cell.r-stack { background:radial-gradient(circle, rgba(200,180,120,.12), #120f0a 75%); border-color:#4a4030; }
+  .cell.r-stack .iname { display:none; }
+  .cell.cursel { border-color:#ffe08a !important; box-shadow:0 0 0 1px #ffe08a, 0 0 10px rgba(255,220,120,.6) !important; }
+  #stashBulk { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 10px 6px; font-size:12px; }
+  #stashBulk button { font-size:12px; padding:3px 10px; }
+  /* v2.6 背包拖曳 */
+  #inv img, #doll img, #flaskbar img { -webkit-user-drag:none; user-select:none; }
+  /* v2.7.8 人物裝備格：名稱改成貼在格子底部的深色條，最多兩行，不會被圖蓋住或被切掉 */
+  #doll .eslot .iname { position:absolute; left:0; right:0; bottom:0; z-index:2; padding:1px 2px; background:rgba(6,4,8,.78); font-size:10px; line-height:11px; white-space:normal; word-break:break-all; text-align:center; max-height:23px; overflow:hidden; pointer-events:none; }
+  #doll .eslot img { max-height:calc(100% - 12px); object-fit:contain; margin-bottom:10px; }
+  #doll .eslot .enhb { z-index:3; }
+  #invgrid .icell, #flaskbar .fcell { touch-action:none; }
+  .dragghost { position:fixed; z-index:6000; width:44px; height:44px; transform:translate(-50%,-50%); pointer-events:none; filter:drop-shadow(0 3px 6px rgba(0,0,0,.8)); opacity:.92; }
+  .dragghost.toground { opacity:.6; transform:translate(-50%,-50%) scale(.85) rotate(-12deg); }
+  body.dragging, body.dragging * { cursor:grabbing !important; }
+  .cell.dragsrc { opacity:.3; }
+  .cell.dropok, .cell.dropbad, .cell.dropover { position:relative; }
+  #doll .cell.dropok, #doll .cell.dropbad, #doll .cell.dropover { position:absolute; }
+  .cell.dropok::after, .cell.dropbad::after, .cell.dropover::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+  .cell.dropok::after { background:rgba(255,255,255,.14); box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); }
+  .cell.dropbad::after { background:rgba(255,60,40,.16); box-shadow:inset 0 0 0 1px rgba(255,90,70,.5); }
+  .cell.dropover::after { background:rgba(255,255,255,.34); box-shadow:inset 0 0 0 2px rgba(255,245,200,.9); }
+  .cell.dropbad.dropover::after { background:rgba(255,60,40,.32); }
+  /* v2.4 暫停選單與設定 */
+  .panel:not(#menu):not(#tree):not(#mapdev) { zoom:calc(var(--uiScale, 1) * var(--pz, 1)); }   /* 介面大小 × 手機自動縮小（以前這行把手機縮小蓋掉了） */
+  #pause { position:fixed; inset:0; z-index:4000; display:none; align-items:center; justify-content:center; background:rgba(4,3,6,.66); backdrop-filter:blur(2px); }
+  #pause.show { display:flex; }
+  #pause .pcard { background:linear-gradient(#2a2018,#17110c); border:1px solid #8a6a3a; border-radius:6px; box-shadow:0 10px 40px rgba(0,0,0,.75); color:#eadcc0; }
+  #pause .pmain { width:320px; padding:22px 26px 16px; display:flex; flex-direction:column; gap:9px; text-align:center; }
+  #pause .ptitle { font-size:22px; color:#f2d692; letter-spacing:6px; margin-bottom:2px; }
+  #pause .psub { font-size:12px; color:#a89878; margin-bottom:8px; }
+  #pause .pbig { font-size:15px !important; padding:9px 0 !important; }
+  #pause .phint { font-size:11px; color:#8a7c64; margin-top:6px; }
+  #pause .pset { width:min(620px, calc(100vw - 32px)); max-height:min(86vh, 640px); display:flex; flex-direction:column; padding:16px 18px 12px; }
+  #pause .pset .ptitle { text-align:center; }
+  #pause .ptabs { display:flex; gap:6px; margin:10px 0 8px; border-bottom:1px solid #4a3a24; padding-bottom:8px; }
+  #pause .ptabs button { flex:1; } #pause .ptabs button.on { border-color:#f2d692 !important; color:#ffe6a0 !important; background:rgba(242,214,146,.12) !important; }
+  #pause .pbody { overflow-y:auto; padding-right:4px; flex:1; }
+  #pause .prow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:7px 4px; border-bottom:1px solid rgba(120,90,50,.18); }
+  #pause .pname { font-size:13px; } #pause .pname small { display:block; font-size:11px; color:#8a7c64; margin-top:1px; }
+  #pause .pctl { display:flex; align-items:center; gap:6px; flex:none; }
+  #pause .pctl select { width:auto !important; font-size:12px; }
+  #pause .prange { display:flex; align-items:center; gap:8px; } #pause .prange input { width:150px !important; padding:0; } #pause .prange b { width:40px; text-align:right; font-size:12px; color:#ffe6a0; }
+  #pause .pswitch { position:relative; width:40px; height:22px; display:inline-block; } #pause .pswitch input { opacity:0; width:0 !important; height:0; position:absolute; }
+  #pause .pswitch span { position:absolute; inset:0; background:#2a2218; border:1px solid #5a4a30; border-radius:11px; cursor:pointer; transition:.15s; }
+  #pause .pswitch span::after { content:""; position:absolute; left:3px; top:3px; width:14px; height:14px; border-radius:50%; background:#8a7c64; transition:.15s; }
+  #pause .pswitch input:checked + span { background:#3a5a2a; border-color:#7ab060; } #pause .pswitch input:checked + span::after { left:21px; background:#d8f0b0; }
+  #pause .pgrp { margin:12px 0 2px; font-size:12px; color:#f2d692; border-left:3px solid #8a6a3a; padding-left:6px; }
+  #pause .pkey { min-width:96px; font-size:13px !important; } #pause .pkey.wait { border-color:#ffe08a !important; color:#ffe08a !important; animation:gupPulse 1s infinite; } #pause .pkey.dup { border-color:#c05040 !important; color:#ff9a8a !important; }
+  #pause .pmini { padding:2px 7px !important; font-size:12px !important; }
+  #pause .pfoot { display:flex; justify-content:space-between; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid #4a3a24; }
+  /* v2.7 場景美術：首領登場圖、劇情回憶橫幅（js\artscenes.js） */
+  #bossIntro { position:fixed; left:50%; top:42%; transform:translate(-50%,-50%); width:min(560px, 70vw); pointer-events:none; z-index:40; opacity:0; }
+  #bossIntro img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border:1px solid #8a6a3a; border-radius:4px;
+    box-shadow:0 0 0 3px #1a120a, 0 0 40px rgba(255,90,40,.35), 0 10px 40px rgba(0,0,0,.8); -webkit-mask-image:radial-gradient(ellipse at center, #000 62%, transparent 100%); mask-image:radial-gradient(ellipse at center, #000 62%, transparent 100%); }
+  #bossIntro .bi-name { text-align:center; margin-top:-34px; position:relative; font-size:30px; letter-spacing:8px; color:#ffcf9a; text-shadow:0 0 12px #ff5a2a, 0 2px 0 #000, 0 0 3px #000; }
+  #bossIntro.show { animation:bossIntro 1.25s ease-out forwards; }
+  @keyframes bossIntro { 0% { opacity:0; transform:translate(-50%,-50%) scale(1.12); } 14% { opacity:1; transform:translate(-50%,-50%) scale(1); } 75% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-50%) scale(.98); } }
+  #storyScene { display:none; }
+  body.artnew #story.scene.show { width:760px; }
+  body.artnew #story.scene #storyScene { display:block; width:calc(100% + 68px); margin:-26px -34px 14px; aspect-ratio:16/9; max-height:42vh; object-fit:cover;
+    border-bottom:1px solid #8a6a3a; -webkit-mask-image:linear-gradient(#000 78%, transparent); mask-image:linear-gradient(#000 78%, transparent); }
+  /* v2.8 功能選單圖示換成 AI 圖（js\artui.js 設定 --ui-<id>；body.uiicons＝圖都準備好了） */
+  body.artnew.uiicons .mico svg, body.artnew.uiicons #mtoggle svg { visibility:hidden; }
+  body.artnew.uiicons .mico, body.artnew.uiicons #mtoggle { background-repeat:no-repeat; background-position:center; }
+  body.artnew.uiicons .mico { background-size:118%, auto; }
+  body.artnew.uiicons [data-m="inv"] .mico { background-image:var(--ui-inv), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="char"] .mico { background-image:var(--ui-char), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="skills"] .mico { background-image:var(--ui-skills), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="jewels"] .mico { background-image:var(--ui-jewels), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="craft"] .mico { background-image:var(--ui-craft), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="tree"] .mico { background-image:var(--ui-tree), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="journal"] .mico { background-image:var(--ui-journal), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="help"] .mico { background-image:var(--ui-help), radial-gradient(circle at 40% 35%, #3a2a18, #0c0804 75%); }
+  body.artnew.uiicons [data-m="portal"] .mico, body.artnew.uiicons #portalbtn .mico { background-image:var(--ui-portal); background-size:130%; }
+  /* v2.9 背包空裝備格的剪影、標題的金框牌匾（js\artui.js） */
+  body.artnew .eslot .esil { position:absolute; left:12%; top:10%; width:76%; height:72%; object-fit:contain; filter:grayscale(1) brightness(.6); opacity:.32; pointer-events:none; }
+  body.artnew .eslot .slabel { position:relative; z-index:1; }
+  .tp-wrap { position:relative; }
+  .tp-wrap .tplaque { display:none; }
+  body.artnew.uiplaque .tp-wrap .tplaque { display:block; position:absolute; left:50%; top:50%; width:min(500px, 94vw); height:122px; transform:translate(-50%,-54%); background:var(--ui-plaque) center/contain no-repeat; pointer-events:none; z-index:0; }
+  body.artnew.uiplaque .tp-wrap .title { position:relative; z-index:1; }
+  body.artnew.uiplaque .tp-wrap { margin:6px 0 12px; }
+  body.artnew .lrow .lmon { width:38px; height:30px; object-fit:contain; vertical-align:middle; margin:-4px 8px -4px 0; filter:drop-shadow(0 1px 1px #000); }
+  body.artnew .lrow.dim .lmon { filter:brightness(0) drop-shadow(0 0 1px #8a7450); opacity:.55; }
+  body.artnew.uiicons #mtoggle { background-image:var(--ui-menu), linear-gradient(#2a2016, #120c08); background-size:30px, auto; background-position:center 3px, center; }
+</style>
+<style>
+  /* 標題：抵銷「夢疑」字距造成的右側空白，讓整組視覺置中；MOE 三個字母分散對齊到「夢疑」同寬 */
+  #menu .title { padding-left:12px; }
+  .title .title-en { display:flex; justify-content:space-between; font-size:.34em; letter-spacing:0; margin:-.15em 12px 0 0; padding:0 .15em; color:#e8c890; line-height:1.1; opacity:.95; }
+  .title .title-en i { font-style:normal; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="menu" class="panel">
+  <div class="title">夢疑 <span class="title-en"><i>M</i><i>O</i><i>E</i></span></div>
+  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.12.6</div>
+  <div id="menuBody"></div>
+</div>
+
+<!-- 讓 Windows 在遊戲裡自動關掉中文輸入法：焦點停在這個看不到的密碼欄位（密碼欄位不會開輸入法） -->
+<input id="keysink" type="password" autocomplete="new-password" tabindex="-1" aria-hidden="true">
+<div id="cmp" class="panel"></div>
+<div id="inv" class="panel">
+  <div class="ph">背包 <span><button id="salvBtn" class="touchonly" onclick="UI.salvMode=!UI.salvMode;this.classList.toggle('on',UI.salvMode)">分解</button> <button id="sortBtn">整理</button> <span id="invCount"></span> <span class="x" data-close="inv">✕</span></span></div>
+  <div id="doll"></div>
+  <div id="flaskbar"></div>
+  <div id="curbar"></div>
+  <div id="invgrid"></div>
+  <div class="ihint">左鍵：選取並比較　右鍵：裝備／卸下（商人開著時：右鍵＝賣出、Ctrl+左鍵＝分解成材料；倉庫開著時：右鍵＝存入）<br>工藝石：先點石頭，再點裝備（按住 Shift 可連續用，右鍵取消）　傳送卷軸：點它或按 T</div>
+</div>
+
+<div id="shop" class="panel"><div class="ph">商人．歐莉　<span class="thint">不收錢，只收通貨</span><span class="x" data-close="shop">✕</span></div><div id="shopBody"></div></div>
+<div id="craft" class="panel"><div class="ph">強化工坊（B）　<span class="thint">用磨石、護貝劑強化武器和防具</span><span class="x" data-close="craft">✕</span></div><div id="craftBody"></div></div>
+<div id="gemshop" class="panel"><div class="ph">引路人．塞拉　<span class="thint">技能寶石，用混沌石換</span><span class="x" data-close="gemshop">✕</span></div><div id="gemshopBody"></div></div>
+<div id="stash" class="panel"><div class="ph">倉庫　<span class="thint">點背包物品放進來，點這裡的物品拿回去</span><span class="x" data-close="stash">✕</span></div><div id="stashTabs"></div><div id="stashGrid"></div></div>
+
+
+<div id="char" class="panel"><div class="ph">角色 <span class="x" data-close="char">✕</span></div><div id="charBody"></div></div>
+
+<div id="skills" class="panel">
+  <div class="ph">技能寶石（K）<span class="x" data-close="skills">✕</span></div>
+  <div class="ihint" style="padding-top:8px">把寶石袋裡的寶石<b>拖到裝備上</b>才會生效：大格放技能寶石，小格放輔助寶石（等級越高小格越多）。右鍵或拖回寶石袋＝拿下來。手機：點一下寶石，再點要放的格子。</div>
+  <div id="skillSlots"></div>
+  <div class="csec2">寶石袋</div>
+  <div id="gemBag"></div>
+</div>
+
+<div id="tree" class="panel">
+  <div class="ph"><span>天賦樹　<span id="treePts"></span>　<span class="thint">左鍵配點（遠的點會沿最短路徑一次點到）· 右鍵取消 · 按「確認加點」前都可以免費改 · 拖曳移動 · 滾輪縮放</span></span>
+    <span><button id="treeCenter">回到起點</button> <button id="treeReset">全部重置</button> <span class="x" data-close="tree">✕</span></span></div>
+  <canvas id="treeCanvas"></canvas>
+</div>
+
+<div id="mapdev" class="panel"><div class="ph">地圖裝置：選擇要進入的地圖 <span class="thint">離開傳送門就會關閉</span></div><div id="mapList"></div></div>
+
+<div id="death" class="panel"><h2>你倒下了</h2><div id="deathInfo"></div><br><button onclick="UI.hideDeath()">回到城鎮</button></div>
+
+<div id="help" class="panel">
+  <div class="ph">操作說明 <span class="x" data-close="help">✕</span></div>
+  <div class="hb">
+    <div class="ihint" style="padding:0 0 8px">美術：角色、部分怪物、地下城地板、牆與武器來自 0x72 的「16x16 DungeonTileset II」（CC0 公眾領域，0x72.itch.io）；50 種怪物、10 個首領與營地人物來自「Dungeon Crawl Stone Soup」圖庫，野豬與鹿角獸來自 ScratchIO 的「Animated Wild Animals」（皆為 CC0 公眾領域，opengameart.org）。其他怪物與舊版圖示為本遊戲自繪。標題畫面、人物立繪、職業立繪、技能／輔助寶石／裝備／藥劑／通貨／材料圖示與介面底紋由 Higgsfield AI 生成（v2.4）；v2.6 每個裝備基底（各階）都有自己的 AI 圖示，地圖上的玩家改成依身上裝備換外觀的像素小人（程式繪製）。</div>
+    <div style="padding:0 0 8px"><label><input type="checkbox" id="artNewChk" style="width:auto !important;vertical-align:middle"> 使用新美術（AI 生成的標題畫面、立繪、圖示）</label>　<span class="thint">取消勾選就回到舊版程式畫的圖示</span></div>
+    <div class="tonly"><h4>手機操作</h4>
+    左半邊畫面：手指按住拖曳＝移動（按哪裡，搖桿就出現在哪裡）<br>
+    右下圓鈕：大的是主技能，旁邊四顆是其他技能；按住會自動瞄準最近的怪<br>
+    左下藥劑格：點一下就喝　　地上物品：點名稱撿起<br>
+    右上 ☰：背包、角色、技能、天賦、日誌、回城、說明、全螢幕<br>
+    靠近人物：右邊會出現「對話」鈕<br>
+    背包、倉庫、商店：點一下看說明，同一格再點一下才使用；要分解就先按背包上方的「分解」<br>
+    天賦樹：一根手指拖曳、兩根手指縮放；點一下看說明，再點一下點天賦</div>
+    <h4>移動與戰鬥</h4>
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　滑鼠瞄準<br>
+    <kbd>左鍵</kbd> <kbd>右鍵</kbd> <kbd>Q</kbd> <kbd>E</kbd> <kbd>R</kbd> 施放技能（可以按住連發）<br>
+    <kbd>1</kbd>–<kbd>4</kbd> 喝藥劑（殺怪和時間都會充能；在背包上方換藥劑；同種效果不疊加，不同種可同時生效）<br>
+    <kbd>空白</kbd> 閃避翻滾（往移動方向翻，翻滾中不會受傷，冷卻 1 秒）　<kbd>F</kbd> 互動：對話、撿東西、進傳送門（最靠近的那個，有金色外框）；珠寶、通貨走過去會自動撿（其他東西只用 F 撿，點地上的名稱不會撿，攻擊不會被打斷）<br>
+    <kbd>Z</kbd> 顯示／隱藏普通（白色）物品標籤<br>
+    <kbd>Esc</kbd> 暫停遊戲：設定（顯示、音效、介面、按鍵）、存檔、回到選角畫面<br>
+    <kbd>M</kbd> 開／關聲音　　音量 <input type="range" id="volRange" min="0" max="100" style="width:130px !important;vertical-align:middle;padding:0"><br>
+    <kbd>T</kbd> 使用傳送卷軸：在腳下開門回城，之後從城鎮右邊的藍色傳送門回到同一張地圖<br>
+    <kbd>F</kbd> 在城鎮靠近商人或倉庫時打開它們
+    <h4>介面</h4>
+    <kbd>I</kbd> 背包　<kbd>C</kbd> 角色數值　<kbd>K</kbd> 技能與輔助寶石　<kbd>右鍵點珠寶</kbd> 選起來再點裝備鑲嵌（Shift＋右鍵合成）　<kbd>P</kbd> 天賦樹　<kbd>J</kbd> 記憶日誌與怪物圖鑑　<kbd>H</kbd> 說明　<kbd>Esc</kbd> 關閉全部
+    <h4>存檔</h4>
+    遊戲每 20 秒、回牢房、升級時會自動存在瀏覽器裡。怕瀏覽器資料被清掉，可以另外存一份備份檔：<br>
+    <button onclick="exportBackup()">匯出備份</button> <button onclick="document.getElementById('impFile2').click()">匯入備份</button>
+    <button onclick="UI.linkFile()">連結存檔檔案（自動存到電腦）</button>
+    <input type="file" id="impFile2" accept=".json,application/json" style="display:none" onchange="UI.doImport(event, () => location.reload())">
+    <span id="saveInfo" class="thint"></span><br>
+    <span class="thint">備份檔會存到「下載」資料夾，只在你的電腦裡，不會上傳。換電腦時把這個檔案帶過去匯入就好。</span>
+    <h4>介面</h4>
+    畫面右側是功能按鈕列（滑鼠點也能開），按鈕上的紅點代表有新東西：天賦點沒點、新技能解鎖、日誌有新內容。<br>
+    畫面左側是任務提示，每一章最後都要打倒一隻指定的首領（☠）。點標題可以收起來。<br>
+    滑鼠移到技能欄、藥劑、生命球、魔力球、經驗條上，會顯示說明。<br>
+    牢房裡的人物頭上有「！」代表有新故事，靠近按 <kbd>F</kbd> 聊聊：歐莉（商人）、格倫（怪物圖鑑）、小雀（教你鑲珠寶）、舊木箱（倉庫）。
+    <h4>怎麼玩</h4>
+    1. 在城鎮走進「地圖裝置」選第 1 層進入。<br>
+    2. 一路清怪、撿裝備，找到地圖深處的首領（小地圖上的 ☠）。<br>
+    3. 擊敗首領會解鎖下一層，並有機會掉落「首領專屬傳奇」（每次擊敗都有機率，不保證）。<br>
+    4. 每升 1 級得到 1 點天賦點數，按 <kbd>P</kbd> 從你的職業起點往外點。<br>
+    5. 技能不分職業，按 <kbd>K</kbd> 隨意換。弓類技能要裝弓，近戰技能要近戰武器。<br>
+    6. 用通貨改造裝備：蛻變石→藍裝、增幅石加詞綴、富豪石藍變黃、點金石→黃裝、混沌石重骰、剝離石拿掉一條、神聖石重骰數值、崇高石再加一條、機會石賭傳奇。<br>
+    &nbsp;&nbsp;&nbsp;藍色、黃色的精英怪掉得更多更好，黃色精英必掉通貨。商人只收通貨，賣東西會得到通貨碎片。<br>
+    7. 輔助寶石（地上青綠色菱形）：按 <kbd>K</kbd> 插到技能欄的連結孔，例如「多重投射」讓火球一次丟 3 顆。技能列下方的小色塊就是生效中的寶石。
+    <h4>顏色</h4>
+    <span class="c-normal">普通</span>　<span class="c-magic">魔法（1–2 條詞綴）</span>　<span class="c-rare">稀有（3–6 條詞綴）</span>　<span class="c-unique">傳奇（固定特效）</span>
+  </div>
+</div>
+
+<div id="story" class="panel"><img id="storyPortrait" alt=""><div class="stmain"><div class="sttitle" id="storyTitle"></div><div class="sttext" id="storyText"></div></div>
+  <div class="stfoot"><span id="storyPg"></span><button id="storyBtn" onclick="UI.storyNext()">繼續 ▸</button></div></div>
+
+<div id="journal" class="panel"><div class="ph">記憶日誌與怪物圖鑑（J）<span class="x" data-close="journal">✕</span></div><div id="journalBody"></div></div>
+
+<div id="menubar"></div>
+<div id="hudhot"></div>
+<div id="questbox"></div>
+
+<div id="tip"></div>
+
+<script src="js/sfx.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/core.js"></script>
+<script src="js/data.js"></script>
+<script src="js/story.js"></script>
+<script src="js/quests.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/art.js"></script>
+<script src="js/artwork.js"></script>
+<script src="js/artstyle.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/atlas0x72.js"></script>
+<script src="js/atlasdcss.js"></script>
+<script src="js/atlaswild.js"></script>
+<script src="js/pixelart.js"></script>
+<script src="js/paperdoll.js"></script>
+<script src="js/treecache.js"></script>
+<script src="js/tree.js"></script>
+<script src="js/gemlevel.js"></script>
+<script src="js/items.js"></script>
+<script src="js/game.js"></script>
+<script src="js/newskills.js"></script>
+<script src="js/stacks.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/dragitem.js"></script>
+<script src="js/enhance.js"></script>
+<script src="js/dreamscar.js"></script>
+<script src="js/elites.js"></script>
+<script src="js/curses.js"></script>
+<script src="js/gems2.js"></script>
+<script src="js/monai.js"></script>
+<script src="js/stashspec.js"></script>
+<script src="js/endgame.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/artscenes.js"></script>
+<script src="js/artui.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/dodge.js"></script>
+<script src="js/treeplan.js"></script>
+<script src="js/camplife.js"></script>
+<script src="js/jewels2.js"></script>
+<script src="js/uniqstash.js"></script>
+<script src="js/dreamkeep.js"></script>
+<script src="js/gemquick.js"></script>
+<script src="js/stages.js"></script>
+<script src="js/treejewels.js"></script>
+<script src="js/mapevents.js"></script>
+<script src="js/village.js"></script>
+<script src="js/music.js"></script>
+<script src="js/classmove.js"></script>
+<script src="js/levelfx.js"></script>
+<script src="js/townlayout.js"></script>
+<script src="js/auras.js"></script>
+<script src="js/gems3.js"></script>
+<script src="js/stackprops.js"></script>
+<script src="js/atlas.js"></script>
+<script src="js/dreamtide.js"></script>
+<script src="js/dreamrites.js"></script>
+<script src="js/depths.js"></script>
+<script src="js/maptint.js"></script>
+<script src="js/lights.js"></script>
+<script src="js/perfguard.js"></script>
+<script src="js/mobilefit.js"></script>
+<script src="js/core-end.js"></script>
+<script src="js/main.js"></script>
+<script>if (/[?&]dev=1/.test(location.search)) { const s = document.createElement('script'); s.src = 'js/devtest.js'; document.body.appendChild(s); }</script>
+</body>
+</html>

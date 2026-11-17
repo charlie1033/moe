@@ -1,0 +1,8 @@
+# 美術原始檔（520MB）：只有重新打包美術圖時才需要，試玩不用。圖都已經打包在 js/artwork.js 裡
+assets/
+# 系統雜檔
+Thumbs.db
+.DS_Store
+# 內部工作文件（不公開）
+美術生成計畫_Higgsfield.md
+*.pdf
