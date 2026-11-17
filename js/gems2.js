@@ -17,9 +17,6 @@ Object.assign(SKILLS, {
   charge: { name: '猛衝', icon: '衝', color: '#e8b070', lvl: 10, cls: 'warrior', tags: ['attack', 'melee', 'movement'], cost: 6, cd: 3, eff: 1.6, speed: 0.9,
     type: 'dash', dist: 200, need: 'melee', ail: { bleed: 15 },
     desc: '往前衝撞，沿路撞擊所有敵人。冷卻 3 秒。也是位移技能，不能插傷害類以外的輔助以外……（傷害類輔助可以插）' },
-  bonespear: { name: '骨矛', icon: '骨', color: '#e8e0c8', lvl: 8, cls: 'summoner', tags: ['spell', 'projectile'], elem: 'phys', cost: 9,
-    base: [12, 20], crit: 6, cast: 0.75, eff: 0.9, type: 'proj', count: 1, spread: 0, pspeed: 760, pierce: 3, sprite: 'iceshard',
-    desc: '射出一根物理傷害的骨矛，穿透 3 個敵人。脆弱詛咒對它也有效。' },
   frosttrap: { name: '冰霜陷阱', icon: '凍', color: '#9ad8ff', lvl: 10, cls: 'ranger', tags: ['spell', 'area'], elem: 'cold', cost: 10,
     base: [14, 22], crit: 6, cast: 0.45, eff: 1, type: 'trap', radius: 85, range: 380, maxTraps: 3, ail: { freeze: 25 },
     desc: '在滑鼠位置放冰霜陷阱（最多 3 個），敵人靠近就炸開，25% 機率冰凍。' },
@@ -27,8 +24,8 @@ Object.assign(SKILLS, {
 // 猛衝：雖然是位移技能，但它本身有傷害 → 標成 movement 會讓傷害輔助全部插不上，所以拿掉 movement 標籤，冷卻照舊
 SKILLS.charge.tags = ['attack', 'melee'];
 SKILLS.charge.desc = '往前衝撞，沿路撞擊所有敵人，15% 機率流血。冷卻 3 秒。';
-const NEW_GEMS2 = ['firewall', 'poisonarrow', 'charge', 'bonespear', 'frosttrap'];
-Object.assign(SKILL_ATTR, { firewall: ['int'], poisonarrow: ['dex'], charge: ['str'], bonespear: ['int', 'str'], frosttrap: ['dex', 'int'] });
+const NEW_GEMS2 = ['firewall', 'poisonarrow', 'charge', 'frosttrap'];   // 骨矛移到 summoner2.js（v2.13 變成召喚師開局技能）
+Object.assign(SKILL_ATTR, { firewall: ['int'], poisonarrow: ['dex'], charge: ['str'], frosttrap: ['dex', 'int'] });
 for (const k of NEW_GEMS2) { SKILLS[k].id = k; SKILLS[k].req = gemReqAttr(k, 1); }
 if (typeof SKILL_GLYPHS !== 'undefined') for (const k of NEW_GEMS2) if (!SKILL_GLYPHS[k]) SKILL_GLYPHS[k] = SKILL_GLYPHS[{ firewall: 'blizzard', poisonarrow: 'rapid', charge: 'iai', bonespear: 'icespear', frosttrap: 'smoketrap' }[k]] || SKILL_GLYPHS.heavy;
 // 毒蛇箭：毒雨箭本來就是毒系，弓箭手前期也有個中毒選擇；陷阱型技能讓 NEW_CAST.trap 處理元素

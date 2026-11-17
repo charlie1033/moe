@@ -12,6 +12,7 @@
 //  ⑤ v2.13.1 新的能力「召喚物攻擊速度」（以前完全沒有）：
 //     天賦樹上召喚物傷害的小節點，每隔一個改成「召喚物攻擊速度 +8%」；召喚師出生點走 3 步就有；骨之契約、亡君座、軍團星的大節點各 +10%
 //     統御光環也加上召喚物攻擊速度 +10%
+//  ⑥ v2.13.5 召喚靈體加上「投射物」標籤：可以插多重投射、少量多重投射（靈體一次多射 2 發／1 發，扇形散開，傷害照輔助寶石打折）
 //  美術：骨矛先用箭的投射物圖（白骨色），之後美術可以接 sprite 'bonespear' 的圖
 // =============================================================
 Object.assign(SKILLS, {
@@ -24,6 +25,8 @@ SKILLS.bonespear.id = 'bonespear'; SKILLS.bonespear.req = gemReqAttr('bonespear'
 if (!CLASS_GEMS.summoner.includes('bonespear')) CLASS_GEMS.summoner.unshift('bonespear');
 CLASSES.summoner.skills = ['bonespear', 'skel', 'spirit', null, null];
 CLASSES.summoner.bonus = Object.assign({}, CLASSES.summoner.bonus, { life_inc: 15, es: 15 });
+// 召喚靈體：射出去的暗影彈算投射物
+if (SKILLS.spirit && !SKILLS.spirit.tags.includes('projectile')) { SKILLS.spirit.tags.push('projectile'); SKILLS.spirit.desc += '射出的暗影彈算投射物，可以插多重投射。'; }
 // 召喚物數值
 for (const [k, base, life] of [['skel', [7, 13], 90], ['spirit', [8, 14], 60], ['wolf', [10, 17], 75], ['golem', [30, 46], 380]]) {
   if (!SKILLS[k]) continue; SKILLS[k].base = base; SKILLS[k].mlife = life;

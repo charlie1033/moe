@@ -516,10 +516,11 @@ function calcSkill(S, sid, lvl, sups) {
 function calcMinion(S, lvl, X, sk) {
   sk = sk || SKILLS.skel;
   const sc = 1 + 0.16 * (lvl - 1);
-  const f = (1 + S.minion_dmg_inc / 100) * (X ? X.more_minion : 1);
+  const pc = X ? X.proj_count : 0;   // v2.13.5 會射擊的召喚物（靈體）可以吃多重投射：多射幾發，傷害照輔助寶石打折
+  const f = (1 + S.minion_dmg_inc / 100) * (X ? X.more_minion : 1) * (pc > 0 && X ? X.more_dmg : 1);
   const lf = (1 + S.minion_life_inc / 100) * (X ? X.more_minion_life : 1);
   return { kind: sk.minion, dmg: [sk.base[0] * sc * f, sk.base[1] * sc * f], life: Math.round(sk.mlife * (1 + 0.14 * (lvl - 1)) * lf), aps: sk.maps * (1 + (S.minion_aspd_inc || 0) / 100),   // v2.13.1 召喚物攻擊速度
-    speed: sk.mspeed, ranged: sk.mranged || 0, taunt: !!sk.taunt, max: sk.max + S.minion_max + (X ? X.minion_max : 0) };
+    speed: sk.mspeed, ranged: sk.mranged || 0, count: sk.mranged ? 1 + Math.max(0, pc) : 1, taunt: !!sk.taunt, max: sk.max + S.minion_max + (X ? X.minion_max : 0) };
 }
 
 // ---------- 物品說明（滑鼠移上去的提示框） ----------

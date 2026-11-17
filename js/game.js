@@ -840,7 +840,7 @@ function castSkill(sid, c) {
       if (same.length >= mc.max) G.mins.splice(G.mins.indexOf(same[0]), 1);
       const p = randomFloorNear(pl.x + ca * 30, pl.y + sa * 30, 20);
       G.mins.push({ kind: 'min', mtype: mc.kind, x: p.x, y: p.y, r: mc.kind === 'golem' ? 16 : 10, life: mc.life, maxLife: mc.life, dmg: mc.dmg, aps: mc.aps,
-        atkCD: 0.3, facing: 1, flash: 0, speed: mc.speed, ranged: mc.ranged, taunt: mc.taunt });
+        atkCD: 0.3, facing: 1, flash: 0, speed: mc.speed, ranged: mc.ranged, taunt: mc.taunt, count: mc.count || 1 });
       burst(p.x, p.y, sk.color, 16);
       break;
     }
@@ -1479,9 +1479,12 @@ function updateMinion(mn, dt) {
     if (bd <= mn.ranged && los(mn.x, mn.y, tgt.x, tgt.y)) {
       if (mn.atkCD <= 0) {
         mn.atkCD = 1 / mn.aps;
-        const a = Math.atan2(tgt.y - mn.y, tgt.x - mn.x);
-        G.projs.push({ team: 'ally', x: mn.x, y: mn.y - 6, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, r: 5, life: 1.2, pk: { d: { chaos: mn.dmg }, crit: 5, multi: 150 },
-          pierce: 0, hit: new Set(), explode: 0, sprite: 'shadow', fromMinion: true });
+        const a0 = Math.atan2(tgt.y - mn.y, tgt.x - mn.x), n = mn.count || 1;   // v2.13.5 多重投射：扇形多射幾發
+        for (let k = 0; k < n; k++) {
+          const a = a0 + (n > 1 ? (k - (n - 1) / 2) * 0.22 : 0);
+          G.projs.push({ team: 'ally', x: mn.x, y: mn.y - 6, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, r: 5, life: 1.2, pk: { d: { chaos: mn.dmg }, crit: 5, multi: 150 },
+            pierce: 0, hit: new Set(), explode: 0, sprite: 'shadow', fromMinion: true, tags: ['projectile', 'minion'] });
+        }
       }
       if (dist(mn, pl) > 110) steerToward(mn, pl.x, pl.y, mn.speed, dt, true);
     } else steerToward(mn, tgt.x, tgt.y, mn.speed, dt, false);
