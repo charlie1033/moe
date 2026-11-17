@@ -1472,8 +1472,10 @@ function updateMinion(mn, dt) {
   const pl = G.pl;
   if (dist(mn, pl) > 800) { mn.x = pl.x + rnd(-20, 20); mn.y = pl.y + rnd(-20, 20); }
   mn.atkCD -= dt;
+  // v2.13.8 召喚物走路：只挑「看得到」的怪（不然會直線卡在牆邊）；走不動 1.5 秒就回到你身邊
   let tgt = null, bd = 320;
-  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && dist(m, pl) < 450) { bd = d; tgt = m; } }
+  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && dist(m, pl) < 450 && los(mn.x, mn.y, m.x, m.y)) { bd = d; tgt = m; } }
+  const ox = mn.x, oy = mn.y;
   const pk = { d: { phys: mn.dmg }, crit: 5, multi: 150 };
   if (tgt && mn.ranged) { // 靈體：遠程射擊
     if (bd <= mn.ranged && los(mn.x, mn.y, tgt.x, tgt.y)) {
@@ -1486,8 +1488,15 @@ function updateMinion(mn, dt) {
             pierce: 0, hit: new Set(), explode: 0, sprite: 'shadow', fromMinion: true, tags: ['projectile', 'minion'] });
         }
       }
-      if (dist(mn, pl) > 110) steerToward(mn, pl.x, pl.y, mn.speed, dt, true);
-    } else steerToward(mn, tgt.x, tgt.y, mn.speed, dt, false);
+      // 遠程站位：離你太遠就回來；怪貼太近就往後退（不往怪群裡衝）
+      if (dist(mn, pl) > 130) steerToward(mn, pl.x, pl.y, mn.speed, dt, true);
+      else if (bd < 110) { const a = Math.atan2(mn.y - tgt.y, mn.x - tgt.x); moveEnt(mn, Math.cos(a) * mn.speed * 0.7 * dt, Math.sin(a) * mn.speed * 0.7 * dt); }
+    } else {
+      // 目標在射程外：只在你身邊 170 以內往前挪一點，不追過去
+      const nx = mn.x + (tgt.x - mn.x) * 0.2, ny = mn.y + (tgt.y - mn.y) * 0.2;
+      if (Math.hypot(nx - pl.x, ny - pl.y) < 170) steerToward(mn, tgt.x, tgt.y, mn.speed, dt, false);
+      else if (dist(mn, pl) > 80) steerToward(mn, pl.x, pl.y, mn.speed, dt, true);
+    }
   } else if (tgt) {
     if (bd <= mn.r + tgt.r + 12) {
       if (mn.atkCD <= 0) {
@@ -1497,6 +1506,10 @@ function updateMinion(mn, dt) {
       }
     } else steerToward(mn, tgt.x, tgt.y, mn.speed, dt, false);
   } else if (dist(mn, pl) > 70) steerToward(mn, pl.x, pl.y, mn.speed, dt, true);
+  // 卡住偵測：想走卻幾乎沒動，累積 1.5 秒就傳回你身邊
+  const moved = Math.hypot(mn.x - ox, mn.y - oy), wants = tgt ? bd > mn.r + tgt.r + 12 && !mn.ranged : dist(mn, pl) > 70;
+  mn.stuckT = wants && moved < mn.speed * dt * 0.15 ? (mn.stuckT || 0) + dt : 0;
+  if (mn.stuckT > 1.5 && dist(mn, pl) > 90) { const p = randomFloorNear(pl.x + rnd(-40, 40), pl.y + rnd(-40, 40), 30); mn.x = p.x; mn.y = p.y; mn.stuckT = 0; burst(mn.x, mn.y, '#c8a8ff', 8, 80); }
 }
 
 // ---------- 特效小工具 ----------
