@@ -388,6 +388,7 @@ function storyBeat(key) {
 // 從地圖走傳送門回城：地圖狀態保留，之後可以回去
 function leaveMapToTown() {
   const w = G.world;
+  if (w && w.portal && w.portal.toHub) { const P = G.P; P.hub = w.portal.toHub; P.hubsOpen = P.hubsOpen || {}; P.hubsOpen[P.hub] = true; G.fromMap = true; G.savedMap = null; return goTown(true); }   // v2.15.2 看守者倒下後的門：去新營地
   G.savedMap = { world: w, mons: G.mons, loot: G.loot, bossBar: G.bossBar };
   G.fromMap = true;
   setHubFromWorld(w);
@@ -1170,6 +1171,8 @@ function bossDefeated(b) {
   }
   const pp = randomFloorNear(b.x, b.y + 90, 30);
   w.portal = { x: pp.x, y: pp.y, exit: true };
+  // v2.15.2 打倒看守者後的傳送門：直接帶你到「下一夜」所屬的營地（換章節時就是新營地）
+  if (!w.arena && w.tier && w.tier <= ENDING_TIER) { const nh = hubForTier(Math.min(w.tier + 1, ENDING_TIER)); if (nh && nh !== P.hub && HUB_BY_ID[nh]) w.portal.toHub = nh; }
   saveGame();
 }
 function dropLoot(x, y, o) {
@@ -1792,7 +1795,7 @@ function update(dt) {
     if (G.savedMap) cand('resume', w.retPortal, 52, '回到夢裡');
     if (UI.mapDevOpen && dist(pl, w.portal) > 70) UI.showMapDevice(false); // 走遠了就關掉
     UI.autoCloseTownPanels(w);
-  } else cand('exit', w.portal, 52, w.portal && w.portal.exit ? '醒來（回營地）' : '回營地');
+  } else cand('exit', w.portal, 52, w.portal && w.portal.toHub ? `前往新營地「${HUB_BY_ID[w.portal.toHub].name}」` : w.portal && w.portal.exit ? '醒來（回營地）' : '回營地');
   G.nearAct = act;
   G.nearNPC = act && act.kind === 'npc' ? act.ref : null;
   G.shake = Math.max(0, G.shake - dt * 30);

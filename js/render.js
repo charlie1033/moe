@@ -60,7 +60,7 @@ function render() {
   if (sw > 0 && sh > 0) g.drawImage(w.canvas, sx, sy, sw, sh, sx, sy, sw, sh);
   // 城鎮裝飾
   if (w.kind === 'town') drawTownDeco(g, w);
-  if (w.portal) { if (w.kind === 'town' && w.fireGate) txt(g, `${TOWN_TEXT.device}（營火・新的夢）`, w.portal.x, w.portal.y - 46, 12, '#ffcf60', 'center'); else drawPortal(g, w.portal.x, w.portal.y, w.kind === 'town' ? '#ffcf60' : '#70b0ff', w.kind === 'town' ? `${TOWN_TEXT.device}（新的夢）` : '回到牢房'); }   // v2.8.13 營地的夢之門＝中間的營火
+  if (w.portal) { if (w.kind === 'town' && w.fireGate) txt(g, `${TOWN_TEXT.device}（營火・新的夢）`, w.portal.x, w.portal.y - 46, 12, '#ffcf60', 'center'); else drawPortal(g, w.portal.x, w.portal.y, w.kind === 'town' ? '#ffcf60' : '#70b0ff', w.kind === 'town' ? `${TOWN_TEXT.device}（新的夢）` : w.portal.toHub ? `前往新營地：${HUB_BY_ID[w.portal.toHub].name}` : `回到${(HUB_BY_ID[G.P && G.P.hub] || {}).name || '營地'}`); }   // v2.8.13 營地的夢之門＝中間的營火
   // 地面火焰
   for (const z of G.zones) {
     const a = 0.22 + Math.sin(G.time * 12 + z.x) * 0.05;
