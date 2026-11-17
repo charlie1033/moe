@@ -4,7 +4,7 @@
 //  ・index.html：每次先上網拿最新的；沒網路才用存著的
 //  ・改版時 VER 會被 tools\boot.ps1 改掉 → 舊版本的檔案自動清掉
 // =============================================================
-const VER = '2.15.0';
+const VER = '2.15.1';
 const CACHE = 'moe';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
