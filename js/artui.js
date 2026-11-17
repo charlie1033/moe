@@ -1177,7 +1177,12 @@ ArtUI.load();
     g.save();
     // 0) 牆格底下先鋪連續的地板（被削掉的牆角露出來的就是真正的地板）
     g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath();
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x])) g.rect(x * TS, y * TS, TS, TS);
+    //   立體障礙物（岩石、樹…）的格子也鋪：它們是每格畫面另外疊上去的，底圖那格原本是舊的方塊地板，跟連續地板對不上
+    const stacked = t => t && !(t === 2 || t === 8 || t === 14 || t === 15) && typeof StackProps !== 'undefined' && StackProps.handles && StackProps.handles(t);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, t = deco && deco[i];
+      if ((w.grid[i] === 0 && !t) || stacked(t)) g.rect(x * TS, y * TS, TS, TS);
+    }
     g.fill();
     // 1) 牆外地上的落影（往右下）
     g.fillStyle = 'rgba(0,0,0,0.2)'; g.fill(moved(P, 4, 7), 'evenodd'); g.fillStyle = 'rgba(0,0,0,0.22)'; g.fill(moved(P, 1.5, 3), 'evenodd');
