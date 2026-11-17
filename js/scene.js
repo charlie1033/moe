@@ -112,15 +112,16 @@ function drawDecal(g, kind, x, y, R, th) {
 function paintWorldDetail(g, w) {
   const th = w.theme, fx = themeFX(th), W = w.W, H = w.H, k = themeKey(th);
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || w.grid[y * W + x] === 0;
+  const SMOOTH = typeof ArtUI !== 'undefined' && ArtUI.smoothWalls && ArtUI.smoothWalls(w);   // v2.16 圓滑牆：牆和陰影改由美術層畫，這裡不畫方格陰影
   const ao = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, 'rgba(0,0,0,0.42)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(rx, ry, rw, rh); };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const px = x * TS, py = y * TS;
     if (!solid(x, y)) {
       // 牆邊的陰影（環境遮蔽），讓地板跟牆分開
-      if (solid(x - 1, y)) ao(px, 0, px + 9, 0, px, py, 9, TS);
-      if (solid(x + 1, y)) ao(px + TS, 0, px + TS - 9, 0, px + TS - 9, py, 9, TS);
-      if (solid(x, y - 1)) ao(0, py, 0, py + 12, px, py, TS, 12);
-      if (solid(x, y + 1)) ao(0, py + TS, 0, py + TS - 5, px, py + TS - 5, TS, 5);
+      if (!SMOOTH && solid(x - 1, y)) ao(px, 0, px + 9, 0, px, py, 9, TS);
+      if (!SMOOTH && solid(x + 1, y)) ao(px + TS, 0, px + TS - 9, 0, px + TS - 9, py, 9, TS);
+      if (!SMOOTH && solid(x, y - 1)) ao(0, py, 0, py + 12, px, py, TS, 12);
+      if (!SMOOTH && solid(x, y + 1)) ao(0, py + TS, 0, py + TS - 5, px, py + TS - 5, TS, 5);
       // 地上的小東西（同一張地圖每次都長一樣）
       const h = hash2(x * 3 + 11, y * 5 + 7);
       if (h % 100 < (w.kind === 'town' ? 6 : 13)) {

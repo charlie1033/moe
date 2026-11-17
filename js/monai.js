@@ -7,12 +7,13 @@
 //  ・側移（遠程怪）：射完往旁邊橫移，比較難一直追著打
 //  ・連發（法術遠程怪）：有時一次丟 3 發扇形
 //  ・保持距離（弓手類）：被貼近時退得比較早
-//  預警線、預警圈看到就翻滾（空白鍵）閃開
+//  v2.15.3 照使用者的決定：小怪（含精英）不再出現預警線、預警圈，只有首領才有；看動作（蹲低、身體抖、地面隆起）判斷
 // =============================================================
-const MON_STYLE_NAME = { charge: '衝撞', leap: '跳砸', flank: '包抄', skirm: '打了就退', strafe: '側移射擊', burst: '連發', kite: '保持距離', plain: '一般' };
+const MON_STYLE_NAME = { fly: '飛行', hop: '跳躍前進', burrow: '鑽地', charge: '衝撞', leap: '跳砸', flank: '包抄', skirm: '打了就退', strafe: '側移射擊', burst: '連發', kite: '保持距離', plain: '一般' };
 const hashStr = s => { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; };
 function monStyleFor(m) {
   const d = m.def;
+  const mv = moveStyleByType(m); if (mv && !(mv === 'burrow' && d.ranged)) return mv;   // v2.15.3 飛行／跳躍／鑽地照怪物種類
   let pool;
   if (d.ranged) pool = d.spell ? ['burst', 'strafe', 'burst'] : ['kite', 'strafe'];
   else if (d.speed >= 110) pool = ['skirm', 'flank', 'skirm'];
@@ -69,19 +70,20 @@ updateMonster = function (m, dt) {
       if (m.st <= 0) m.ss = null;
       return;
     }
+    if (m.ss === 'hopA' || m.ss === 'hopW' || m.ss === 'dig' || m.ss === 'under' || m.ss === 'rise') { const r = monMove2(m, dt, slow); if (r !== undefined) return r; }
     m.ss = null;
   }
+  // —— v2.15.3 新的移動方式：飛行、跳躍前進、鑽地 ——
+  if (m.style === 'fly' || m.style === 'hop' || m.style === 'burrow') { const r = monMove2(m, dt, slow); if (r !== undefined) return r; }
   // —— 要不要開始一個特殊動作 ——
   const aggro = m.aggro && !(m.stagger > 0) && m.state !== 'wind', d = dist(m, pl);
   if (aggro && m.sCd <= 0 && G.world && G.world.kind === 'map') {
     if (m.style === 'charge' && d > 110 && d < 320 && los(m.x, m.y, pl.x, pl.y)) {
       m.ss = 'aim'; m.st = 0.55; m.ang = Math.atan2(pl.y - m.y, pl.x - m.x); m.sCd = 4 + Math.random() * 2.5;
-      tele('line', m.x, m.y, m.r * 1.6, 0.55, '#ff7050', m.ang, 0.97 * 560 * 0.42);
       return;
     }
     if (m.style === 'leap' && d > 100 && d < 280 && los(m.x, m.y, pl.x, pl.y)) {
       m.ss = 'crouch'; m.st = 0.5; m.lx = pl.x; m.ly = pl.y; m.sCd = 5 + Math.random() * 2.5;
-      tele('circle', m.lx, m.ly, 62, 0.95, '#ffb070');
       return;
     }
   }
@@ -114,7 +116,68 @@ updateMonster = function (m, dt) {
 // 跳起來時畫高一點
 const _drawMonAI = drawMonster;
 drawMonster = function (g, m) {
-  if (m.hop) { g.save(); g.translate(0, -m.hop); _drawMonAI(g, m); g.restore(); return; }
+  if (m.hidden) {   // 鑽在地底：只畫一個會動的土堆
+    g.save(); g.fillStyle = 'rgba(90,64,40,0.9)'; g.beginPath(); g.ellipse(m.x, m.y + 6, 14, 6, 0, Math.PI, 0); g.fill();
+    g.fillStyle = 'rgba(140,104,70,0.8)'; for (let k = -1; k <= 1; k++) g.fillRect(m.x + k * 7 - 2, m.y + 1 - Math.abs(Math.sin(G.time * 12 + k)) * 3, 4, 3); g.restore(); return;
+  }
+  const up = (m.hop || 0) + (m.flyH || 0);
+  if (m.sink) { g.save(); g.globalAlpha = 1 - m.sink * 0.8; g.translate(0, m.sink * 10); _drawMonAI(g, m); g.restore(); return; }
+  if (up) { if (m.flyH) { g.save(); g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(m.x, m.y + 8, m.r, m.r * 0.35, 0, 0, Math.PI * 2); g.fill(); g.restore(); } g.save(); g.translate(0, -up); _drawMonAI(g, m); g.restore(); return; }
   if (m.ss === 'aim' || m.ss === 'crouch') { g.save(); const s = 1 + Math.sin(G.time * 30) * 0.03; g.translate(m.x, m.y); g.scale(s, 1 / s); g.translate(-m.x, -m.y); _drawMonAI(g, m); g.restore(); return; }
   _drawMonAI(g, m);
 };
+
+// =============================================================
+//  v2.15.3 怪物的新移動方式（照怪物種類決定，見 MOVE_BY_TYPE）
+//  ・飛行（蝙蝠、精魂、小鬼、火鳥、貓頭鷹、妖精、怨靈）：飛在半空中、邊飛邊左右擺，可以飛過岩漿、水、裂隙和矮障礙（牆照樣擋）
+//  ・跳躍前進（史萊姆、蛆、甲蟲、蟹、蠍）：一蹲一跳地靠近，每跳約 3 格
+//  ・鑽地（蛇、蜘蛛、掘墓人、沙蟲）：鑽進地底（看不到、打不到）→ 地面隆起一路往你衝 → 停下來抖 0.55 秒 → 破土而出撞你
+// =============================================================
+const MOVE_BY_TYPE = [[/bat|bird|owl|fairy|wisp|spirit|wraith|imp|moth|wasp|ghost|harpy/, 'fly'], [/slime|maggot|beetle|frog|toad|crab|scarab/, 'hop'], [/serpent|worm|tarantula|spider|gravedigger|scorpion|mole/, 'burrow']];
+function moveStyleByType(m) { for (const [re, s] of MOVE_BY_TYPE) if (re.test(m.type)) return s; return null; }
+function flyMove(m, dx, dy) {   // 飛的：只被牆擋（岩漿、水、矮障礙都飛得過去）
+  const nx = m.x + dx, ny = m.y + dy;
+  if (!shotWallAt(nx, m.y)) m.x = nx;
+  if (!shotWallAt(m.x, ny)) m.y = ny;
+}
+function monMove2(m, dt, slow) {
+  const pl = G.pl, d = dist(m, pl), reach = (m.def.ranged ? m.range * 0.85 : m.range + m.r + pl.r + 4);
+  if (m.style === 'fly') {
+    m.flyH = 14 + Math.sin(G.time * 4 + m.side) * 4;
+    if (!m.aggro || m.state === 'wind' || d <= reach) return;   // 打得到了：交給一般 AI 攻擊
+    const a = Math.atan2(pl.y - m.y, pl.x - m.x) + Math.sin(G.time * 2.5 + m.side * 3) * 0.6, sp = m.speed * slow * 1.05;
+    flyMove(m, Math.cos(a) * sp * dt, Math.sin(a) * sp * dt); m.facing = Math.cos(a) >= 0 ? 1 : -1;
+    m.atkCD -= dt * slow; return true;
+  }
+  if (m.style === 'hop') {
+    if (m.ss === 'hopA') {
+      const p = 1 - Math.max(0, m.st) / 0.32; m.hop = Math.sin(p * Math.PI) * 14; m.st -= dt;
+      moveEnt(m, Math.cos(m.ang) * 290 * slow * dt, Math.sin(m.ang) * 290 * slow * dt);
+      if (m.st <= 0) { m.hop = 0; m.ss = 'hopW'; m.st = 0.35 + Math.random() * 0.2; }
+      return true;
+    }
+    if (m.ss === 'hopW') { m.st -= dt; if (m.st <= 0) m.ss = null; else { m.atkCD -= dt * slow; return true; } }
+    if (!m.aggro || m.state === 'wind' || d <= reach) return;
+    m.ss = 'hopA'; m.st = 0.32; m.ang = Math.atan2(pl.y - m.y, pl.x - m.x) + (Math.random() - 0.5) * 0.4; m.facing = Math.cos(m.ang) >= 0 ? 1 : -1;
+    return true;
+  }
+  if (m.style === 'burrow') {
+    if (m.ss === 'dig') { m.st -= dt; m.sink = 1 - Math.max(0, m.st) / 0.4; if (m.st <= 0) { m.ss = 'under'; m.st = 1.1; m.hidden = true; } return true; }
+    if (m.ss === 'under') {
+      m.st -= dt; const a = Math.atan2(pl.y - m.y, pl.x - m.x); moveEnt(m, Math.cos(a) * 260 * slow * dt, Math.sin(a) * 260 * slow * dt);
+      if (Math.random() < 0.5) G.parts.push({ x: m.x + rnd(-8, 8), y: m.y + 6, vx: rnd(-20, 20), vy: -30, t: 0, dur: 0.5, color: '#8a6a44', s: 3 });
+      if (m.st <= 0 || d < 40) { m.ss = 'rise'; m.st = 0.55; }
+      return true;
+    }
+    if (m.ss === 'rise') {
+      m.st -= dt;
+      if (m.st <= 0) {
+        m.ss = 'tired'; m.st = 0.5; m.hidden = false; m.sink = 0;
+        G.fx.push({ k: 'ring', x: m.x, y: m.y, r: 52, t: 0, dur: 0.3, color: '#c89060', fill: 'rgba(200,144,96,0.2)' }); burst(m.x, m.y, '#8a6a44', 18, 180); G.shake = Math.max(G.shake, 3);
+        if (dist(pl, m) < 52 + pl.r) monsterStrike(m, pl, m.mlvl < 30 ? 1.2 : 1.4);
+      }
+      return true;
+    }
+    if (m.aggro && m.sCd <= 0 && d > 140 && d < 420 && m.state !== 'wind' && G.world && G.world.kind === 'map') { m.ss = 'dig'; m.st = 0.4; m.sCd = 6 + Math.random() * 3; return true; }
+  }
+}

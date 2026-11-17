@@ -47,6 +47,7 @@ const ColorLight = (() => {
     for (const z of G.azones) add(z.x, z.y, z.r + 20, 0.4 * Math.min(1, (z.dur - z.t) * 2), z.color);
     for (const m of G.mons) if (!m.dead && m.rarity !== 'normal') add(m.x, m.y, m.rarity === 'rare' ? 60 : 44, m.rarity === 'rare' ? 0.45 : 0.3, m.rarity === 'rare' ? '#ffd060' : '#80a0ff');
     for (const l of G.loot) if (l.item && l.item.rarity === 'unique') add(l.x, l.y, 60, 0.6, '#e8803a');
+    for (const l of G.loot) if (l.special && l.special.tier === 1 && !l.gone) add(l.x, l.y, 70, 0.7, l.special.beam);   // v2.15.3 頂級通貨
     if (w && w.portal) add(w.portal.x, w.portal.y, 110, 0.5, w.kind === 'town' ? '#ffcf60' : '#70b0ff');
     // 太多就留離角色近的
     if (L.length > MAX) { const pl = G.pl; L.sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y)); L.length = MAX; }

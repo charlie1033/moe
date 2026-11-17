@@ -9,6 +9,8 @@ const ArtUI = {
   IM: {},
   on() { return typeof ArtStyle !== 'undefined' && ArtStyle.on; },
   depth() { return typeof CFG === 'undefined' || CFG.depth3d !== false; },   // v2.12 立體光影（設定→介面可關）
+  // v2.16 這張地圖用不用「圓滑牆」：有 AI 地板＋牆貼圖、不是營地
+  smoothWalls(w) { const id = w && w.theme && w.theme.id; return !!(this.on() && w && w.kind !== 'town' && id && this.tex && this.tex(id + '_floor') && this.tex(id + '_wall')); },
   // 外框圖：量出中間的洞有多大（從中心往外找第一個不透明的點），再把洞挖乾淨
   prep(k, im) {
     const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
@@ -459,7 +461,7 @@ ArtUI.load();
       }
       g.restore();
     }
-    if (on && ArtUI.depth()) wallDepth(g, w, solid);
+    if (on && ArtUI.depth() && !ArtUI.smoothWalls(w)) wallDepth(g, w, solid);   // v2.16 圓滑牆會自己畫牆面和陰影
   };
   // v2.12 立體感：牆變高、牆頂有厚度、牆腳有落影（不管哪種場景、哪種牆的畫法都適用：直接拿已經畫好的牆面往上接）
   //   後面還有牆的地方（牆至少兩格厚）：牆的正面往上加高 16px（從 22px 變 38px）
@@ -782,7 +784,7 @@ ArtUI.load();
     g.save(); g.imageSmoothingEnabled = true; BASE = g.getTransform();
     // 怪很多時（深層夢境一個畫面上百隻）：蟲群和超過 60 隻之後的怪只投主光源的影子
     let n = 0;
-    for (const m of G.mons) if (!m.dead) cast(g, L, m.x, m.y + m.r * 0.8, m.r, m.boss ? m.r * 3.6 : 22 + m.r * 2.4, null, m.swarm || ++n > 60);
+    for (const m of G.mons) if (!m.dead && !m.hidden) cast(g, L, m.x, m.y + m.r * 0.8, m.r, m.boss ? m.r * 3.6 : 22 + m.r * 2.4, null, m.swarm || ++n > 60);
     for (const e of G.mins) cast(g, L, e.x, e.y + e.r * 0.8, e.r, 20 + e.r * 2);
     cast(g, L, pl.x, pl.y + pl.r * 0.8, 11, 52, pl);
     if (w.kind === 'town') {
@@ -997,7 +999,7 @@ ArtUI.load();
   if (typeof Hook === 'undefined') return;
   const R = 18;   // 圓角半徑（格子 32，太小看不出來）
   Hook.on('worldCanvas', w => {
-    if (!ArtUI.on() || !w.canvas || !w.grid || w.kind === 'town') return;
+    if (!ArtUI.on() || !w.canvas || !w.grid || w.kind === 'town' || ArtUI.smoothWalls(w)) return;   // 有 AI 貼圖的場景改用 v2.16 的圓滑牆
     const W = w.W, H = w.H, deco = w.deco;
     const wall = (x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x]));
     const g = w.canvas.getContext('2d');

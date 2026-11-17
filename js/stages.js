@@ -240,7 +240,7 @@ let _safeT = 0;
 Hook.on('update', dt => {
   if ((_safeT += dt) < 0.5) return; _safeT = 0;
   const w = G.world; if (!w || !w.grid || w.kind === 'town') return;
-  const fix = o => { if (o && solidAt(o.x, o.y)) { const p = nearestFloor(o.x, o.y); o.x = p.x; o.y = p.y; } };
+  const fix = o => { if (o && (o.flyH ? shotWallAt(o.x, o.y) : solidAt(o.x, o.y))) { const p = nearestFloor(o.x, o.y); o.x = p.x; o.y = p.y; } };   // 飛行的怪可以停在岩漿、水上
   for (const m of G.mons) if (!m.dead) fix(m);
   for (const m of G.mins) fix(m);
   for (const l of G.loot) fix(l);

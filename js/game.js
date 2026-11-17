@@ -975,7 +975,7 @@ function updateStrikes(dt) {
 
 // ---------- 傷害：玩家打怪 ----------
 function hitMonster(m, pk, fromMinion, src, kb = 1) {
-  if (m.dead) return;
+  if (m.dead || m.hidden) return;   // v2.15.3 鑽在地底的怪打不到
   const S = G.S;
   const roll = k => pk.d[k] ? rnd(pk.d[k][0], pk.d[k][1]) : 0;
   const crit = Math.random() * 100 < pk.crit;
@@ -1188,7 +1188,11 @@ function dropLoot(x, y, o) {
   else if (l.mat) { l.label = matName(l.mat); l.color = MATS[l.mat.slice(0, l.mat.lastIndexOf("_"))].color; }
   else if (l.jewel) { l.label = jewelName(l.jewel); l.color = JEWELS[parseJewel(l.jewel).type].color; }
   else if (l.key) { l.label = `★ ${NIGHTMARES[l.key].key}`; l.color = NIGHTMARES[l.key].color; UI.msg(`掉落了 ${NIGHTMARES[l.key].key}！`, NIGHTMARES[l.key].color); }
-  else { l.label = CURRENCY[l.cur].name; l.color = '#e8d8a8'; }
+  else {
+    l.label = CURRENCY[l.cur].name; l.color = '#e8d8a8';
+    const sp = typeof CUR_SPECIAL !== 'undefined' && CUR_SPECIAL[l.cur];   // v2.15.3 稀有通貨：特殊顏色（lootfx.js）
+    if (sp) { l.special = sp; l.color = sp.color; if (sp.tier === 1) { Sfx.play('unique'); UI.msg(`★ ${CURRENCY[l.cur].name}掉落了！`, sp.color); } }
+  }
   G.loot.push(l);
 }
 const RARITY_COLOR = { normal: '#d8d8d8', magic: '#8890ff', rare: '#ffff77', unique: '#e8803a' };
@@ -1507,7 +1511,7 @@ function updateMinion(mn, dt) {
   mn.atkCD -= dt;
   // v2.13.8 召喚物走路：只挑「看得到」的怪（不然會直線卡在牆邊）；走不動 1.5 秒就回到你身邊
   let tgt = null, bd = 320;
-  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && dist(m, pl) < 450 && (mn.ranged ? shotLos : los)(mn.x, mn.y, m.x, m.y)) { bd = d; tgt = m; } }
+  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && !m.hidden && dist(m, pl) < 450 && (mn.ranged ? shotLos : los)(mn.x, mn.y, m.x, m.y)) { bd = d; tgt = m; } }
   const ox = mn.x, oy = mn.y;
   const pk = { d: { phys: mn.dmg }, crit: 5, multi: 150 };
   if (tgt && mn.ranged) { // 靈體：遠程射擊
@@ -1543,6 +1547,9 @@ function updateMinion(mn, dt) {
   const moved = Math.hypot(mn.x - ox, mn.y - oy), wants = tgt ? bd > mn.r + tgt.r + 12 && !mn.ranged : dist(mn, pl) > 70;
   mn.stuckT = wants && moved < mn.speed * dt * 0.15 ? (mn.stuckT || 0) + dt : 0;
   if (mn.stuckT > 1.5 && dist(mn, pl) > 90) { const p = randomFloorNear(pl.x + rnd(-40, 40), pl.y + rnd(-40, 40), 30); mn.x = p.x; mn.y = p.y; mn.stuckT = 0; burst(mn.x, mn.y, '#c8a8ff', 8, 80); }
+  // v2.15.3 召喚物互相推開（也不會疊在你身上），站成一圈而不是擠成一團
+  for (const o of G.mins) { if (o === mn) continue; const dx = mn.x - o.x, dy = mn.y - o.y, dd = Math.hypot(dx, dy) || 0.01, md = mn.r + o.r + 6; if (dd < md) { const k = (md - dd) * 0.5; moveEnt(mn, dx / dd * k, dy / dd * k); } }
+  { const dx = mn.x - pl.x, dy = mn.y - pl.y, dd = Math.hypot(dx, dy) || 0.01, md = mn.r + pl.r + 4; if (dd < md) moveEnt(mn, dx / dd * (md - dd), dy / dd * (md - dd)); }
 }
 
 // ---------- 特效小工具 ----------
@@ -1749,7 +1756,7 @@ function update(dt) {
     if (shotWallAt(p.x, p.y)) { p.dead = true; if (p.explode) explodeAt(p); continue; }   // v2.13.9 岩漿、水、矮障礙飛得過去
     if (p.team === 'ally') {
       for (const m of G.mons) {
-        if (m.dead || p.hit.has(m)) continue;
+        if (m.dead || m.hidden || p.hit.has(m)) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) < m.r + p.r) {
           if (p.explode) { explodeAt(p); p.dead = true; break; }
           const nth = p.cast ? (p.cast.get(m) || 0) : 0; if (p.cast) p.cast.set(m, nth + 1);

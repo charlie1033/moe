@@ -618,8 +618,9 @@ function drawLootLabels(g, cx, cy) {
     }
     const hover = input.mx >= r.x && input.mx <= r.x + r.w && input.my >= r.y && input.my <= r.y + r.h;
     const normal = l.item && l.item.rarity === 'normal';
-    g.fillStyle = hover ? 'rgba(48,40,30,0.96)' : 'rgba(6,5,8,0.82)'; roundRect(g, r.x, r.y, r.w, r.h, 3); g.fill();
-    g.strokeStyle = l.color; g.globalAlpha = normal ? 0.25 : hover ? 1 : 0.75; g.lineWidth = 1; roundRect(g, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 3); g.stroke(); g.globalAlpha = 1;
+    const sp = l.special;   // v2.15.3 稀有通貨：整塊染色（頂級）或加粗外框（次一級）
+    g.fillStyle = sp && sp.bg ? sp.bg : hover ? 'rgba(48,40,30,0.96)' : 'rgba(6,5,8,0.82)'; roundRect(g, r.x, r.y, r.w, r.h, 3); g.fill();
+    g.strokeStyle = l.color; g.globalAlpha = normal ? 0.25 : hover || sp ? 1 : 0.75; g.lineWidth = sp ? 2 : 1; roundRect(g, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 3); g.stroke(); g.globalAlpha = 1;
     if (G.nearAct && G.nearAct.ref === l) { const p = 0.6 + 0.4 * Math.sin(G.time * 8); g.strokeStyle = `rgba(255,220,120,${p})`; g.lineWidth = 2; roundRect(g, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 4); g.stroke(); }   // v2.7.4 按 F 會撿這個
     txt(g, l.label, r.x + r.w / 2, r.y + H / 2 + 0.5, 11, l.color, 'center', false);
   }
@@ -848,6 +849,7 @@ function drawHUD(g) {
     g.drawImage(w.mini, mx, my, mw, mh);
     if (w.boss && w.explored[(w.boss.y + (w.boss.h >> 1)) * w.W + w.boss.x + (w.boss.w >> 1)]) txt(g, '☠', mx + (w.boss.x + w.boss.w / 2) * s, my + (w.boss.y + w.boss.h / 2) * s, 12, '#ff7050', 'center');
     if (w.portal) { g.fillStyle = '#70b0ff'; g.fillRect(mx + w.portal.x / TS * s - 2, my + w.portal.y / TS * s - 2, 4, 4); }
+    Hook.emit('drawMinimap', g, mx, my, s);   // v2.15.3 小地圖上的事件、精英怪（minimapmarks.js）
     g.fillStyle = '#ffffff'; g.fillRect(mx + pl.x / TS * s - 2, my + pl.y / TS * s - 2, 4, 4);
   }
 }
