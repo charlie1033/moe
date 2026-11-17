@@ -183,7 +183,7 @@ function buildTree() {
     for (let i = 0; i < L; i++) {
       const [nm, st] = i < basic ? basicSmall(ang, i) : smalls[(i - basic) % smalls.length];
       const id = `${prefix}${i}`;
-      tnode(id, ang + (i % 2 ? 2.6 : -2.6) * (1 + i * 0.15), r0 + i * STEP, 'minor', nm, Object.assign({}, st));
+      tnode(id, ang, r0 + i * STEP, 'minor', nm, Object.assign({}, st));   // v2.14 一串天賦沿直線往外排（以前左右鋸齒交錯，線會上下亂跳）
       tlink(prev, id); prev = id; ids.push(id);
     }
     // 中段長出一顆共同小點（可重複的生命／魔力／抗性…）
@@ -212,7 +212,7 @@ function buildTree() {
     let prev = tipId;
     for (let k = 0; k < n; k++) {
       const id = k === 0 ? `A${i}_b` : `A${i}_b${k + 1}`;
-      travel(id, c[0] + (k % 2 ? 2 : -2), tn.rad + (R_OUT - tn.rad) * (k + 1) / (n + 1));
+      travel(id, c[0], tn.rad + (R_OUT - tn.rad) * (k + 1) / (n + 1));
       tlink(prev, id); prev = id;
     }
     tlink(prev, nearestOuter(c[0]));
@@ -223,7 +223,7 @@ function buildTree() {
   const DEEP_TRAVEL = 4;
   DEEP_CONSTS.forEach((c, i) => {
     let prev = nearestOuter(c[0]);
-    for (let k = 0; k < DEEP_TRAVEL; k++) { travel(`D${i}_t${k}`, c[0] + (k % 2 ? 2 : -2), R_OUT + 56 + STEP * k); tlink(prev, `D${i}_t${k}`); prev = `D${i}_t${k}`; }
+    for (let k = 0; k < DEEP_TRAVEL; k++) { travel(`D${i}_t${k}`, c[0], R_OUT + 56 + STEP * k); tlink(prev, `D${i}_t${k}`); prev = `D${i}_t${k}`; }
     constellation(`D${i}_`, c, R_OUT + 56 + STEP * DEEP_TRAVEL, prev);
   });
   // ⑤ v1.6 交錯的星橋：相鄰星座之間多拉幾條線，讓路線更錯綜
@@ -283,6 +283,10 @@ function untangleTree() {
     for (const n of N) { const c = TREE_CACHE.p[n.id]; n.x = c[0]; n.y = c[1]; n.links = c[2].slice(); }
     return;
   }
+  // v2.14 這台裝置上次算好的結果（存在瀏覽器裡）：樹改版後每台裝置只要第一次開遊戲算一次
+  const LS = 'moe_treecache';
+  try { const c = JSON.parse(localStorage.getItem(LS) || 'null'); if (c && c.sig === sig && c.n === N.length && N.every(n => c.p[n.id])) { for (const n of N) { const p = c.p[n.id]; n.x = p[0]; n.y = p[1]; n.links = p[2].slice(); } return; } } catch (e) { }
+  const saveLS = () => { try { const p = {}; for (const n of N) p[n.id] = [Math.round(n.x * 10) / 10, Math.round(n.y * 10) / 10, n.links.slice()]; localStorage.setItem(LS, JSON.stringify({ sig, n: N.length, p })); } catch (e) { } };
   const edges = () => { const E = []; for (const n of N) for (const l of n.links) if (l > n.id) E.push([n, TREE.nodes[l]]); return E; };
   const segDist = (p, a, b) => { const vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / L2)); return { d: Math.hypot(p.x - a.x - vx * t, p.y - a.y - vy * t), t, vx, vy }; };
   const cross = (p1, p2, p3, p4) => { const s = (a, b, c) => (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x); return ((s(p3, p4, p1) > 0) !== (s(p3, p4, p2) > 0)) && ((s(p1, p2, p3) > 0) !== (s(p1, p2, p4) > 0)); };
@@ -323,6 +327,7 @@ function untangleTree() {
     }
     if (!removed) break;
   }
+  saveLS();
 }
 // 天賦分類與顏色（星星的顏色＝這顆天賦是哪一類）
 const TREE_CATS = {
@@ -529,12 +534,17 @@ const TreeView = {
       //   已點＝金色發光粗線、可以點下一步＝亮的虛線（會流動）、還沒走到＝清楚的淡藍線
       const k = Math.max(0.7, sc);
       g.lineCap = 'round';
-      g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = (both ? 5 : 3.4) * k; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
-      if (both) { g.strokeStyle = 'rgba(255,200,90,0.35)'; g.lineWidth = 8 * Math.max(0.6, sc); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
-      g.strokeStyle = both ? '#ffd27a' : one ? 'rgba(255,236,170,0.9)' : 'rgba(170,185,240,0.5)';
-      g.lineWidth = (both ? 2.8 : one ? 2 : 1.6) * k;
-      if (one && !both) { g.setLineDash([6 * k, 4 * k]); g.lineDashOffset = -G.time * 18; }
-      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      // v2.14 POE 風格：兩顆星在同一圈上（離中心一樣遠）＝沿著圓弧連；其他＝直線。線全部加粗
+      const path = () => { g.beginPath(); const ra = Math.hypot(n.x, n.y), rb = Math.hypot(o.x, o.y);
+        let aa = Math.atan2(n.y, n.x), ab = Math.atan2(o.y, o.x), da = ab - aa; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+        if (ra > 60 && Math.abs(ra - rb) < 24 && Math.abs(da) > 0.02 && Math.abs(da) < 1.2) { const R = (ra + rb) / 2 * sc, cx = c.width / 2 + this.ox, cy = c.height / 2 + this.oy; g.moveTo(a.x, a.y); g.arc(cx, cy, R, aa, aa + da, da < 0); g.lineTo(b.x, b.y); }
+        else { g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); } };
+      g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = (both ? 8 : 6) * k; path(); g.stroke();
+      if (both) { g.strokeStyle = 'rgba(255,200,90,0.35)'; g.lineWidth = 12 * Math.max(0.6, sc); path(); g.stroke(); }
+      g.strokeStyle = both ? '#ffd27a' : one ? 'rgba(255,236,170,0.95)' : 'rgba(150,165,220,0.55)';
+      g.lineWidth = (both ? 4.5 : one ? 3.4 : 2.8) * k;
+      if (one && !both) { g.setLineDash([8 * k, 5 * k]); g.lineDashOffset = -G.time * 18; }
+      path(); g.stroke();
       g.setLineDash([]); g.lineCap = 'butt';
     }
     // 星座名稱
