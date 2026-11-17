@@ -941,8 +941,21 @@ ArtUI.load();
       const same = (x, y) => { const v = at(x, y); return v === T || (T === 2 && v === 15); };
       const cells = []; for (let i = 0; i < W * H; i++) { const v = w.deco[i]; if (v === T || (T === 2 && v === 15)) cells.push(i); }
       if (!cells.length) continue;
-      g.fillStyle = pat(g, k); g.beginPath(); for (const i of cells) g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); g.fill();
       const [inner, rim, drop] = EDGE[k];
+      // v2.16 有地板貼圖時：池子也用圓滑輪廓（跟牆同一套），不再是一格一格的方塊
+      const fl = ArtUI.contour && w.theme && ArtUI.tex && ArtUI.tex(w.theme.id + '_floor');
+      if (fl) {
+        g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath(); for (const i of cells) g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); g.fill();   // 池子格先鋪地板
+        const L = ArtUI.contour(w, same, false); (w._liq || (w._liq = {}))[k] = L;
+        g.save(); g.strokeStyle = drop; g.lineWidth = 6; g.stroke(L); g.restore();   // 岸上一圈落影
+        g.save(); g.clip(L, 'evenodd');
+        g.fillStyle = pat(g, k); g.fillRect(0, 0, W * TS, H * TS);
+        g.strokeStyle = inner; g.globalAlpha = 0.5; g.lineWidth = 20; g.stroke(L); g.globalAlpha = 0.7; g.lineWidth = 8; g.stroke(L);   // 池子內側一圈暗（看起來凹下去）
+        g.globalAlpha = 1; g.strokeStyle = rim; g.lineWidth = 3; g.stroke(L);   // 液面邊緣亮線
+        g.restore();
+      } else {
+      if (w._liq) delete w._liq[k];
+      g.fillStyle = pat(g, k); g.beginPath(); for (const i of cells) g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); g.fill();
       for (const i of cells) {
         const x = i % W, y = (i / W) | 0, X = x * TS, Y = y * TS;
         const side = (nx, ny, gx0, gy0, gx1, gy1, rx, ry, rw, rh, lx, ly, lw, lh, ox, oy, ow, oh) => {
@@ -956,6 +969,7 @@ ArtUI.load();
         side(x, y + 1, 0, Y + TS, 0, Y + TS - 6, X, Y + TS - 6, TS, 6, X, Y + TS - 3, TS, 1, X, Y + TS, TS, 2);
         side(x - 1, y, X, 0, X + 7, 0, X, Y, 7, TS, X + 2, Y, 1, TS, X - 2, Y, 2, TS);
         side(x + 1, y, X + TS, 0, X + TS - 7, 0, X + TS - 7, Y, 7, TS, X + TS - 3, Y, 1, TS, X + TS, Y, 2, TS);
+      }
       }
       if (T === 2) for (const i of cells) if (w.deco[i] === 15) {   // 木橋：木板畫在水面上
         const X = (i % W) * TS, Y = ((i / W) | 0) * TS;
@@ -978,10 +992,13 @@ ArtUI.load();
       g.beginPath(); let n = 0;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.deco[y * W + x] === T) { g.rect(x * TS, y * TS, TS, TS); n++; }
       if (!n) continue;
+      const L = w._liq && w._liq[k];   // v2.16 圓滑池子：流動層也照輪廓裁，不會畫出方塊
+      if (L) { g.save(); g.clip(L, 'evenodd'); g.beginPath(); g.rect(x0 * TS, y0 * TS, (x1 - x0 + 1) * TS, (y1 - y0 + 1) * TS); }
       const [vx, vy] = FLOW[k];
       g.globalCompositeOperation = 'source-over'; g.globalAlpha = k === 'rift' ? 0.3 : 0.38;
       g.fillStyle = pat(g, k, t * vx, t * vy); g.fill();
       if (k === 'lava') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2); g.fillStyle = pat(g, k, -t * 3, t * 5); g.fill(); }
+      if (L) g.restore();
     }
     g.restore();
   });
@@ -1077,5 +1094,106 @@ ArtUI.load();
         g.fillStyle = inMap ? colAt(wx, wy, 1.7) : '#998'; g.fillRect(Math.round(sx - s * 0.4), Math.round(sy - s * 0.5), Math.max(1, s * 0.6), 1);
       }
     }
+  });
+})();
+
+// =============================================================
+//  v2.16 圓滑牆（使用者：貼圖上還是看得到角，要讓牆的貼圖本身是圓滑輪廓）
+//  ・不再「一格一格」畫牆：先算出整張地圖牆的圓滑輪廓（把牆格子模糊後取一半的等高線＋一點點雜訊），
+//    牆格底下先鋪連續的地板，再用這個輪廓「裁」牆的貼圖貼上去 → 削掉的地方露出真正的地板，看不到方格接縫
+//  ・立體：輪廓整塊是牆面（貼圖＋越往下越暗），輪廓往上移 hf 之後還在牆裡的部分是牆頂（貼圖壓暗）；交界一條亮線，外圍一圈深色描邊，牆外地上有落影
+//  ・保證：每格牆的中心一定是牆、每格地板的中心一定是地板（輪廓只在格子邊緣圓滑，不會吃掉能走的地方）
+//  ・只用在有 AI 地板＋牆貼圖、而且不是營地的地圖（ArtUI.smoothWalls）；碰撞照舊是格子
+// =============================================================
+(function () {
+  if (typeof Hook === 'undefined') return;
+  const RES = 8, PAD = 3, SUB = TS / RES;   // 輪廓取樣：每格 4×4 點
+  function contour(w, inside, outer = true) {   // inside(x,y)：這格算不算「裡面」；outer：地圖外圍算不算裡面（牆＝算，水池＝不算）
+    const W = w.W, H = w.H, deco = w.deco;
+    const wall = inside || ((x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x])));
+    const NX = W * SUB + PAD * 2, NY = H * SUB + PAD * 2;
+    let v = new Float32Array(NX * NY), t = new Float32Array(NX * NY);
+    const cellOf = i => Math.floor((i - PAD + 0.5) * RES / TS);
+    for (let j = 0; j < NY; j++) { const cy = cellOf(j); for (let i = 0; i < NX; i++) v[j * NX + i] = wall(cellOf(i), cy) ? 1 : 0; }
+    const blurX = (a, b) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { let s = 0; for (let k = -2; k <= 2; k++) s += a[j * NX + Math.min(NX - 1, Math.max(0, i + k))]; b[j * NX + i] = s / 5; } };
+    const blurY = (a, b) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { let s = 0; for (let k = -2; k <= 2; k++) s += a[Math.min(NY - 1, Math.max(0, j + k)) * NX + i]; b[j * NX + i] = s / 5; } };
+    blurX(v, t); blurY(t, v); blurX(v, t); blurY(t, v);
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const gx = i - PAD, gy = j - PAD, cx = cellOf(i), cy = cellOf(j), k = j * NX + i;
+      v[k] += ((hash2(gx * 3 + 7, gy * 5 + 11) % 1000) / 1000 - 0.5) * 0.14;   // 一點點雜訊：直牆邊不會是一條死板的直線
+      const lx = (gx % SUB + SUB) % SUB, ly = (gy % SUB + SUB) % SUB, core = lx >= 1 && lx <= 2 && ly >= 1 && ly <= 2;
+      if (core) v[k] = wall(cx, cy) ? Math.max(v[k], 0.7) : Math.min(v[k], 0.3);   // 格子中心：牆一定是牆、地板一定是地板
+    }
+    // marching squares：沿著輪廓走一圈，做成一條條完整的外框線（不是一堆小塊拼起來，才不會有接縫細線）
+    //   外框和中間的洞（牆裡的地板）用 evenodd 規則一起處理
+    const X = i => (i - PAD + 0.5) * RES, Y = j => (j - PAD + 0.5) * RES, T = 0.5;
+    const val = (i, j) => v[j * NX + i];
+    const ptOf = key => {   // 邊的編號 → 輪廓點（在那條邊上依數值內插）
+      const e = key % 2, idx = (key - e) / 2, i = idx % NX, j = (idx - i) / NX;
+      if (e === 0) { const p = val(i, j), q = val(i + 1, j), f = (T - p) / (q - p); return [X(i) + RES * f, Y(j)]; }
+      const p = val(i, j), q = val(i, j + 1), f = (T - p) / (q - p); return [X(i), Y(j) + RES * f];
+    };
+    const link = new Map(), add = (k1, k2) => { (link.get(k1) || link.set(k1, []).get(k1)).push(k2); (link.get(k2) || link.set(k2, []).get(k2)).push(k1); };
+    for (let j = 0; j < NY - 1; j++) for (let i = 0; i < NX - 1; i++) {
+      const a = val(i, j) >= T, b = val(i + 1, j) >= T, c = val(i + 1, j + 1) >= T, d = val(i, j + 1) >= T;
+      const n = (a ? 8 : 0) | (b ? 4 : 0) | (c ? 2 : 0) | (d ? 1 : 0); if (n === 0 || n === 15) continue;
+      const top = (j * NX + i) * 2, bot = ((j + 1) * NX + i) * 2, left = (j * NX + i) * 2 + 1, right = (j * NX + i + 1) * 2 + 1;
+      const mid = (val(i, j) + val(i + 1, j) + val(i + 1, j + 1) + val(i, j + 1)) / 4 >= T;
+      switch (n) {
+        case 1: case 14: add(left, bot); break;
+        case 2: case 13: add(bot, right); break;
+        case 3: case 12: add(left, right); break;
+        case 4: case 11: add(top, right); break;
+        case 6: case 9: add(top, bot); break;
+        case 7: case 8: add(left, top); break;
+        case 5: if (mid) { add(left, top); add(bot, right); } else { add(top, right); add(left, bot); } break;
+        case 10: if (mid) { add(top, right); add(left, bot); } else { add(left, top); add(bot, right); } break;
+      }
+    }
+    const P = new Path2D(), seen = new Set();
+    if (outer) P.rect(X(0), Y(0), X(NX - 1) - X(0), Y(NY - 1) - Y(0));   // 地圖外圍整個算牆；輪廓線圍起來的是地板（evenodd：外框減掉地板＝牆，地板裡的柱子又是牆）
+    for (const start of link.keys()) {
+      if (seen.has(start)) continue;
+      let prev = -1, cur = start, first = true;
+      while (true) {
+        seen.add(cur); const [px, py] = ptOf(cur);
+        if (first) { P.moveTo(px, py); first = false; } else P.lineTo(px, py);
+        const nb = link.get(cur), next = nb[0] !== prev ? nb[0] : nb[1];
+        if (next === undefined || next === start || seen.has(next)) break;
+        prev = cur; cur = next;
+      }
+      P.closePath();
+    }
+    return P;
+  }
+  const moved = (P, dx, dy) => { const p = new Path2D(); p.addPath(P, new DOMMatrix([1, 0, 0, 1, dx, dy])); return p; };
+  ArtUI.contour = contour;   // 岩漿水塘也用同一套圓滑輪廓
+  Hook.on('worldCanvas', w => {
+    if (!w.canvas || !w.grid || !ArtUI.smoothWalls(w)) return;
+    const id = w.theme.id, fl = ArtUI.tex(id + '_floor'), wl = ArtUI.tex(id + '_wall'), g = w.canvas.getContext('2d');
+    const W = w.W, H = w.H, deco = w.deco, CW = W * TS, CH = H * TS, hf = ArtUI.depth() ? 26 : 22;
+    const P = contour(w), cap = moved(P, 0, -hf);
+    const big = new Path2D(); big.rect(-200, -200, CW + 400, CH + 400);
+    g.save();
+    // 0) 牆格底下先鋪連續的地板（被削掉的牆角露出來的就是真正的地板）
+    g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x])) g.rect(x * TS, y * TS, TS, TS);
+    g.fill();
+    // 1) 牆外地上的落影（往右下）
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.fill(moved(P, 4, 7), 'evenodd'); g.fillStyle = 'rgba(0,0,0,0.22)'; g.fill(moved(P, 1.5, 3), 'evenodd');
+    // 2) 牆面：整塊先貼牆貼圖，越往下越暗
+    g.save(); g.clip(P, 'evenodd');
+    g.fillStyle = g.createPattern(wl, 'repeat'); g.fillRect(0, 0, CW, CH);
+    for (const [k, a] of [[0.7, 0.14], [0.45, 0.14], [0.2, 0.16]]) { const p = new Path2D(); p.addPath(big); p.addPath(P, new DOMMatrix([1, 0, 0, 1, 0, -hf * k])); g.fillStyle = `rgba(0,0,0,${a})`; g.fill(p, 'evenodd'); }
+    // 3) 牆頂：輪廓往上移 hf 之後還在牆裡的地方；貼圖壓暗，邊緣一圈稍亮（看起來有厚度）
+    g.save(); g.clip(cap, 'evenodd');
+    g.fillStyle = g.createPattern(wl, 'repeat'); g.fillRect(0, 0, CW, CH); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, 0, CW, CH);
+    g.strokeStyle = 'rgba(255,240,220,0.1)'; g.lineWidth = 6; g.stroke(cap);
+    g.restore();
+    g.strokeStyle = 'rgba(255,245,230,0.22)'; g.lineWidth = 2; g.stroke(cap);   // 牆頂和牆面交界的亮線
+    g.restore();
+    // 4) 外輪廓一圈深色描邊，牆和地板分得開
+    g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 1.5; g.stroke(P);
+    g.restore();
   });
 })();
