@@ -2,10 +2,32 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>夢疑 MOE v2.12.6</title>
+<title>夢疑 MOE v2.12.7</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="夢疑">
+<meta name="theme-color" content="#07060a">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  /* 載入畫面：遊戲檔案下載完之前先顯示（boot.jpg 只有 50KB，很快就出來） */
+  #boot { position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:10px;
+    padding:0 8vw calc(9vh + env(safe-area-inset-bottom)); background:#07060a url(boot.jpg) center / cover no-repeat; color:#e8d8a8;
+    font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif; transition:opacity .45s; }
+  #boot::before { content:""; position:absolute; inset:0; background:linear-gradient(rgba(6,4,8,.15), rgba(6,4,8,.35) 55%, rgba(6,4,8,.85)); }
+  #boot > * { position:relative; }
+  #boot .bt { font-size:clamp(34px, 9vmin, 72px); letter-spacing:.3em; color:#f0d088; text-shadow:0 2px 10px #000, 0 0 24px rgba(240,190,90,.35); margin-bottom:auto; margin-top:12vh; padding-left:.3em; }
+  #boot .bt small { display:block; font-size:.32em; letter-spacing:.9em; text-align:center; margin-top:.2em; }
+  #boot .bbar { width:min(520px, 84vw); height:10px; border:1px solid #8a6a30; border-radius:6px; background:rgba(0,0,0,.6); overflow:hidden; box-shadow:0 0 12px rgba(0,0,0,.8); }
+  #boot .bfill { height:100%; width:0; background:linear-gradient(90deg, #8a5a20, #f0c060); transition:width .2s; }
+  #boot .bmsg { font-size:14px; text-shadow:0 1px 3px #000; min-height:1.4em; text-align:center; }
+  #boot.done { opacity:0; pointer-events:none; }
+  #boot .berr { color:#ff9a8a; font-size:13px; max-width:84vw; text-align:center; }
+  #boot button { font-size:15px; padding:6px 18px; background:#2a1e10; color:#f0d088; border:1px solid #c8a050; border-radius:6px; }
+</style>
 <style>
   :root { --bg:#07060a; --panel:#141118; --line:#5a4a30; --gold:#e8c878; --text:#e0d6c0; --dim:#988c74; }
   * { box-sizing: border-box; }
@@ -530,11 +552,12 @@
 </style>
 </head>
 <body>
+<div id="boot"><div class="bt">夢疑<small>MOE</small></div><div class="bmsg" id="bootMsg">正在準備夢境…</div><div class="bbar"><div class="bfill" id="bootFill"></div></div></div>
 <canvas id="game"></canvas>
 
 <div id="menu" class="panel">
   <div class="title">夢疑 <span class="title-en"><i>M</i><i>O</i><i>E</i></span></div>
-  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.12.6</div>
+  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.12.7</div>
   <div id="menuBody"></div>
 </div>
 
@@ -638,72 +661,63 @@
 
 <div id="tip"></div>
 
-<script src="js/sfx.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/core.js"></script>
-<script src="js/data.js"></script>
-<script src="js/story.js"></script>
-<script src="js/quests.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/art.js"></script>
-<script src="js/artwork.js"></script>
-<script src="js/artstyle.js"></script>
-<script src="js/scene.js"></script>
-<script src="js/atlas0x72.js"></script>
-<script src="js/atlasdcss.js"></script>
-<script src="js/atlaswild.js"></script>
-<script src="js/pixelart.js"></script>
-<script src="js/paperdoll.js"></script>
-<script src="js/treecache.js"></script>
-<script src="js/tree.js"></script>
-<script src="js/gemlevel.js"></script>
-<script src="js/items.js"></script>
-<script src="js/game.js"></script>
-<script src="js/newskills.js"></script>
-<script src="js/stacks.js"></script>
-<script src="js/render.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/dragitem.js"></script>
-<script src="js/enhance.js"></script>
-<script src="js/dreamscar.js"></script>
-<script src="js/elites.js"></script>
-<script src="js/curses.js"></script>
-<script src="js/gems2.js"></script>
-<script src="js/monai.js"></script>
-<script src="js/stashspec.js"></script>
-<script src="js/endgame.js"></script>
-<script src="js/tutorial.js"></script>
-<script src="js/artscenes.js"></script>
-<script src="js/artui.js"></script>
-<script src="js/touch.js"></script>
-<script src="js/dodge.js"></script>
-<script src="js/treeplan.js"></script>
-<script src="js/camplife.js"></script>
-<script src="js/jewels2.js"></script>
-<script src="js/uniqstash.js"></script>
-<script src="js/dreamkeep.js"></script>
-<script src="js/gemquick.js"></script>
-<script src="js/stages.js"></script>
-<script src="js/treejewels.js"></script>
-<script src="js/mapevents.js"></script>
-<script src="js/village.js"></script>
-<script src="js/music.js"></script>
-<script src="js/classmove.js"></script>
-<script src="js/levelfx.js"></script>
-<script src="js/townlayout.js"></script>
-<script src="js/auras.js"></script>
-<script src="js/gems3.js"></script>
-<script src="js/stackprops.js"></script>
-<script src="js/atlas.js"></script>
-<script src="js/dreamtide.js"></script>
-<script src="js/dreamrites.js"></script>
-<script src="js/depths.js"></script>
-<script src="js/maptint.js"></script>
-<script src="js/lights.js"></script>
-<script src="js/perfguard.js"></script>
-<script src="js/mobilefit.js"></script>
-<script src="js/core-end.js"></script>
-<script src="js/main.js"></script>
-<script>if (/[?&]dev=1/.test(location.search)) { const s = document.createElement('script'); s.src = 'js/devtest.js'; document.body.appendChild(s); }</script>
+<!--BOOT-->
+<script id="bootList" type="application/json">{"v":"2.12.7","f":[["sfx.js",8729],["settings.js",16771],["core.js",2792],["data.js",90752],["story.js",35296],["quests.js",7410],["sprites.js",22186],["art.js",37799],["artwork.js",8399247],["artstyle.js",6862],["scene.js",17586],["atlas0x72.js",69467],["atlasdcss.js",62527],["atlaswild.js",7074],["pixelart.js",14460],["paperdoll.js",25244],["treecache.js",26749],["tree.js",42735],["gemlevel.js",6597],["items.js",36521],["game.js",102146],["newskills.js",13815],["stacks.js",10063],["render.js",61041],["ui.js",93953],["dragitem.js",12580],["enhance.js",16586],["dreamscar.js",20409],["elites.js",10956],["curses.js",7238],["gems2.js",7815],["monai.js",7161],["stashspec.js",11129],["endgame.js",13156],["tutorial.js",5923],["artscenes.js",8520],["artui.js",55457],["touch.js",10925],["dodge.js",3910],["treeplan.js",8444],["camplife.js",8548],["jewels2.js",6434],["uniqstash.js",4742],["dreamkeep.js",4771],["gemquick.js",3310],["stages.js",14317],["treejewels.js",11019],["mapevents.js",15845],["village.js",5015],["music.js",6702],["classmove.js",6293],["levelfx.js",2768],["townlayout.js",3771],["auras.js",6132],["gems3.js",7644],["stackprops.js",12960],["atlas.js",12507],["dreamtide.js",8984],["dreamrites.js",10402],["depths.js",6550],["maptint.js",5664],["lights.js",6813],["perfguard.js",1756],["mobilefit.js",8880],["core-end.js",1763],["main.js",9778]]}</script>
+<!--/BOOT-->
+<script>
+// =============================================================
+//  v2.12.7 載入器：顯示載入畫面＋進度條，把遊戲的 js 一個一個載進來
+//  ・清單（檔名、大小、版本）放在上面的 bootList，由 tools\boot.ps1 產生（bump.ps1 會自動跑）
+//  ・網址後面加 ?v=版本 → 每次改版手機一定拿到新檔案，不會卡在舊的快取
+//  ・用網址開（http/https）：同時下載、照順序執行，進度條照實際下載的位元組；
+//    雙擊打開（file://）：沒辦法用下載，改成一個一個用 <script> 載入，進度照檔案個數
+//  ・有支援的瀏覽器會註冊 sw.js：第二次打開直接用手機裡存好的檔案，不用再下載 9MB
+// =============================================================
+(function () {
+  const L = JSON.parse(document.getElementById('bootList').textContent), V = L.v, files = L.f;
+  const fill = document.getElementById('bootFill'), msg = document.getElementById('bootMsg');
+  const total = files.reduce((a, f) => a + f[1], 0); let got = 0;
+  const show = () => { const p = Math.min(1, got / total); fill.style.width = (p * 100).toFixed(1) + '%'; msg.textContent = p < 1 ? `正在下載夢境… ${Math.round(p * 100)}%（${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MB）` : '正在醒來…'; };
+  const url = f => 'js/' + f + '?v=' + V;
+  const fail = e => { msg.innerHTML = '<span class="berr">載入失敗：' + (e && e.message || e) + '<br>請確認網路後重新整理</span>'; const b = document.createElement('button'); b.textContent = '重新整理'; b.onclick = () => location.reload(); document.getElementById('boot').appendChild(b); };
+  const finish = () => {
+    got = total; show();
+    if (/[?&]dev=1/.test(location.search)) { const s = document.createElement('script'); s.src = 'js/devtest.js?v=' + V; document.body.appendChild(s); }
+    setTimeout(() => { const b = document.getElementById('boot'); b.classList.add('done'); setTimeout(() => b.remove(), 500); }, 150);
+  };
+  function viaTags() {   // file://：照順序一個一個載
+    let i = 0;
+    const next = () => {
+      if (i >= files.length) return finish();
+      const f = files[i++], s = document.createElement('script'); s.src = 'js/' + f[0];
+      s.onload = () => { got += f[1]; show(); next(); }; s.onerror = () => fail('js/' + f[0]);
+      document.body.appendChild(s);
+    };
+    next();
+  }
+  async function viaFetch() {   // http(s)：同時下載、照順序執行
+    const one = async f => {
+      const r = await fetch(url(f[0])); if (!r.ok) throw new Error('js/' + f[0] + '（' + r.status + '）');
+      if (!r.body || !r.body.getReader) { const t = await r.text(); got += f[1]; show(); return t; }
+      const rd = r.body.getReader(), parts = []; let n = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); n += value.length; const add = Math.min(value.length, Math.max(0, f[1] - (n - value.length))); got += add; show(); }
+      got += Math.max(0, f[1] - n); show();   // 壓縮過的檔案實際下載比較小：補滿這個檔案的份
+      const all = new Uint8Array(n); let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
+      return new TextDecoder('utf-8').decode(all);
+    };
+    const jobs = files.map(f => one(f));   // 全部一起下載
+    for (let i = 0; i < files.length; i++) {
+      const code = await jobs[i];
+      const s = document.createElement('script'); s.text = code + '\n//# sourceURL=js/' + files[i][0];
+      document.body.appendChild(s);       // 照原本的順序執行
+    }
+    finish();
+  }
+  show();
+  if (location.protocol === 'file:' || !window.fetch) viaTags();
+  else viaFetch().catch(e => { console.warn('fetch 載入失敗，改用一般載入', e); got = 0; viaTags(); });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => { }); } catch (e) { } }
+})();
+</script>
 </body>
 </html>

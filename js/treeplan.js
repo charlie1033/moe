@@ -81,6 +81,8 @@ TreeView.draw = function () {
       const e = this.toScreen(TREE.nodes[hv]); g.fillText(`${path.length} 點`, e.x, e.y - this.nodeR(TREE.nodes[hv]) - 8);
     }
   }
+  // v2.12.7 手機：點了第一下的天賦點畫一圈閃爍的白圈（再點一下就點下去）
+  if (this.tapSel && TREE.nodes[this.tapSel]) { const n = TREE.nodes[this.tapSel], p = this.toScreen(n); g.strokeStyle = `rgba(255,255,255,${0.55 + 0.4 * Math.sin(G.time * 8)})`; g.lineWidth = 3; g.setLineDash([]); g.beginPath(); g.arc(p.x, p.y, this.nodeR(n) + 9, 0, Math.PI * 2); g.stroke(); g.lineWidth = 2; }
   // 待確認的點
   g.strokeStyle = 'rgba(255,211,106,0.95)'; g.setLineDash([4, 3]);
   for (const id of pendOf(P)) { const n = TREE.nodes[id], p = this.toScreen(n); g.beginPath(); g.arc(p.x, p.y, this.nodeR(n) + 5, 0, Math.PI * 2); g.stroke(); }
@@ -99,7 +101,7 @@ const TreePlan = {
     }
     const n = P ? pendOf(P).length : 0;
     b.style.display = n ? 'flex' : 'none';
-    if (n) b.querySelector('.tpt').textContent = `${n} 點待確認（右鍵可以免費取消）`;
+    if (n) b.querySelector('.tpt').textContent = typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? `${n} 點待確認（點兩下可以免費取消）` : `${n} 點待確認（右鍵可以免費取消）`;
   },
   confirm() { const P = G.P; const n = pendOf(P).length; P.treePend = []; Sfx.play('levelup'); UI.msg(`天賦確認：${n} 點`, '#9fff9f'); saveGame(); this.bar(); },
   cancel() { const P = G.P, pend = new Set(pendOf(P)); P.tree = P.tree.filter(x => !pend.has(x)); P.treePend = []; onBuildChanged(); saveGame(); this.bar(); },

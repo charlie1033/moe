@@ -393,6 +393,7 @@ const TreeView = {
         return;
       }
       const r = canvas.getBoundingClientRect();
+      this.touchMode = e.pointerType === 'touch';   // v2.12.7 手指點：判定範圍放大、挑最近的點
       this.mouse = { x: e.clientX - r.left, y: e.clientY - r.top, cx: e.clientX, cy: e.clientY };
       this.updateHover();
       this.drag = { x: e.clientX, y: e.clientY, ox: this.ox, oy: this.oy, moved: false, btn: e.button, touch: e.pointerType === 'touch' };
@@ -409,7 +410,7 @@ const TreeView = {
       }
       if (this.drag) {
         const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
-        if (Math.abs(dx) + Math.abs(dy) > (this.drag.touch ? 10 : 4)) this.drag.moved = true;
+        if (Math.abs(dx) + Math.abs(dy) > (this.drag.touch ? 14 : 4)) this.drag.moved = true;
         this.ox = this.drag.ox + dx; this.oy = this.drag.oy + dy;
       }
       if (e.pointerType === 'touch' && !this.drag) return; // 手指沒按著就沒有「滑過」
@@ -425,7 +426,12 @@ const TreeView = {
       if (d.moved || !this.hover) { if (d.touch) { this.tapSel = null; UI.hideTip(); } return; }
       if (d.touch) {
         // 手機：第一下看說明，同一個節點再點一下才點天賦（已點的再點兩下＝退點）
-        if (this.tapSel !== this.hover.id) { this.tapSel = this.hover.id; return; }
+        if (this.tapSel !== this.hover.id) {
+          this.tapSel = this.hover.id;
+          const n = this.hover, p = this.toScreen(n), r = this.canvas.getBoundingClientRect(), own = G.P.tree.includes(n.id);
+          UI.showTip(this.nodeTip(n) + `<div class="tip-hint" style="color:#ffe9a0;margin-top:4px">👆 ${own ? '再點一下：退回這一點' : '再點一下：點下去'}</div>`, r.left + p.x, r.top + p.y + this.nodeR(n) + 14);
+          return;
+        }
         this.tapSel = null;
         if (G.P.tree.includes(this.hover.id)) this.tryRefund(this.hover.id); else this.tryAlloc(this.hover.id);
         return;
@@ -449,20 +455,22 @@ const TreeView = {
   },
   center() {
     const s = TREE.nodes[CLASSES[G.P.cls].start];
-    this.scale = 0.85; this.ox = -s.x * this.scale * 0.6; this.oy = -s.y * this.scale * 0.6;
+    this.scale = typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? 1.15 : 0.85; this.ox = -s.x * this.scale * 0.6; this.oy = -s.y * this.scale * 0.6;   // 手機一打開就放大一點
   },
   toScreen(n) { return { x: this.canvas.width / 2 + this.ox + n.x * this.scale, y: this.canvas.height / 2 + this.oy + n.y * this.scale }; },
   nodeR(n) { return ({ minor: 6, notable: 13, keystone: 19, start: 20 })[n.kind] * Math.max(0.75, this.scale); },
   updateHover() {
     if (!this.mouse) return;
-    let best = null;
+    // v2.12.7 挑「離手指最近」的點；手指的判定範圍比滑鼠大很多（小天賦點畫出來只有 5 像素，手指根本點不準）
+    let best = null, bd = 1e9; const pad = this.touchMode ? 24 : 7;
     for (const n of TREE.list) {
       const p = this.toScreen(n);
       const d = Math.hypot(p.x - this.mouse.x, p.y - this.mouse.y);
-      if (d < this.nodeR(n) + 7) best = n;
+      if (d < this.nodeR(n) + pad && d - this.nodeR(n) < bd) { best = n; bd = d - this.nodeR(n); }
     }
     this.hover = best;
-    if (best) UI.showTip(this.nodeTip(best), this.mouse.cx, this.mouse.cy);
+    if (best && this.touchMode) { const p = this.toScreen(best), r = this.canvas.getBoundingClientRect(); UI.showTip(this.nodeTip(best), r.left + p.x, r.top + p.y + this.nodeR(best) + 14); }   // 手機：說明放在天賦點下面，不擋手指
+    else if (best) UI.showTip(this.nodeTip(best), this.mouse.cx, this.mouse.cy);
     else UI.hideTip();
   },
   nodeTip(n) {
@@ -565,14 +573,15 @@ const TreeView = {
         if (n.lvl && P.lvl < n.lvl) { g.fillStyle = '#ff8a7a'; g.font = '11px "Microsoft JhengHei", sans-serif'; g.fillText(`Lv ${n.lvl}`, p.x, p.y + r + 27); }
       }
     }
-    // 顏色圖例（左下角）
-    g.font = '12px "Microsoft JhengHei", sans-serif'; g.textAlign = 'left';
-    const cats = Object.values(TREE_CATS), lx = 12, ly = c.height - 14 - Math.ceil(cats.length / 5) * 20;
-    g.fillStyle = 'rgba(5,4,10,0.75)'; g.fillRect(lx - 6, ly - 16, 5 * 74 + 8, Math.ceil(cats.length / 5) * 20 + 10);
+    // 顏色圖例（左下角）；v2.12.7 畫面矮（手機）時縮小一半、每排 10 個
+    const small = c.height < 420, per = small ? 10 : 5, cw = small ? 44 : 74, rh = small ? 13 : 20;
+    g.font = (small ? 9 : 12) + 'px "Microsoft JhengHei", sans-serif'; g.textAlign = 'left';
+    const cats = Object.values(TREE_CATS), lx = 12, ly = c.height - (small ? 8 : 14) - Math.ceil(cats.length / per) * rh;
+    g.fillStyle = 'rgba(5,4,10,0.75)'; g.fillRect(lx - 6, ly - rh + 4, per * cw + 8, Math.ceil(cats.length / per) * rh + 6);
     cats.forEach((ct, i) => {
-      const x = lx + (i % 5) * 74, y = ly + Math.floor(i / 5) * 20;
-      g.fillStyle = ct.color; g.beginPath(); g.arc(x + 6, y - 4, 5, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#d8d0e0'; g.fillText(ct.name, x + 15, y);
+      const x = lx + (i % per) * cw, y = ly + Math.floor(i / per) * rh, cr = small ? 3.5 : 5;
+      g.fillStyle = ct.color; g.beginPath(); g.arc(x + cr + 1, y - cr + 1, cr, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#d8d0e0'; g.fillText(ct.name, x + cr * 2 + 4, y);
     });
     // 屬性區標題
     g.font = '20px "Microsoft JhengHei", sans-serif'; g.textAlign = 'center';

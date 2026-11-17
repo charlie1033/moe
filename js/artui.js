@@ -206,7 +206,9 @@ ArtUI.load();
     if (FL.full[type] !== undefined) return FL.full[type];
     const c = ArtStyle.cell && ArtStyle.cell('fl_' + type); if (!c) return null;   // 圖還沒好：這一格照原本畫
     const d = document.createElement('canvas'); d.width = c.width; d.height = c.height;
-    const x = d.getContext('2d'); x.filter = 'brightness(0.32) saturate(0.35)'; x.drawImage(c, 0, 0);
+    // 空瓶＝原圖蓋一層半透明的暗灰（不用 ctx.filter：iPhone 舊版 Safari 不支援，會變得跟滿瓶一樣亮）
+    const x = d.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = 'rgba(28,26,30,0.62)'; x.fillRect(0, 0, d.width, d.height); x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, 0, d.width, d.height);
     FL.dim[type] = d; return (FL.full[type] = c);
   }
   function drawFlaskBottle(g, f, ic, x, y, fw, fh) {
@@ -314,6 +316,16 @@ ArtUI.load();
   }
   ArtUI.EV = IM;
   const put = (g, im, x, foot, w) => { const h = w * im.height / im.width; g.drawImage(im, x - w / 2, foot - h, w, h); return h; };
+  // 用過的瞻望之柱：灰階＋壓暗（'saturation' 混色去色，再用原圖形狀裁一次；iPhone 也支援）
+  let GRAY = null;
+  const grayPillar = im => {
+    if (GRAY) return GRAY;
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d');
+    x.drawImage(im, 0, 0); x.globalCompositeOperation = 'saturation'; x.globalAlpha = 0.8; x.fillStyle = '#808080'; x.fillRect(0, 0, c.width, c.height);
+    x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(im, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(0, 0, c.width, c.height);
+    return (GRAY = c);
+  };
   const glow = (g, x, y, r, rgb, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
   const hexRgb = c => { const n = parseInt(String(c).slice(1, 7), 16) || 0xffffff; return `${n >> 16},${(n >> 8) & 255},${n & 255}`; };
   window.drawEventArt = function (g, ev) {
@@ -349,7 +361,7 @@ ArtUI.load();
     }
     if (ev.kind === 'vision') {
       if (!IM.ev_pillar) return false;
-      if (ev.done) { g.filter = 'grayscale(0.8) brightness(0.7)'; put(g, IM.ev_pillar, x, y + 16, 34); g.filter = 'none'; return true; }
+      if (ev.done) { put(g, grayPillar(IM.ev_pillar), x, y + 16, 34); return true; }   // 用過：變灰變暗（事先做好一張，不用 ctx.filter）
       const h = put(g, IM.ev_pillar, x, y + 16, 34);
       g.globalCompositeOperation = 'lighter'; glow(g, x, y + 16 - h * 0.78, 18, '255,220,120', 0.5 + 0.2 * Math.sin(t * 2.5)); g.globalCompositeOperation = 'source-over';
       return true;
@@ -713,9 +725,12 @@ ArtUI.load();
   // 一團往右邊淡掉的柔邊影子（之後旋轉、拉長來用）
   const BLOB = (() => {
     const c = document.createElement('canvas'); c.width = 128; c.height = 40; const g = c.getContext('2d');
-    g.filter = 'blur(3px)';
+    // 柔邊用放射漸層做（不用 ctx.filter 的 blur：iPhone 舊版 Safari 不支援）：先畫一個邊緣淡掉的橢圓，再用橫向漸層讓尾巴淡掉
+    g.save(); g.translate(64, 20); g.scale(1, 16 / 62);
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, 62); rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.85)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 62, 0, Math.PI * 2); g.fill(); g.restore();
     const gr = g.createLinearGradient(6, 0, 122, 0); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.beginPath(); g.ellipse(64, 20, 58, 13, 0, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = 'destination-in'; g.fillStyle = gr; g.fillRect(0, 0, 128, 40);
     return c;
   })();
   const OUTDOOR = { grass: 1, beach: 1, desert: 1, swamp: 1, forest: 1, ice: 1 };
@@ -807,9 +822,11 @@ ArtUI.load();
   function fgSprite(st) {
     const k = st.join('|'); if (FGC[k]) return FGC[k];
     const c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d');
-    g.filter = st[3] === 'leaf' ? 'blur(4px)' : 'blur(3px)'; g.fillStyle = st[0]; g.beginPath();
-    if (st[3] === 'leaf') g.ellipse(24, 24, 16, 7, 0, 0, Math.PI * 2); else g.arc(24, 24, 9, 0, Math.PI * 2);
-    g.fill(); return (FGC[k] = c);
+    // 模糊的邊用放射漸層做（不用 ctx.filter：iPhone 舊版 Safari 不支援）；葉子＝把圓壓扁
+    const R = st[3] === 'leaf' ? 22 : 13, rg = g.createRadialGradient(0, 0, 0, 0, 0, R);
+    rg.addColorStop(0, st[0]); rg.addColorStop(0.45, st[0]); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.translate(24, 24); if (st[3] === 'leaf') g.scale(1, 0.45);
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); return (FGC[k] = c);
   }
 
   SettingsRows.add('ui', () => `<div class="prow"><div class="pname">立體光影<small>角色的影子會背對光源拉長、牆壁比較高、戶外有雲影和前景粒子；電腦比較慢可以關掉（牆的高度下次進地圖才會變）</small></div><div class="pctl"><label class="pswitch"><input type="checkbox" data-depth3d ${ArtUI.depth() ? 'checked' : ''}><span></span></label></div></div>`, root => {

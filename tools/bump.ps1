@@ -5,3 +5,4 @@ $t = [IO.File]::ReadAllText($f)
 $t = $t -replace '<title>夢疑 MOE v[0-9.]+</title>', "<title>夢疑 MOE v$ver</title>" -replace '·　v[0-9.]+</div>', "·　v$ver</div>"
 [IO.File]::WriteAllText($f, $t, (New-Object Text.UTF8Encoding $false))
 "version -> v$ver  (matches: $((Select-String -Path $f -Pattern ([regex]::Escape("v$ver"))).Count))"
+& (Join-Path $PSScriptRoot 'boot.ps1')

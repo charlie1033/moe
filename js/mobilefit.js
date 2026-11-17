@@ -31,7 +31,7 @@ const MobileFit = (() => {
   // 面板、對話框的大小：照看得到的高度縮小（不管是不是觸控裝置，視窗小就縮），太高可以捲
   function vars() {
     const b = VISBOX || { w: window.innerWidth, h: window.innerHeight }, s = document.documentElement.style;
-    s.setProperty('--pz', Math.min(1, b.h / 600, b.w / 1000).toFixed(3)); s.setProperty('--vh', b.h + 'px'); s.setProperty('--vmid', ((((VISBOX && VISBOX.y) || 0) + b.h / 2) / window.innerHeight * 100).toFixed(2) + '%');   // 對話框的垂直中心（用百分比，才不會被面板縮放影響）
+    s.setProperty('--pz', Math.min(1, b.h / 600, b.w / 1000).toFixed(3)); s.setProperty('--vh', b.h + 'px'); s.setProperty('--vtop', ((VISBOX && VISBOX.y) || 0) + 'px'); s.setProperty('--vmid', ((((VISBOX && VISBOX.y) || 0) + b.h / 2) / window.innerHeight * 100).toFixed(2) + '%');   // 對話框的垂直中心（用百分比，才不會被面板縮放影響）
   }
   function watch() {
     if (!('IntersectionObserver' in window)) return;
@@ -49,6 +49,8 @@ const MobileFit = (() => {
     const st = document.createElement('style');
     st.textContent = `.panel:not(#tree):not(#menu) { max-height:calc((var(--vh, 100vh) - 16px) / (var(--pz, 1) * var(--uiScale, 1))); }
     #story { max-height:calc((var(--vh, 100vh) - 24px) / (var(--pz, 1) * var(--uiScale, 1))); top:var(--vmid, 50%); overflow-y:auto; }
+    body.touch #tree { top:var(--vtop, 0px); }   /* 天賦樹（全畫面）也讓出被蓋住的上方 */
+    @media (max-height: 520px) { #tree .ph { padding:4px 10px; font-size:13px; min-height:0; } #tree .ph .thint { display:none; } #tree .ph button { padding:2px 8px; font-size:12px; } #treePlan { bottom:6px; padding:4px 10px; } }   /* 手機：天賦樹的標題列縮成一行 */
     #story .stfoot { position:sticky; bottom:-18px; background:linear-gradient(rgba(15,12,18,0), #0f0c12 35%); padding:10px 0 4px; }`;
     document.head.appendChild(st);
   }
