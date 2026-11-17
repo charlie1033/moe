@@ -86,6 +86,14 @@ function gemGainXp(n) {
     }
   }
 }
+// v2.12.9 技能頁開著時，經驗條跟著打怪即時更新（只在百分比或「可以升級」變了才重畫，拖曳寶石時不重畫）
+let _gemPageSig = '', _gemPageT = 0;
+Hook.on('update', () => {
+  if (!UI.open || !UI.open.skills || !G.P || G.time - _gemPageT < 0.4) return; _gemPageT = G.time;
+  if (document.querySelector('.dragghost')) return;
+  const sig = G.P.skills.map(s => { if (!s) return ''; const d = gemData(s); return s + d.lv + ':' + Math.floor(d.xp / gemXpNeed(s, d.lv) * 100) + (gemCanLevel(s) ? '!' : ''); }).join('|');
+  if (sig !== _gemPageSig) { const first = !_gemPageSig; _gemPageSig = sig; if (!first) UI.refreshSkills(); }
+});
 function gemCanLevel(sid) { const d = gemData(sid); return d.lv < GEM_MAX && d.xp >= gemXpNeed(sid, d.lv) && !gemReqLack(sid, d.lv + 1); }
 function gemLevelUp(sid) {
   const d = gemData(sid);

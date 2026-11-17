@@ -267,7 +267,8 @@ const UI = {
     const npcNew = Object.keys(NPC_STORIES).some(n => nextNpcChapter(n, P));
     const set = (id, txt, red) => { const b = document.querySelector(`.mbtn[data-m="${id}"] .mbadge`); if (b) { b.textContent = txt; b.className = 'mbadge' + (txt ? (red ? ' red' : ' info') : ''); } };
     set('tree', pts > 0 ? '+' + pts : '', true);
-    set('skills', newSkill ? '新' : '', true);
+    const gemUp = P.skills.some(s => s && typeof gemCanLevel === 'function' && gemCanLevel(s));   // v2.12.9 技能寶石可以升級：功能選單「技能」也亮紅點
+    set('skills', gemUp ? '升' : newSkill ? '新' : '', true);
     set('journal', journalN > (P.ui.journalN || 0) ? '新' : npcNew ? '！' : '', true);
     $('#portalbtn .pbcount').textContent = P.cur.portal || 0; this.placePortalBtn();
     $('#mtoggle .mtbadge').style.display = [...document.querySelectorAll('#mpop .mbadge.red')].some(b => b.textContent) ? 'block' : 'none';
