@@ -349,7 +349,7 @@ const FLAG_STATS = new Set(['bloodMagic', 'noMana', 'noCrit', 'noRegen', 'cull',
 // ---------- 角色數值 ----------
 const ZERO_KEYS = ['str', 'dex', 'int', 'all_attr', 'life', 'life_inc', 'mana', 'mana_inc', 'es', 'es_inc', 'armour', 'armour_inc', 'evasion', 'evasion_inc',
   'res_fire', 'res_cold', 'res_light', 'res_all', 'move_inc', 'aspd_inc', 'cspd_inc', 'crit_inc', 'crit_multi', 'dmg_inc', 'phys_inc', 'fire_inc',
-  'cold_inc', 'light_inc', 'ele_inc', 'spell_inc', 'attack_inc', 'melee_inc', 'proj_inc', 'area_dmg_inc', 'minion_dmg_inc', 'minion_life_inc',
+  'cold_inc', 'light_inc', 'ele_inc', 'spell_inc', 'attack_inc', 'melee_inc', 'proj_inc', 'area_dmg_inc', 'minion_dmg_inc', 'minion_life_inc', 'minion_aspd_inc',
   'proj_count', 'pierce', 'area_inc', 'leech', 'mleech', 'life_regen_inc', 'cdr', 'dodge', 'poise', 'blast_ch', 'life_on_kill', 'mana_on_kill', 'life_regen', 'mana_regen_inc', 'minion_max', 'block', 'flask_inc',
   'chaos_inc', 'dot_inc', 'ignite_ch', 'freeze_ch', 'shock_ch', 'poison_ch', 'bleed_ch', 'ail_dur', 'res_chaos', 'spell_supp', 'spell_block'];
 const AIL_KEYS = ['ignite', 'freeze', 'shock', 'poison', 'bleed'];
@@ -518,7 +518,7 @@ function calcMinion(S, lvl, X, sk) {
   const sc = 1 + 0.16 * (lvl - 1);
   const f = (1 + S.minion_dmg_inc / 100) * (X ? X.more_minion : 1);
   const lf = (1 + S.minion_life_inc / 100) * (X ? X.more_minion_life : 1);
-  return { kind: sk.minion, dmg: [sk.base[0] * sc * f, sk.base[1] * sc * f], life: Math.round(sk.mlife * (1 + 0.14 * (lvl - 1)) * lf), aps: sk.maps,
+  return { kind: sk.minion, dmg: [sk.base[0] * sc * f, sk.base[1] * sc * f], life: Math.round(sk.mlife * (1 + 0.14 * (lvl - 1)) * lf), aps: sk.maps * (1 + (S.minion_aspd_inc || 0) / 100),   // v2.13.1 召喚物攻擊速度
     speed: sk.mspeed, ranged: sk.mranged || 0, taunt: !!sk.taunt, max: sk.max + S.minion_max + (X ? X.minion_max : 0) };
 }
 

@@ -9,6 +9,9 @@
 //  ③ 自保：召喚師本身 生命 +15%、能量護盾 +15
 //  ④ 舊角色：讀檔時自動拿到骨矛；技能欄有空位就放進去（沒有就按 K 自己裝）
 //     新角色的技能欄：左鍵＝骨矛、右鍵＝召喚骷髏、Q＝召喚靈體
+//  ⑤ v2.13.1 新的能力「召喚物攻擊速度」（以前完全沒有）：
+//     天賦樹上召喚物傷害的小節點，每隔一個改成「召喚物攻擊速度 +6%」；召喚師出生點走 3 步就有；骨之契約、亡君座、軍團星的大節點各 +10%
+//     統御光環也加上召喚物攻擊速度 +10%
 //  美術：骨矛先用箭的投射物圖（白骨色），之後美術可以接 sprite 'bonespear' 的圖
 // =============================================================
 Object.assign(SKILLS, {
@@ -26,6 +29,16 @@ for (const [k, base, life] of [['skel', [7, 13], 90], ['spirit', [8, 14], 60], [
   if (!SKILLS[k]) continue; SKILLS[k].base = base; SKILLS[k].mlife = life;
 }
 if (typeof SKILL_GLYPHS !== 'undefined' && !SKILL_GLYPHS.bonespear && SKILL_GLYPHS.icespear) SKILL_GLYPHS.bonespear = SKILL_GLYPHS.icespear;
+// 召喚物攻擊速度：天賦樹（tree.js 建好之後改節點數值；位置不變，不影響天賦樹快取）
+(() => {
+  let k = 0;
+  for (const n of TREE.list) {
+    const s = n.stats || {}, keys = Object.keys(s);
+    if (n.kind === 'minor' && keys.length === 1 && s.minion_dmg_inc) { if (k++ % 2 === 1) { n.stats = { minion_aspd_inc: 6 }; n.name = '召喚物攻擊速度'; } }
+    else if ((n.kind === 'notable' || n.kind === 'keystone') && (s.minion_dmg_inc || s.minion_max)) s.minion_aspd_inc = (s.minion_aspd_inc || 0) + 10;
+  }
+  if (typeof AURA_DEF !== 'undefined' && AURA_DEF.a_command) { AURA_DEF.a_command.stats.minion_aspd_inc = 10; AURA_DEF.a_command.text += '、攻擊速度 +10%'; }
+})();
 // 舊角色：補上骨矛
 Hook.on('start', P => {
   if (!P || P.cls !== 'summoner' || P.skills.includes('bonespear')) return;

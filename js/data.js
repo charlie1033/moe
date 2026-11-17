@@ -437,7 +437,7 @@ const STAT_TEXT = {
   cold_inc: v => `${incTxt(v)} 冰冷傷害`, light_inc: v => `${incTxt(v)} 閃電傷害`, ele_inc: v => `${incTxt(v)} 元素傷害`,
   spell_inc: v => `${incTxt(v)} 法術傷害`, attack_inc: v => `${incTxt(v)} 攻擊傷害`, melee_inc: v => `${incTxt(v)} 近戰傷害`,
   proj_inc: v => `${incTxt(v)} 投射物傷害`, area_dmg_inc: v => `${incTxt(v)} 範圍傷害`,
-  minion_dmg_inc: v => `召喚物${incTxt(v)}傷害`, minion_life_inc: v => `召喚物${incTxt(v)}生命`,
+  minion_dmg_inc: v => `召喚物${incTxt(v)}傷害`, minion_life_inc: v => `召喚物${incTxt(v)}生命`, minion_aspd_inc: v => `召喚物${incTxt(v)}攻擊速度`,
   a_phys: v => `攻擊附加 ${v[0]}–${v[1]} 物理傷害`, a_fire: v => `攻擊附加 ${v[0]}–${v[1]} 火焰傷害`,
   a_cold: v => `攻擊附加 ${v[0]}–${v[1]} 冰冷傷害`, a_light: v => `攻擊附加 ${v[0]}–${v[1]} 閃電傷害`,
   s_fire: v => `法術附加 ${v[0]}–${v[1]} 火焰傷害`, s_cold: v => `法術附加 ${v[0]}–${v[1]} 冰冷傷害`, s_light: v => `法術附加 ${v[0]}–${v[1]} 閃電傷害`,

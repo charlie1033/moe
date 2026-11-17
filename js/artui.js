@@ -259,7 +259,10 @@ ArtUI.load();
   const GLOW = { fireball: '255,120,40', ice: '150,220,255', light: '255,240,140', chaos: '120,255,90', shadow: '170,110,255', arcane: '255,230,150' };
   const elemOf = p => (p.parts && p.parts[0] && p.parts[0][1]) || (p.owner && p.owner.def && p.owner.def.elem) || 'phys';
   function pick(p) {
-    if (p.team !== 'enemy') return { arrow: 'arrow', fireball: 'fireball', iceshard: 'ice', axe: 'axe' }[p.sprite] || null;
+    if (p.team !== 'enemy') {
+      if (p.sprite === 'bonespear' || (p.sprite === 'arrow' && p.color === '#e8dcc0')) return 'bone';   // v2.13 召喚師「骨矛」＝骨刺圖
+      return { arrow: 'arrow', fireball: 'fireball', iceshard: 'ice', axe: 'axe' }[p.sprite] || null;
+    }
     if (p.sprite === 'arrow') return 'arrow';
     if (p.sprite === 'axe') return 'axe';
     if (p.sprite === 'shadow') return 'shadow';
