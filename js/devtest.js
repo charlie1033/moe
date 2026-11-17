@@ -123,6 +123,14 @@ const MOE_DEV = {
       enterMap(1); T.quiet(); const m = G.mons.find(x => !x.boss); input.wx = m.x; input.wy = m.y; G.pl.mana = 999; useSkill(0); T.ok(G.projs.some(p => p.team === 'ally'), '骨矛沒有射出去');
       G.pl.cd = {}; G.pl.act = 0; useSkill(1); T.run(1); T.ok(G.mins.length && G.mins[0].maxLife >= 90, '骷髏生命沒有變厚');
     },
+    '地形碰撞：投射物飛過岩漿、荊棘不能隔牆': T => {
+      T.hero('mage', 20, 6); enterMap(2); const w = G.world; let lava = -1, wall = -1;
+      for (let i = 0; i < w.grid.length && (lava < 0 || wall < 0); i++) { if (w.deco && w.deco[i] === 8 && lava < 0) lava = i; if (!w.grid[i] && !(w.deco && w.deco[i]) && wall < 0) wall = i; }
+      const at = i => [(i % w.W) * TS + 16, Math.floor(i / w.W) * TS + 16];
+      if (lava >= 0) { const [x, y] = at(lava); T.ok(solidAt(x, y) && !shotWallAt(x, y), '岩漿應該擋路但不擋投射物'); }
+      const [wx, wy] = at(wall); T.ok(shotWallAt(wx, wy), '牆應該擋投射物');
+      const cp = castPoint(wx - 200, wy, 1, 0, 300); T.ok(cp.x < wx - 8, '荊棘可以隔牆施放');
+    },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
       T.hero('summoner', 60, 21);

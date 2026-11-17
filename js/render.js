@@ -70,6 +70,7 @@ function render() {
   }
   // 玩家的地面效果（荊棘、暴風雪）
   for (const z of G.azones) {
+    if (z.sid === 'thorn') continue;   // v2.13.9 荊棘綻放有自己的畫法（thornfx.js）
     const fade = Math.min(1, (z.dur - z.t) * 2);
     g.globalAlpha = 0.28 * fade; g.fillStyle = z.color; g.beginPath(); g.arc(z.x, z.y, z.r, 0, Math.PI * 2); g.fill();
     g.globalAlpha = 0.7 * fade; g.strokeStyle = z.color; g.lineWidth = 2; g.beginPath(); g.arc(z.x, z.y, z.r, 0, Math.PI * 2); g.stroke();
@@ -441,8 +442,7 @@ function drawPlayer(g, pl) {
   if (doll) {
     drawAilmentFx(g, pl, feet, doll.h, 12, pst);
     drawPlayerStatus(g, pl, feet, doll);
-    if (G.S.maxES > 0 && pl.es > 0) { g.strokeStyle = `rgba(140,200,255,${0.25 + 0.35 * pl.es / G.S.maxES})`; g.lineWidth = 1.5; g.beginPath(); g.arc(pl.x, pl.y - 6, 18, 0, Math.PI * 2); g.stroke(); }
-    return;
+      return;
   }
   if (offB && offB.cls === 'quiver') { const ic = eqIcon(EQ.offhand, 64); if (ic) { g.save(); g.translate(pl.x - pl.facing * 10, feet - 24 + bob); g.rotate(-pl.facing * 0.45); g.imageSmoothingEnabled = true; g.drawImage(ic, -8, -9, 16, 18); g.restore(); } } // 箭袋背在背上（畫在身體後面）
   const sp = drawSprite(g, G.P.cls, pl.x, feet, 2, pl.facing, pst.frozen ? { R: '#bfe8ff', B: '#bfe8ff' } : null, pl.flash > 0, bob, !!moving && !(pl.stun > 0));
@@ -487,7 +487,6 @@ function drawPlayer(g, pl) {
     g.strokeStyle = '#7a5030'; g.lineWidth = 3; g.beginPath(); g.moveTo(hx - ca * (wc === 'staff' ? 8 : 0), hy - sa * (wc === 'staff' ? 8 : 0)); g.lineTo(hx + ca * L, hy + sa * L); g.stroke();
     g.fillStyle = '#b080ff'; g.fillRect(hx + ca * L - 3, hy + sa * L - 3, 6, 6);
   }
-  if (G.S.maxES > 0 && pl.es > 0) { g.strokeStyle = `rgba(140,200,255,${0.25 + 0.35 * pl.es / G.S.maxES})`; g.lineWidth = 1.5; g.beginPath(); g.arc(pl.x, pl.y - 6, 18, 0, Math.PI * 2); g.stroke(); }
 }
 // v2.5.1 把穿著的裝備畫在角色身上：胸甲＝身上一層顏色＋稀有度的邊光、頭盔＝頭上的小圖示、盾／法器＝拿在另一隻手
 function drawGearOnBody(g, pl, feet, sp, bob, EQ, offB, eqIcon) {

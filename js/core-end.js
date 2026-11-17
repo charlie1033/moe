@@ -13,6 +13,7 @@
   const _build = onBuildChanged; onBuildChanged = function (...a) { const r = _build(...a); Hook.emit('build'); return r; };
   const _draw = drawStageExtras; drawStageExtras = function (g) { _draw(g); Hook.emit('drawWorld', g); };
   const _bwc = buildWorldCanvas; buildWorldCanvas = function (w) { const r = _bwc(w); Hook.emit('worldCanvas', w); return r; };   // v2.12.1 地圖底圖畫好之後（要畫進底圖、只畫一次的東西）
+  const _hud = drawHUD; drawHUD = function (g) { const r = _hud.apply(this, arguments); Hook.emit('drawHUD', g); return r; };   // v2.13.9 畫面下方介面全部畫完之後（美術外框也畫完了）
   const _interact = UI.interact.bind(UI);
   UI.interact = function () { return Interact.use() || _interact(); };
 })();

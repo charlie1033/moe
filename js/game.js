@@ -29,6 +29,27 @@ function los(ax, ay, bx, by) {
   for (let i = 1; i < n; i++) if (solidAt(ax + (bx - ax) * i / n, ay + (by - ay) * i / n)) return false;
   return true;
 }
+// v2.13.9 地形分兩種：走路被擋（solidAt）、投射物被擋（shotWallAt）
+//   投射物飛得過去：水、岩漿、虛空裂隙（地上的洞），還有矮的障礙物：岩石、骨堆、灌木
+//   投射物飛不過去：牆、樹、枯樹、石柱、冰晶、石筍、巨菇、虛空水晶、仙人掌（比人高的東西）
+const SHOT_PASS = new Set([2, 8, 14, 3, 7, 11]);
+function shotWallAt(x, y) {
+  const tx = Math.floor(x / TS), ty = Math.floor(y / TS);
+  if (!solidTile(tx, ty)) return false;
+  const w = G.world, dv = w && w.deco && tx >= 0 && ty >= 0 && tx < w.W && ty < w.H ? w.deco[ty * w.W + tx] : 0;
+  return !SHOT_PASS.has(dv);
+}
+function shotLos(ax, ay, bx, by) {   // 投射物、法術看不看得到（隔著岩漿可以射）
+  const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d / 12);
+  for (let i = 1; i < n; i++) if (shotWallAt(ax + (bx - ax) * i / n, ay + (by - ay) * i / n)) return false;
+  return true;
+}
+// 指定地點的法術（荊棘綻放、暴風雪、隕石）：從角色往滑鼠方向走，碰到擋投射物的牆就停在牆前面（不能隔牆施放）
+function castPoint(ax, ay, ca, sa, d) {
+  let x = ax, y = ay;
+  for (let s = 8; s <= d; s += 8) { const nx = ax + ca * s, ny = ay + sa * s; if (shotWallAt(nx, ny)) break; x = nx; y = ny; }
+  return { x, y };
+}
 
 // ---------- 地圖生成：房間 + 走廊 ----------
 function genMap(tier) {
@@ -817,7 +838,7 @@ function castSkill(sid, c) {
       for (const m of G.mons) {
         if (m.dead || dist(m, pl) > sk.range) continue;
         const d = Math.hypot(m.x - mx, m.y - my);
-        if (d < bd && los(pl.x, pl.y, m.x, m.y)) { bd = d; first = m; }
+        if (d < bd && shotLos(pl.x, pl.y, m.x, m.y)) { bd = d; first = m; }
       }
       const pts = [{ x: pl.x, y: pl.y - 8 }];
       if (first) {
@@ -872,7 +893,7 @@ function castSkill(sid, c) {
     }
     case 'zone': { // 荊棘綻放、暴風雪：在地上留下持續傷害區域
       const d = Math.min(sk.range, Math.hypot(input.wx - pl.x, input.wy - pl.y));
-      const zx = pl.x + ca * d, zy = pl.y + sa * d;
+      const cp = castPoint(pl.x, pl.y, ca, sa, d), zx = cp.x, zy = cp.y;   // v2.13.9 不能隔牆施放
       const mine = G.azones.filter(z => z.sid === sid);
       if (mine.length >= sk.maxZones) G.azones.splice(G.azones.indexOf(mine[0]), 1);
       G.azones.push({ sid, x: zx, y: zy, r: sk.radius * c.areaMul, t: 0, dur: sk.dur, tick: sk.tick, next: 0, pk, color: sk.color, chill: sk.elem === 'cold' });
@@ -880,7 +901,7 @@ function castSkill(sid, c) {
     }
     case 'delayed': { // 隕石術
       const d = Math.min(sk.range, Math.hypot(input.wx - pl.x, input.wy - pl.y));
-      const zx = pl.x + ca * d, zy = pl.y + sa * d, R = sk.radius * c.areaMul;
+      const cp = castPoint(pl.x, pl.y, ca, sa, d), zx = cp.x, zy = cp.y, R = sk.radius * c.areaMul;
       G.strikes.push({ x: zx, y: zy, r: R, t: -sk.delay, pk, kind: 'meteor', color: sk.color, kb: 2 });
       tele('circle', zx, zy, R, sk.delay, '#ff8040');
       break;
@@ -1336,7 +1357,7 @@ function updateMonster(m, dt) {
   m.atkCD -= dt * slow;
   if (!tgt) return;
   const d = dist(m, tgt);
-  const inRange = m.def.ranged ? (d <= m.range && los(m.x, m.y, tgt.x, tgt.y)) : d <= m.range + m.r + tgt.r;
+  const inRange = m.def.ranged ? (d <= m.range && shotLos(m.x, m.y, tgt.x, tgt.y)) : d <= m.range + m.r + tgt.r;
   if (inRange && m.atkCD <= 0) {
     m.state = 'wind'; m.wind = m.def.ranged ? 0.45 : 0.32; m.tgt = tgt; m.facing = tgt.x > m.x ? 1 : -1;
     return;
@@ -1474,11 +1495,11 @@ function updateMinion(mn, dt) {
   mn.atkCD -= dt;
   // v2.13.8 召喚物走路：只挑「看得到」的怪（不然會直線卡在牆邊）；走不動 1.5 秒就回到你身邊
   let tgt = null, bd = 320;
-  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && dist(m, pl) < 450 && los(mn.x, mn.y, m.x, m.y)) { bd = d; tgt = m; } }
+  for (const m of G.mons) { if (m.dead) continue; if (m.boss && !m.awake) continue; const d = dist(m, mn); if (d < bd && dist(m, pl) < 450 && (mn.ranged ? shotLos : los)(mn.x, mn.y, m.x, m.y)) { bd = d; tgt = m; } }
   const ox = mn.x, oy = mn.y;
   const pk = { d: { phys: mn.dmg }, crit: 5, multi: 150 };
   if (tgt && mn.ranged) { // 靈體：遠程射擊
-    if (bd <= mn.ranged && los(mn.x, mn.y, tgt.x, tgt.y)) {
+    if (bd <= mn.ranged && shotLos(mn.x, mn.y, tgt.x, tgt.y)) {
       if (mn.atkCD <= 0) {
         mn.atkCD = 1 / mn.aps;
         const a0 = Math.atan2(tgt.y - mn.y, tgt.x - mn.x), n = mn.count || 1;   // v2.13.5 多重投射：扇形多射幾發
@@ -1713,7 +1734,7 @@ function update(dt) {
   for (const p of G.projs) {
     p.life -= dt;
     p.x += p.vx * dt; p.y += p.vy * dt;
-    if (solidAt(p.x, p.y)) { p.dead = true; if (p.explode) explodeAt(p); continue; }
+    if (shotWallAt(p.x, p.y)) { p.dead = true; if (p.explode) explodeAt(p); continue; }   // v2.13.9 岩漿、水、矮障礙飛得過去
     if (p.team === 'ally') {
       for (const m of G.mons) {
         if (m.dead || p.hit.has(m)) continue;

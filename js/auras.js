@@ -1,6 +1,6 @@
 // =============================================================
 //  v2.8.14 ① 輔助寶石「投射物返回」：投射物飛到底再飛回來，回程也會打（傷害總降 10%）
-//          ② 光環技能寶石：按一下開、再按一下關；開著的時候「保留」一部分最大魔力，換來一直生效的效果
+//          ② 光環技能寶石：按一下開、再按一下關；開著的時候「保留」一部分最大魔力，換來一直生效的效果（v2.13.9 開著時技能列那格會亮）
 //             光環要放在技能欄上才有效（拿下來就關掉）；寶石等級越高效果越好
 // =============================================================
 Object.assign(SUPPORTS, {
@@ -75,3 +75,18 @@ drawPlayer = function (g, ...a) {
   if (pl && list.length && !(typeof drawAuraArt === 'function' && drawAuraArt(g, pl, list))) list.forEach((id, i) => { g.save(); g.strokeStyle = AURA_DEF[id].color; g.globalAlpha = 0.35 + 0.15 * Math.sin(G.time * 2 + i); g.lineWidth = 2; g.beginPath(); g.ellipse(pl.x, pl.y + 10, 30 + i * 6, (30 + i * 6) * 0.38, 0, 0, Math.PI * 2); g.stroke(); g.restore(); });
   return _drawPlAura(g, ...a);
 };
+// v2.13.9 開著的光環：技能列上那一格亮起來（金色呼吸光框＋右上角小燈），一眼就知道哪些光環開著
+Hook.on('drawHUD', g => {
+  const P = G.P; if (!P || G.state !== 'play') return;
+  const on = activeAuras(P); if (!on.length) return;
+  const t = G.time;
+  g.save();
+  for (let i = 0; i < 5; i++) {
+    const sid = P.skills[i]; if (!sid || !on.includes(sid)) continue;
+    const [x, y, s] = HUD.skill(i), col = AURA_DEF[sid].color, p = 0.55 + 0.45 * Math.sin(t * 3 + i);
+    g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.18 + 0.12 * p; g.fillStyle = col; g.fillRect(x + 2, y + 2, s - 4, s - 4);
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.65 + 0.35 * p; g.strokeStyle = col; g.lineWidth = 2; g.strokeRect(x - 1, y - 1, s + 2, s + 2);
+    g.globalAlpha = 1; g.fillStyle = col; g.beginPath(); g.arc(x + s - 5, y + 5, 3, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
+  }
+  g.restore();
+});
