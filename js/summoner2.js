@@ -10,7 +10,7 @@
 //  ④ 舊角色：讀檔時自動拿到骨矛；技能欄有空位就放進去（沒有就按 K 自己裝）
 //     新角色的技能欄：左鍵＝骨矛、右鍵＝召喚骷髏、Q＝召喚靈體
 //  ⑤ v2.13.1 新的能力「召喚物攻擊速度」（以前完全沒有）：
-//     天賦樹上召喚物傷害的小節點，每隔一個改成「召喚物攻擊速度 +8%」；召喚師出生點走 3 步就有；骨之契約、亡君座、軍團星的大節點各 +10%
+//     天賦樹上召喚物傷害的小節點，每隔一個改成「召喚物攻擊速度 +6%」；召喚師出生點走 3 步就有；骨之契約、亡君座、軍團星的大節點各 +10%
 //     統御光環也加上召喚物攻擊速度 +10%
 //  ⑥ v2.13.5 召喚靈體加上「投射物」標籤：可以插多重投射、少量多重投射（靈體一次多射 2 發／1 發，扇形散開，傷害照輔助寶石打折）
 //  美術：骨矛先用箭的投射物圖（白骨色），之後美術可以接 sprite 'bonespear' 的圖
@@ -34,17 +34,12 @@ for (const [k, base, life] of [['skel', [7, 13], 90], ['spirit', [8, 14], 60], [
 if (typeof SKILL_GLYPHS !== 'undefined' && !SKILL_GLYPHS.bonespear && SKILL_GLYPHS.icespear) SKILL_GLYPHS.bonespear = SKILL_GLYPHS.icespear;
 // 召喚物攻擊速度：天賦樹（tree.js 建好之後改節點數值；位置不變，不影響天賦樹快取）
 (() => {
-  // v2.13.3 召喚物傷害小點：+10% → +14%；大節點的召喚物傷害再 +10%
-  // 召喚師出生點 8 步內的智慧、魔力、能量護盾、法術、施法速度小點，順便加「召喚物傷害 +5%」（走過去的路上也在變強；法師點到也不吃虧）
-  // 結果（天賦點最省的走法）：10 點約 +75%、20 點約 +140%、30 點約 +190%，跟法師的法術傷害差不多（以前是 45／65／85%）
+  // v2.13.6 照使用者的決定：召喚物傷害天賦改回 v2.13.2 的數值（v2.13.3 加大加多那次撤回；6 級就已經夠強）
   let k = 0;
-  const start = CLASSES.summoner.start, dist = new Map([[start, 0]]), q = [start];
-  for (let h = 0; h < q.length; h++) { const c = q[h]; if (dist.get(c) >= 8) continue; for (const l of TREE.nodes[c].links) if (!dist.has(l)) { dist.set(l, dist.get(c) + 1); q.push(l); } }
   for (const n of TREE.list) {
     const s = n.stats || {}, keys = Object.keys(s);
-    if (n.kind === 'minor' && keys.length === 1 && s.minion_dmg_inc) { if (k++ % 2 === 1) { n.stats = { minion_aspd_inc: 8 }; n.name = '召喚物攻擊速度'; } else s.minion_dmg_inc = 14; }
-    else if ((n.kind === 'notable' || n.kind === 'keystone') && (s.minion_dmg_inc || s.minion_max)) { s.minion_aspd_inc = (s.minion_aspd_inc || 0) + 10; if (s.minion_dmg_inc) s.minion_dmg_inc += 10; }
-    else if (n.kind === 'minor' && dist.has(n.id) && keys.length && keys.every(x => ['int', 'mana_inc', 'es', 'es_inc', 'spell_inc', 'cspd_inc'].includes(x))) s.minion_dmg_inc = 5;
+    if (n.kind === 'minor' && keys.length === 1 && s.minion_dmg_inc) { if (k++ % 2 === 1) { n.stats = { minion_aspd_inc: 6 }; n.name = '召喚物攻擊速度'; } }
+    else if ((n.kind === 'notable' || n.kind === 'keystone') && (s.minion_dmg_inc || s.minion_max)) s.minion_aspd_inc = (s.minion_aspd_inc || 0) + 10;
   }
   if (typeof AURA_DEF !== 'undefined' && AURA_DEF.a_command) { AURA_DEF.a_command.stats.minion_aspd_inc = 10; AURA_DEF.a_command.text += '、攻擊速度 +10%'; }
 })();
