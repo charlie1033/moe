@@ -152,7 +152,18 @@ ArtUI.load();
     }
     // 數字：直接叫原本的 drawOrb 來寫字，但只讓「寫字」生效（畫圓、填色都略過）→ 遊戲之後改數字的格式也會自動跟上
     g.save(); prev.call(this, textOnly(g), x, y, R, frac, col, dark, label, null, null); g.restore();
+    if (!life) lastMana = [x, y, R, frac, col, dark, label];
   };
+  // v2.14.2 光環保留魔力時，遊戲在 'drawHUD' 事件把球頂畫成一截灰色斜線，會蓋到數字 → 數字在最後再補寫一次
+  //   要排在光環那個登記之後，所以等遊戲開始（所有模組都載入完）才登記
+  let lastMana = null, late = false;
+  Hook.on('start', () => {
+    if (late) return; late = true;
+    Hook.on('drawHUD', g => {
+      if (!lastMana || !ArtUI.on() || !(G.S && G.S.manaReserved > 0)) return;
+      g.save(); prev.call(this, textOnly(g), ...lastMana, null, null); g.restore();
+    });
+  });
   const SKIP = new Set(['fill', 'stroke', 'fillRect', 'strokeRect', 'clip', 'drawImage', 'clearRect']);
   const textOnly = g => new Proxy(g, {
     get(t, k) { if (SKIP.has(k)) return () => {}; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; },
