@@ -124,6 +124,50 @@ function biomeApply(w) {
       if (reach().n < before - cells.length) cells.forEach(i => { g[i] = 1; w.deco[i] = 0; });   // 擋到路了：拿掉
     }
   }
+  ensureConnected(w);
+}
+// v2.16.5 最後保險：整張圖每一塊地都要從起點走得到
+//  ・小於 10 格的封閉小角落 → 直接填成牆（不然怪物、掉落物會卡在裡面）
+//  ・比較大的一塊 → 從走得到的地方開一條 2 格寬的路過去：優先穿過障礙物（水變木橋、石頭拿掉），不得已才挖牆
+function ensureConnected(w) {
+  const W = w.W, H = w.H, g = w.grid, D = [1, -1, W, -W];
+  const s0 = Math.floor(w.start.y + w.start.h / 2) * W + Math.floor(w.start.x + w.start.w / 2);
+  if (!g[s0]) g[s0] = 1;
+  const inside = i => { const x = i % W, y = (i / W) | 0; return x >= 2 && y >= 2 && x < W - 2 && y < H - 2; };
+  const open = i => { g[i] = 1; if (w.deco[i] === 2) w.deco[i] = 15; else if (w.deco[i] && w.deco[i] !== 15) w.deco[i] = 0; };
+  for (let guard = 0; guard < 30; guard++) {
+    // 從起點能走到哪裡
+    const seen = new Uint8Array(W * H), q = [s0]; seen[s0] = 1;
+    while (q.length) { const i = q.pop(); for (const d of D) { const j = i + d; if (j >= 0 && j < g.length && !seen[j] && g[j]) { seen[j] = 1; q.push(j); } } }
+    // 找走不到的一塊
+    let comp = null;
+    for (let i = 0; i < g.length && !comp; i++) if (g[i] && !seen[i]) {
+      comp = [i]; const cs = new Uint8Array(W * H); cs[i] = 1;
+      for (let k = 0; k < comp.length; k++) for (const d of D) { const j = comp[k] + d; if (j >= 0 && j < g.length && !cs[j] && g[j]) { cs[j] = 1; comp.push(j); } }
+    }
+    if (!comp) return;
+    if (comp.length < 10) { for (const i of comp) { g[i] = 0; if (w.deco[i] === 15) w.deco[i] = 2; } continue; }
+    // 從這一塊往外找最近的走得到的地（障礙物算 1 步、牆算 4 步）
+    const cost = new Float32Array(W * H).fill(1e9), prev = new Int32Array(W * H).fill(-1), buckets = [[]];
+    for (const i of comp) { cost[i] = 0; buckets[0].push(i); }
+    let hit = -1;
+    for (let c = 0; c < buckets.length && hit < 0; c++) {
+      const b = buckets[c]; if (!b) continue;
+      for (let k = 0; k < b.length && hit < 0; k++) {
+        const i = b[k]; if (cost[i] < c) continue;
+        if (seen[i]) { hit = i; break; }
+        for (const d of D) { const j = i + d; if (j < 0 || j >= g.length || !inside(j)) continue;
+          const nc = c + (g[j] ? 0 : w.deco[j] ? 1 : 4); if (nc >= cost[j]) continue; cost[j] = nc; prev[j] = i; (buckets[nc] = buckets[nc] || []).push(j); }
+      }
+    }
+    if (hit < 0) { for (const i of comp) g[i] = 0; continue; }   // 真的接不上：整塊封掉
+    // 把路開出來（2 格寬：旁邊那格是障礙物也一起打開）
+    for (let i = hit; i >= 0; i = prev[i]) {
+      if (!g[i]) open(i);
+      const side = Math.abs(prev[i] - i) === 1 ? W : 1;
+      if (prev[i] >= 0 && inside(i + side) && !g[i + side] && w.deco[i + side]) open(i + side);
+    }
+  }
 }
 // 障礙物的樣子（畫在地圖底圖上，只畫一次）
 function drawDeco(g, t, x, y, s, w) {
