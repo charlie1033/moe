@@ -277,7 +277,7 @@ ArtUI.load();
     if (!ArtUI.on()) return false;
     const k = pick(p), im = k && IM[k]; if (!im) return false;
     const t = (typeof G !== 'undefined' && G.time) || 0;
-    const base = k === 'fireball' ? 7 : 5, sz = clamp((p.r || base) / base, 0.8, 2.4);
+    const base = k === 'fireball' ? 7 : 5, sz = clamp((p.r || base) / base, 0.8, 2.4) * (k === 'bone' && p.team !== 'enemy' ? 1.8 : 1);   // 骨矛比怪物的骨刺長
     const L = LEN[k] * sz, H = L * im.height / im.width;
     g.save(); g.translate(p.x, p.y);
     if (GLOW[k]) {   // 元素光暈（疊加光，暗的地方也看得到）
