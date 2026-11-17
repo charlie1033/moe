@@ -1178,12 +1178,17 @@ ArtUI.load();
     // 0) 牆格底下先鋪連續的地板（被削掉的牆角露出來的就是真正的地板）
     g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath();
     //   立體障礙物（岩石、樹…）的格子也鋪：它們是每格畫面另外疊上去的，底圖那格原本是舊的方塊地板，跟連續地板對不上
-    const stacked = t => t && !(t === 2 || t === 8 || t === 14 || t === 15) && typeof StackProps !== 'undefined' && StackProps.handles && StackProps.handles(t);
+    //   v2.16.5 立體障礙物被關掉時（設定關掉，或手機太慢被自動關掉）：平面障礙物原本畫在一塊舊的方塊地板上 → 一樣鋪連續地板，最後再把平面障礙物畫回來
+    const pool = t => t === 2 || t === 8 || t === 14 || t === 15;
+    const stacked = t => t && !pool(t) && typeof StackProps !== 'undefined' && StackProps.handles && StackProps.handles(t);
+    const flat = [];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, t = deco && deco[i];
       if ((w.grid[i] === 0 && !t) || stacked(t)) g.rect(x * TS, y * TS, TS, TS);
+      else if (t && !pool(t) && typeof drawDeco === 'function') { g.rect(x * TS, y * TS, TS, TS); flat.push([t, x, y]); }
     }
     g.fill();
+    w._flatDeco = flat;
     // 1) 牆外地上的落影（往右下）
     g.fillStyle = 'rgba(0,0,0,0.2)'; g.fill(moved(P, 4, 7), 'evenodd'); g.fillStyle = 'rgba(0,0,0,0.22)'; g.fill(moved(P, 1.5, 3), 'evenodd');
     // 2) 牆面：整塊先貼牆貼圖，越往下越暗
@@ -1200,5 +1205,8 @@ ArtUI.load();
     // 4) 外輪廓一圈深色描邊，牆和地板分得開
     g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 1.5; g.stroke(P);
     g.restore();
+    // 5) 平面障礙物畫回連續地板上（沒有方塊底）
+    for (const [t, x, y] of w._flatDeco || []) try { drawDeco(g, t, x, y, hash2(x, y), w); } catch (e) { }
+    w._flatDeco = null;
   });
 })();
