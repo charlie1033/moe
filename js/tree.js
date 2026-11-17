@@ -79,7 +79,7 @@ const INNER_CONSTS = [
   [-20, '連珠座', [['攻擊速度', { aspd_inc: 3 }], ['投射物傷害', { proj_inc: 8 }]], 3, n_('連珠箭', { aspd_inc: 10, proj_inc: 15 })],
   [5, '疾風座', [['閃避', { evasion_inc: 12 }], ['移動速度', { move_inc: 2 }]], 3, n_('疾風步', { move_inc: 6, evasion_inc: 30 })],
   [26, '影舞座', [['閃避機率', { dodge: 2 }], ['閃避', { evasion_inc: 10 }]], 4, n_('影舞者', { dodge: 6, evasion_inc: 20 })],
-  [48, '毒牙座', [['中毒機率', { poison_ch: 5 }], ['毒素傷害', { chaos_inc: 10 }], ['持續傷害', { dot_inc: 8 }]], 3, n_('毒刃大師', { chaos_inc: 20, poison_ch: 12, dot_inc: 10 })],
+  [48, '毒牙座', [['中毒機率', { poison_ch: 8 }], ['中毒傷害', { chaos_inc: 10, dot_inc: 8 }], ['中毒機率', { poison_ch: 8 }], ['中毒傷害', { chaos_inc: 10, dot_inc: 8 }]], 5, n_('毒刃大師', { chaos_inc: 25, poison_ch: 15, dot_inc: 15 })],   // v2.14.2 中毒天賦加多加強（盜賊出生點附近）
   // 力量區
   [72, '一閃座', [['暴擊率', { crit_inc: 10 }], ['近戰傷害', { melee_inc: 8 }], ['暴擊傷害', { crit_multi: 8 }]], 3, n_('一閃', { crit_multi: 25, melee_inc: 15 })],
   [98, '血刃座', [['流血機率', { bleed_ch: 5 }], ['物理傷害', { phys_inc: 8 }], ['持續傷害', { dot_inc: 8 }]], 3, n_('血刃', { bleed_ch: 15, dot_inc: 15 })],
@@ -188,8 +188,8 @@ function buildTree() {
     }
     // 中段長出一顆共同小點（可重複的生命／魔力／抗性…）
     const mi = Math.floor(L / 2), mid = ids[mi], mn = TREE.nodes[mid], side = mi % 2 ? -1 : 1; // 長在鋸齒的另一邊，不會疊在一起
-    const [cn, cs] = commonSmall(ang, 3000 + Math.round(ang * 7));
-    tnode(`${prefix}s`, mn.ang + side * 40 / mn.rad * 180 / Math.PI, mn.rad + 4, 'minor', cn, cs);
+    const [cn, cs] = smalls[(mi + 1) % smalls.length];   // v2.14.2 分支點跟這一串同主題（以前是生命／魔力／護盾輪流，會在召喚星座中間冒出一顆魔力）
+    tnode(`${prefix}s`, mn.ang + side * 40 / mn.rad * 180 / Math.PI, mn.rad + 4, 'minor', cn, Object.assign({}, cs));
     tlink(mid, `${prefix}s`);
     const tipId = `${prefix}N`;
     tnode(tipId, ang, r0 + L * STEP + (tip[0] === 'keystone' ? 18 : 6), tip[0], tip[1], tip[2], tip[3]);

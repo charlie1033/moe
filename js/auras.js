@@ -56,7 +56,7 @@ computeStats = function (P) {
   if (add('move_inc') && S.moveSpeed) S.moveSpeed *= 1 + add('move_inc') / 100;
   if (add('life_regen') && S.maxLife && !S.flags.noRegen) S.lifeRegenPS = (S.lifeRegenPS || 0) + S.maxLife * add('life_regen') / 100;
   if (add('res_all')) for (const e of ['res_fire', 'res_cold', 'res_light']) S[e] = (S[e] || 0) + add('res_all');
-  S.manaReserved = Math.min(95, res); S.maxMana = Math.max(1, Math.round(S.maxMana * (1 - S.manaReserved / 100)));
+  S.manaReserved = Math.min(95, res); S.maxManaFull = S.maxMana; S.maxMana = Math.max(1, Math.round(S.maxMana * (1 - S.manaReserved / 100)));   // maxManaFull：保留之前的總魔力（魔力球用）
   return S;
 };
 const _obcAura = onBuildChanged;
@@ -75,6 +75,19 @@ drawPlayer = function (g, ...a) {
   if (pl && list.length && !(typeof drawAuraArt === 'function' && drawAuraArt(g, pl, list))) list.forEach((id, i) => { g.save(); g.strokeStyle = AURA_DEF[id].color; g.globalAlpha = 0.35 + 0.15 * Math.sin(G.time * 2 + i); g.lineWidth = 2; g.beginPath(); g.ellipse(pl.x, pl.y + 10, 30 + i * 6, (30 + i * 6) * 0.38, 0, 0, Math.PI * 2); g.stroke(); g.restore(); });
   return _drawPlAura(g, ...a);
 };
+// v2.14.2 魔力球：保留掉的那一段畫成上面一截暗灰色斜線（球裡的藥水照「總魔力」的比例畫，不會因為保留就看起來全滿）
+Hook.on('drawHUD', g => {
+  const S = G.S, P = G.P; if (!P || !S || !S.manaReserved || G.state !== 'play' || typeof HUD === 'undefined' || !HUD.orbR) return;
+  const [x, y, r] = HUD.orbR, f = S.manaReserved / 100, top = y - r, h = r * 2 * f;
+  g.save(); g.beginPath(); g.arc(x, y, r - 1, 0, Math.PI * 2); g.clip();
+  g.fillStyle = 'rgba(18,16,26,0.82)'; g.fillRect(x - r, top, r * 2, h);
+  g.strokeStyle = 'rgba(150,140,190,0.35)'; g.lineWidth = 1.5; g.beginPath();
+  for (let k = -r * 2; k < r * 2; k += 6) { g.moveTo(x + k, top); g.lineTo(x + k + h, top + h); }
+  g.stroke();
+  g.strokeStyle = 'rgba(200,190,255,0.8)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x - r, top + h); g.lineTo(x + r, top + h); g.stroke();
+  g.restore();
+  if (h > 12) txt(g, `保留 ${S.manaReserved}%`, x, top + Math.min(h / 2 + 3, h - 4), 9, '#c8c0ff', 'center');
+});
 // v2.13.9 開著的光環：技能列上那一格亮起來（金色呼吸光框＋右上角小燈），一眼就知道哪些光環開著
 Hook.on('drawHUD', g => {
   const P = G.P; if (!P || G.state !== 'play') return;

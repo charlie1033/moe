@@ -713,7 +713,7 @@ function drawHUD(g) {
   { const lf = pl.life / S.maxLife; pl.lifeTrail = Math.max(lf, (pl.lifeTrail == null ? lf : pl.lifeTrail) - 0.008); }
   drawOrb(g, lx, ly, lr, pl.life / S.maxLife, "#b82020", "#2a0808", `${Math.ceil(pl.life)}|${S.maxLife}${S.maxES > 0 ? '|護盾 ' + Math.ceil(pl.es) + '/' + S.maxES : ''}`, S.maxES > 0 ? pl.es / S.maxES : null, pl.lifeTrail);
   if (S.maxES > 0) txt(g, `護盾 ${Math.ceil(pl.es)}`, lx, ly - lr - 12, 10, '#9fd8ff', 'center');
-  drawOrb(g, rx, ry, rr, S.maxMana ? pl.mana / S.maxMana : 0, '#2a50c8', '#080c2a', S.flags.bloodMagic ? '血魔' : `${Math.floor(pl.mana)}|${S.maxMana}`);
+  drawOrb(g, rx, ry, rr, S.maxMana ? pl.mana / (S.maxManaFull || S.maxMana) : 0,   /* v2.14.2 照總魔力算比例，保留的部分由光環畫上去 */ '#2a50c8', '#080c2a', S.flags.bloodMagic ? '血魔' : `${Math.floor(pl.mana)}|${S.maxMana}`);
   // 藥劑（4 格，按 1–4）
   for (let i = 0; i < 4; i++) {
     const [x, y, fw, fh] = HUD.flask(i), f = pl.fl[i];
