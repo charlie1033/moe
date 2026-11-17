@@ -421,7 +421,7 @@ ArtUI.load();
     g.putImageData(A, 0, 0); return c;
   }
   const tex = key => READY[key] || (SRC[key] ? (READY[key] = seamless(SRC[key])) : null);
-  ArtUI.tex = tex;
+  ArtUI.tex = tex; ArtUI.seamless = seamless;
   const prev = paintWorldDetail;
   paintWorldDetail = function (g, w) {
     const id = w && w.theme && w.theme.id, on = ArtUI.on();
@@ -893,4 +893,83 @@ ArtUI.load();
     g.restore();
   });
   ArtUI.shards = () => S.length;   // 給自我檢查看
+})();
+
+// =============================================================
+//  v2.14 岩漿、水塘、虛空裂隙：AI 液面貼圖（liq_lava／liq_water／liq_rift）
+//  ・畫進地圖底圖（Hook 'worldCanvas'，只畫一次）：整片連續鋪貼圖，岸邊往內一圈深色、液面邊緣一條亮線（岩漿＝橘光、水＝白浪、裂隙＝紫光），岸上一圈落影 → 看起來是凹下去的池子
+//  ・每格只在畫面裡的池子上疊一層慢慢流動的同一張貼圖（Hook 'drawWorld'）；岩漿另外一明一暗地發光
+//  ・木橋照原本的木板樣子畫在水面上
+// =============================================================
+(function () {
+  if (typeof Hook === 'undefined' || typeof ARTWORK === 'undefined') return;
+  const KIND = { 8: 'lava', 2: 'water', 14: 'rift' };
+  const EDGE = {   // 岸邊：[池子內側的暗色, 液面邊緣的亮線, 岸上的落影]
+    lava: ['rgba(40,8,0,0.85)', 'rgba(255,190,90,0.75)', 'rgba(0,0,0,0.45)'],
+    water: ['rgba(6,20,28,0.75)', 'rgba(220,240,255,0.45)', 'rgba(0,0,0,0.4)'],
+    rift: ['rgba(0,0,0,0.9)', 'rgba(190,140,255,0.6)', 'rgba(0,0,0,0.5)'],
+  };
+  const FLOW = { lava: [6, 3], water: [10, 4], rift: [-4, 2] };   // 每秒流動幾點
+  const SRC = {}, TILE = 160;   // 一張貼圖鋪 5 格寬
+  for (const k of ['lava', 'water', 'rift']) {
+    const s = ARTWORK.img['liq_' + k]; if (!s) continue;
+    const im = new Image();
+    im.onload = () => { SRC[k] = ArtUI.seamless ? ArtUI.seamless(im) : im; if (typeof G !== 'undefined' && G.world && G.world.deco) try { buildWorldCanvas(G.world); } catch (e) { } };
+    im.src = s;
+  }
+  const pat = (g, k, ox, oy) => { const p = g.createPattern(SRC[k], 'repeat'), s = TILE / SRC[k].width; if (p.setTransform) p.setTransform(new DOMMatrix([s, 0, 0, s, ox || 0, oy || 0])); return p; };
+  Hook.on('worldCanvas', w => {
+    if (!ArtUI.on() || !w.deco || !w.canvas) return;
+    const g = w.canvas.getContext('2d'), W = w.W, H = w.H;
+    const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : w.deco[y * W + x];
+    g.save();
+    for (const t in KIND) {
+      const k = KIND[t], T = +t; if (!SRC[k]) continue;
+      const same = (x, y) => { const v = at(x, y); return v === T || (T === 2 && v === 15); };
+      const cells = []; for (let i = 0; i < W * H; i++) { const v = w.deco[i]; if (v === T || (T === 2 && v === 15)) cells.push(i); }
+      if (!cells.length) continue;
+      g.fillStyle = pat(g, k); g.beginPath(); for (const i of cells) g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); g.fill();
+      const [inner, rim, drop] = EDGE[k];
+      for (const i of cells) {
+        const x = i % W, y = (i / W) | 0, X = x * TS, Y = y * TS;
+        const side = (nx, ny, gx0, gy0, gx1, gy1, rx, ry, rw, rh, lx, ly, lw, lh, ox, oy, ow, oh) => {
+          if (same(nx, ny)) return;
+          const gr = g.createLinearGradient(gx0, gy0, gx1, gy1); gr.addColorStop(0, inner); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.fillRect(rx, ry, rw, rh);
+          g.fillStyle = rim; g.fillRect(lx, ly, lw, lh);
+          if (!KIND[at(nx, ny)] && at(nx, ny) !== 15) { g.fillStyle = drop; g.fillRect(ox, oy, ow, oh); }   // 岸上：一圈落影
+        };
+        side(x, y - 1, 0, Y, 0, Y + 9, X, Y, TS, 9, X, Y + 3, TS, 1, X, Y - 3, TS, 3);
+        side(x, y + 1, 0, Y + TS, 0, Y + TS - 6, X, Y + TS - 6, TS, 6, X, Y + TS - 3, TS, 1, X, Y + TS, TS, 2);
+        side(x - 1, y, X, 0, X + 7, 0, X, Y, 7, TS, X + 2, Y, 1, TS, X - 2, Y, 2, TS);
+        side(x + 1, y, X + TS, 0, X + TS - 7, 0, X + TS - 7, Y, 7, TS, X + TS - 3, Y, 1, TS, X + TS, Y, 2, TS);
+      }
+      if (T === 2) for (const i of cells) if (w.deco[i] === 15) {   // 木橋：木板畫在水面上
+        const X = (i % W) * TS, Y = ((i / W) | 0) * TS;
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X + 2, Y + 3, TS - 2, TS - 2);
+        g.fillStyle = '#7a5a34'; for (let n = 0; n < 4; n++) g.fillRect(X + 1, Y + 1 + n * 8, TS - 2, 6);
+        g.fillStyle = 'rgba(255,230,180,0.18)'; for (let n = 0; n < 4; n++) g.fillRect(X + 1, Y + 1 + n * 8, TS - 2, 1);
+        g.fillStyle = '#4a3420'; g.fillRect(X + 1, Y, 3, TS); g.fillRect(X + TS - 4, Y, 3, TS);
+      }
+    }
+    g.restore();
+  });
+  // 每格：畫面裡的池子疊一層慢慢流動的液面；岩漿一明一暗發光
+  Hook.on('drawWorld', g => {
+    const w = G.world; if (!ArtUI.on() || !w || !w.deco) return;
+    const W = w.W, t = G.time, x0 = Math.max(0, Math.floor(G.cam.x / TS)), y0 = Math.max(0, Math.floor(G.cam.y / TS));
+    const x1 = Math.min(W - 1, Math.ceil((G.cam.x + VW) / TS)), y1 = Math.min(w.H - 1, Math.ceil((G.cam.y + VH) / TS));
+    g.save();
+    for (const T of [8, 2, 14]) {
+      const k = KIND[T]; if (!SRC[k]) continue;
+      g.beginPath(); let n = 0;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.deco[y * W + x] === T) { g.rect(x * TS, y * TS, TS, TS); n++; }
+      if (!n) continue;
+      const [vx, vy] = FLOW[k];
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = k === 'rift' ? 0.3 : 0.38;
+      g.fillStyle = pat(g, k, t * vx, t * vy); g.fill();
+      if (k === 'lava') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2); g.fillStyle = pat(g, k, -t * 3, t * 5); g.fill(); }
+    }
+    g.restore();
+  });
 })();
