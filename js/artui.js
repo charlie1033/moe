@@ -208,7 +208,7 @@ ArtUI.load();
     const d = document.createElement('canvas'); d.width = c.width; d.height = c.height;
     // 空瓶＝原圖蓋一層半透明的暗灰（不用 ctx.filter：iPhone 舊版 Safari 不支援，會變得跟滿瓶一樣亮）
     const x = d.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = 'rgba(28,26,30,0.62)'; x.fillRect(0, 0, d.width, d.height); x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, 0, d.width, d.height);
+    x.fillStyle = 'rgba(40,38,44,0.8)'; x.fillRect(0, 0, d.width, d.height); x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(0, 0, d.width, d.height);
     FL.dim[type] = d; return (FL.full[type] = c);
   }
   function drawFlaskBottle(g, f, ic, x, y, fw, fh) {
