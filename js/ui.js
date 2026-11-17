@@ -162,8 +162,9 @@ const UI = {
       b.onmousemove = e => this.moveTip(e); b.onmouseleave = () => this.hideTip();
     });
     $('#mtoggle').onclick = e => { e.stopPropagation(); this.menuPop(); };
-    document.addEventListener('pointerdown', e => { if (this.menuOpen && !e.target.closest('#menubar')) this.menuPop(false); });
+    if (!this._menuOutside) { this._menuOutside = true; document.addEventListener('pointerdown', e => { if (this.menuOpen && !e.target.closest('#menubar')) this.menuPop(false); }); }   // v2.13.4 只加一次（改設定會重建功能列）
     // 回城按鈕（小地圖左邊）
+    document.querySelectorAll('#portalbtn').forEach(x => x.remove());   // v2.13.4 改設定會重建功能列：先拿掉舊的回城鈕，不然會多出一顆卡在畫面中間
     const pb = document.createElement('div'); pb.id = 'portalbtn';
     pb.innerHTML = `<span class="mico">${svg('portal')}<span class="mkey">${keyLabel('portal')}</span></span><span class="pbname">回城</span><b class="pbcount"></b>`;
     pb.onclick = () => usePortalScroll();
@@ -185,7 +186,7 @@ const UI = {
       d.onmouseleave = () => { this.hotTip = null; this.hideTip(); };
       d.onclick = () => { if (d.dataset.s.startsWith('sk')) this.toggle('skills', true); if (d.dataset.s.startsWith('fl')) useFlask(+d.dataset.s.slice(2)); };
     });
-    window.addEventListener('resize', () => this.layoutHUD());
+    if (!this._hudResize) { this._hudResize = true; window.addEventListener('resize', () => this.layoutHUD()); }
     this.layoutHUD();
   },
   // 依畫布實際大小，把按鈕列與熱區縮放到正確位置

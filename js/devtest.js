@@ -124,6 +124,7 @@ const MOE_DEV = {
       G.pl.cd = {}; G.pl.act = 0; useSkill(1); T.run(1); T.ok(G.mins.length && G.mins[0].maxLife >= 90, '骷髏生命沒有變厚');
     },
     '面板、設定頁、夢之門都打得開': T => {
+      for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
       T.hero('summoner', 60, 21);
       for (const p of ['inv', 'char', 'skills', 'craft', 'journal', 'help', 'shop', 'stash', 'tree']) { UI.toggle(p, true); if (p === 'tree') TreeView.draw(); UI.toggle(p, false); G.P.treePend = []; }
       for (const t of ['cur', 'sup', 'jewel', 'uniq', 0]) { UI.toggle('stash', true); UI.stashTab = t; UI.refreshStash(); } UI.toggle('stash', false);
