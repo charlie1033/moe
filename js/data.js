@@ -169,7 +169,7 @@ const CLASS_GEMS = {
   mage: ['fireball', 'nova', 'arc', 'icespear', 'meteor', 'blizzard', 'storm'],
   summoner: ['skel', 'spirit', 'wolf', 'golem', 'thorn'],
 };
-const hasSkillGem = (P, sid) => !!(P && ((CLASS_GEMS[P.cls] || []).includes(sid) || (P.skillGems && P.skillGems[sid])));
+const hasSkillGem = (P, sid) => !!(P && ((CLASS_GEMS[P.cls] || []).includes(sid) || (P.skillGems && P.skillGems[sid]) || (typeof G !== 'undefined' && G.stash && G.stash.skillGems && G.stash.skillGems[sid])));   // v2.16.3 倉庫裡（全帳號）會的技能寶石也算
 const skillGemPrice = sid => ({ chaos: Math.max(1, Math.ceil(SKILLS[sid].lvl / 10)) }); // 塞拉的價格：等級越高越貴
 
 // ---------- 輔助寶石 ----------

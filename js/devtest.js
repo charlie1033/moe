@@ -140,6 +140,16 @@ const MOE_DEV = {
       enterMap(2); T.quiet(); G.pl.cd = {}; G.pl.act = 0; G.pl.mana = 999; useSkill(1); T.run(0.3); const mn = G.mins.find(x => x.mtype === 'skel'); T.ok(mn, '沒召出骷髏');
       const m = makeMonster(G.world.theme.monsters[0], mn.x + 12, mn.y, 5, 'normal', G.world.theme); G.mons = [m]; T.run(0.2); T.ok(!G.mins.includes(mn), '骷髏沒有自爆');
     },
+    '第二批技能傳奇、倉庫寶石共用': T => {
+      T.ok(SKILL_UNIQUES.length >= 20, '第二批技能傳奇沒有加進去');
+      const P = T.hero('mage', 40, 8); const ch0 = SKILLS.arc.chains || 0;
+      P.equip.ring1 = makeUnique('u_thunderring', 40); onBuildChanged(); T.ok(SKILLS.arc.chains === ch0 + 2, '雷鳴指環沒有多彈跳');
+      P.equip.ring1 = null; onBuildChanged(); T.ok(SKILLS.arc.chains === ch0, '拿掉雷鳴指環沒恢復');
+      P.equip.boots = makeUnique('u_shadowstep', 40); onBuildChanged(); const c0 = G.S.crit_inc; G._rollCritT = 2; onBuildChanged(); T.ok(G.S.crit_inc > c0 + 1000, '影步之靴沒加暴擊'); G._rollCritT = 0; onBuildChanged();
+      const id = Object.keys(SUPPORTS)[0]; G.stash.spec = G.stash.spec || {}; G.stash.spec.sup = G.stash.spec.sup || {}; G.stash.spec.sup[id] = 1; P.supports[id] = 0;
+      T.ok(supHave(id) === 1, '倉庫裡的輔助寶石讀不到'); T.ok(supTake(id) && G.stash.spec.sup[id] === 0, '倉庫裡的輔助寶石拿不出來');
+      shareSkillGem('meteor'); T.ok(hasSkillGem(P, 'meteor'), '倉庫的技能寶石不能用');
+    },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
       T.hero('summoner', 60, 21);

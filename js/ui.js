@@ -662,12 +662,12 @@ const UI = {
     // 寶石袋：還沒放上去的技能寶石，和輔助寶石（數字＝還有幾顆）
     const used = new Set(P.skills.filter(x => x));
     const skillIds = Object.keys(SKILLS).filter(s => hasSkillGem(P, s) && !used.has(s)).sort((a, b) => SKILLS[a].lvl - SKILLS[b].lvl);
-    const supIds = Object.keys(SUPPORTS).filter(id => (P.supports[id] || 0) > 0);
+    const supIds = Object.keys(SUPPORTS).filter(id => supHave(id) > 0);   // v2.16.3 背包＋倉庫
     let g = `<div class="bagrow" data-drop="bag"><span class="bagt">技能寶石</span>${skillIds.map(s => {
       const bad = skillUsable(S, s);
       return `<span class="bgem ${bad ? 'bad' : ''} ${this.gemPick === 'skill:' + s ? 'picked' : ''}" data-gem="skill:${s}"><img src="${skillIconURL(s, 64)}"><i>${SKILLS[s].name}<br><span class="mpct">Lv ${gemLv(s)}</span></i>${gemCanLevel(s) ? '<b class="gup">↑</b>' : ''}</span>`;
     }).join('') || '<span class="thint">（都放在裝備上了）</span>'}</div>`;
-    g += `<div class="bagrow" data-drop="bag"><span class="bagt">輔助寶石</span>${supIds.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}<br><span class="mpct">耗魔 ${Math.round(SUPPORTS[id].cost * 100)}%</span></i><b>${P.supports[id]}</b></span>`).join('')
+    g += `<div class="bagrow" data-drop="bag"><span class="bagt">輔助寶石</span>${supIds.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}<br><span class="mpct">耗魔 ${Math.round(SUPPORTS[id].cost * 100)}%</span></i><b>${supHave(id)}</b></span>`).join('')
       || '<span class="thint">（沒有多的輔助寶石。打怪會掉，首領一定掉 2 顆）</span>'}</div>`;
     $('#gemBag').innerHTML = g;
     // 拖放、提示、右鍵拿下
@@ -780,7 +780,7 @@ const UI = {
     const P = G.P;
     const old = P.links[i][k];
     if (old) P.supports[old] = (P.supports[old] || 0) + 1;
-    if (id) { P.supports[id]--; P.links[i][k] = id; }
+    if (id) { if (!supTake(id)) return; P.links[i][k] = id; }   // v2.16.3 先用背包的，不夠從倉庫拿
     else P.links[i][k] = null;
     P.links[i] = P.links[i].map(x => x || null);
     while (P.links[i].length && !P.links[i][P.links[i].length - 1]) P.links[i].pop();
@@ -1039,6 +1039,7 @@ const UI = {
     if (!canPay(price)) return this.msg('混沌石不夠', '#ff9a9a');
     for (const k in price) P.cur[k] -= price[k];
     P.skillGems[sid] = true;
+    if (typeof shareSkillGem === 'function') shareSkillGem(sid);
     this.msg(`學會新技能：${SKILLS[sid].name}（按 K 裝上）`, '#ffd27a');
     this.hideTip(); this.refreshGemShop(); this.refreshSkills(); this.refreshInv(); saveGame();
   },

@@ -1577,7 +1577,7 @@ function pickupLoot(l) {
   else if (l.gem) { P.supports[l.gem] = (P.supports[l.gem] || 0) + 1; UI.msg(`撿到輔助寶石：${SUPPORTS[l.gem].name}（按 K 插到技能上）`, '#3fd8b8'); UI.refreshSkills(); }
   else if (l.skill) {
     if (hasSkillGem(P, l.skill)) { P.cur.alter++; UI.msg(`已經會「${SKILLS[l.skill].name}」了，換成 1 顆改造石`, '#d8c8a0'); }
-    else { P.skillGems[l.skill] = true; UI.msg(`學會新技能：${SKILLS[l.skill].name}（按 K 裝上）`, '#ffd27a'); UI.refreshSkills(); }
+    else { P.skillGems[l.skill] = true; if (typeof shareSkillGem === 'function') shareSkillGem(l.skill); UI.msg(`學會新技能：${SKILLS[l.skill].name}（按 K 裝上）`, '#ffd27a'); UI.refreshSkills(); }
   }
   else if (l.mat) { P.mats = P.mats || {}; P.mats[l.mat] = (P.mats[l.mat] || 0) + 1; UI.msg(`撿到材料：${matName(l.mat)}（按 B 到工坊使用）`, l.color); if (UI.refreshCraft) UI.refreshCraft(); }
   else if (l.jewel) { P.jewels[l.jewel] = (P.jewels[l.jewel] || 0) + 1; UI.msg(`撿到珠寶：${jewelName(l.jewel)}（按 G 鑲嵌）`, l.color); UI.refreshJewels(); }
