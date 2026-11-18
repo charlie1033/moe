@@ -816,7 +816,7 @@ const UI = {
       // v2.5.4：地圖等級＝怪物等級；能掉哪些基底看「物品等級」（一般怪最高＝地圖等級、黃色精英 +2、首領 +3）
       const L = mapLevel(t), top = L + MON_LVL_BONUS.boss, tiers = BASE_TIER_NAME.filter((n, i) => BASE_TIER_DROP[i] <= top);
       const nextT = BASE_TIER_DROP.find(d => d > top);
-      return `<b>第 ${t} 夜　${th.name}</b>　<span class="mgrade">地圖等級 ${L}</span>　怪物 ${Math.max(1, L - 2)}–${L}（藍 +1、黃 +2、首領 ${top}）<br><span class="mdesc">掉落基底：${tiers.join("、")}${nextT ? `（下一階要物品等級 ${nextT}）` : ""}<br>看守者：${boss.name}（${boss.desc}）擊敗 ${kills} 次<br>專屬掉落：<span class="c-unique">${excl}</span>　<span class="thint">每次擊敗約 12% 機率掉一件（地圖稀有度越高越容易）</span></span>`;
+      return `<b>第 ${t} 夜　${th.name}</b>　<span class="mgrade">地圖等級 ${L}</span><br><span class="mdesc">掉落基底：${tiers.join("、")}${nextT ? `（下一階要物品等級 ${nextT}）` : ""}<br>看守者：${boss.name}（${boss.desc}）擊敗 ${kills} 次<br>專屬掉落：<span class="c-unique">${excl}</span>　<span class="thint">每次擊敗約 12% 機率掉一件（地圖稀有度越高越容易）</span></span>`;
     };
     // —— 終局：深層夢境 ——
     if (P.maxTier >= DEEP_TIER) {

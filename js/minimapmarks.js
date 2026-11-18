@@ -13,6 +13,16 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
   const P = (x, y) => [mx + x / TS * s, my + y / TS * s];
   const dot = (x, y, r, col, ring) => { const [px, py] = P(x, y); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill(); if (ring) { g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke(); } };
   const blink = 0.6 + 0.4 * Math.sin(G.time * 5);
+  // v2.17.3 小地圖下方：這一區還剩幾隻怪（精英另外算）
+  if (w.kind === 'map') {
+    const alive = G.mons.filter(m => !m.dead && !m.boss), el = alive.filter(m => m.rarity && m.rarity !== 'normal').length;
+    const tx = mx + w.W * s, ty = my + w.H * s + 16;
+    g.save(); g.font = 'bold 12px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
+    const t = `怪物 ${alive.length}${el ? `（精英 ${el}）` : ''}`, tw = g.measureText(t).width;
+    g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(tx - tw - 8, ty - 9, tw + 10, 18);
+    g.fillStyle = alive.length ? '#e8d8b8' : '#9fe0a0'; g.fillText(alive.length ? t : '這一區清空了', tx - 2, ty);
+    g.restore();
+  }
   // 事件
   for (const ev of w.events || []) {
     if (!seen(ev.x, ev.y)) continue;

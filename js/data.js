@@ -666,7 +666,7 @@ const MONSTERS = {
     res: { fire: -25, cold: 50, light: 0, chaos: 0 }, armour: 5, note: '跑得比你快，咬人帶冰冷傷害。怕火。' },
 };
 // 圖鑑：殺幾隻同種怪才解鎖哪些資訊（首領用後面那組，算擊敗次數）
-const LORE_TIERS = [3, 15, 40];
+const LORE_TIERS = [10, 50, 150];   // v2.17.3 上調（原本 3／15／40）
 const LORE_TIERS_BOSS = [1, 2, 3];
 const LORE_TEXT = ['生命數值、異常狀態', '元素抗性與弱點', '護甲、攻擊方式、弱點說明'];
 const RES_NAME = { fire: '火', cold: '冰', light: '雷', chaos: '毒' };
