@@ -42,6 +42,7 @@ const Music = {
     else if (Sfx.noise) { const s = c.createBufferSource(), gn = c.createGain(), hp = c.createBiquadFilter(); s.buffer = Sfx.noise; hp.type = 'highpass'; hp.frequency.value = 6000; gn.gain.setValueAtTime(vol * 0.4, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.05); s.connect(hp); hp.connect(gn); gn.connect(this.out); s.start(t); s.stop(t + 0.06); }
   },
   pickMood() {
+    if (typeof TitleScreen !== 'undefined' && TitleScreen.playing()) return 'town';   // v2.19.1 開始畫面：營地的音樂（第一次點擊後）
     if (typeof G === 'undefined' || G.state !== 'play' || !G.world) return null;
     const w = G.world;
     if (w.kind === 'town') return 'town';

@@ -556,7 +556,7 @@ const MOE_DEV = {
     },
     '分塊畫：worldRepaint 只重畫涵蓋的塊': T => {
       T.hero('warrior', 40, 12); enterMap(12); const w = G.world, nx = Math.ceil(w.W / CHUNK), ny = Math.ceil(w.H / CHUNK);
-      for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) worldChunk(w, cx, cy);
+      worldDropChunks(w); for (let cy = 0; cy < Math.min(ny, 2); cy++) for (let cx = 0; cx < Math.min(nx, 3); cx++) worldChunk(w, cx, cy);   // 大地圖塊數超過上限時舊塊會被丟掉，只畫左上幾塊
       let ev = null; const f = (ww, r) => { ev = r; }; Hook.on('terrainChanged', f);
       const tv = w._terrainVer, n = worldRepaint(w, 40, 10, 41, 11), dirty = [...w.chunks.values()].filter(k => k.dirty).map(k => k.cx + ',' + k.cy);
       Hook.m.terrainChanged = Hook.m.terrainChanged.filter(h => h !== f);
@@ -652,6 +652,21 @@ const MOE_DEV = {
       T.ok(wKillOpt('witch')[1].includes('她') && wKillOpt('beast')[1].includes('牠'), '了結說明的稱呼不對');
       T.ok(CHAPTER_MAPS['10-3'].bosses.B.story === 'ch10_sit' && !(CHAPTER_MAPS['10-1'].bosses || {}).B, '放棄的那個我位置不對');
       P.wardens.first = {};
+    },
+    '開始畫面：選單、繼續、選擇角色、進遊戲後停止': T => {
+      T.clean(); if (G.state === 'play') backToTitle();
+      TitleScreen.open(); const q = s => document.querySelector(s), ids = [...document.querySelectorAll('#title .ts-menu button')].map(b => b.dataset.ts).join(',');
+      T.ok(TitleScreen.shown && q('#title.show'), '開始畫面沒出現');
+      T.ok(['chars', 'new', 'set', 'cred'].every(k => ids.includes(k)), '選單項目不齊：' + ids);
+      q('#title [data-ts="chars"]').click(); T.ok(!TitleScreen.shown && q('#menu.show') && q('#tsBack'), '選擇角色沒打開原本的清單');
+      q('#tsBack').click(); T.ok(TitleScreen.shown, '回不到開始畫面');
+      T.hero('mage', 12, 4); saveGame(); const id = G.charId; T.ok(!TitleScreen.alive && !TitleScreen.shown, '進遊戲後開始畫面的迴圈沒停');
+      backToTitle(); TitleScreen.open(); T.ok(TitleScreen.last && TitleScreen.last.id === id && q('#title [data-ts="cont"]'), '繼續不是上次的角色');
+      q('#title [data-ts="cont"]').click(); T.ok(G.state === 'play' && G.charId === id && !TitleScreen.alive, '繼續沒有直接進角色');
+    },
+    '開始畫面：沒有角色時沒有繼續': T => {
+      if (G.state === 'play') backToTitle(); const old = window.loadIndex; window.loadIndex = () => ({ chars: [] });
+      try { TitleScreen.open(); T.ok(!document.querySelector('#title [data-ts="cont"]') && document.querySelectorAll('#title .ts-menu button').length === 4, '沒有角色卻有繼續'); } finally { window.loadIndex = old; TitleScreen.destroy(); }
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
