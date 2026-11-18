@@ -5,7 +5,7 @@
 //      力量＝傷害 +40%　疾風＝攻擊、施法、移動速度 +25%　鋼鐵＝受到的傷害 −35%　回春＝每秒回 4% 生命和魔力　洞察＝暴擊率 +120%
 //  ・深淵裂口：按 F 打開，裂口湧出 3 波怪物（比地圖高 1 級），全部清掉後掉一堆寶物（深層夢境還可能掉天賦珠寶）
 //  ・精髓水晶：裡面封著一隻黃色精英怪，按 F 打碎放出來；牠特別耐打，但一定掉一件高等黃裝和通貨
-//  ・瞻望之柱：按 F 凝視，整張小地圖全開，這一區的掉落數量 +25%，還會召來一群「被預言的敵人」
+//  ・瞻望之柱：按 F 凝視，預言三選一（v2.17，規則在 prophecy.js；原本的開全圖拿掉了）
 // =============================================================
 const SHRINES = {
   might: { name: '力量神殿', color: '#ff7050', text: '傷害 +40%' },
@@ -63,11 +63,7 @@ function activateEvent(ev) {
     UI.banner('精髓水晶碎了', '打倒被封印的精英，牠一定會掉寶', '#9ae8ff');
   } else if (EV_START[ev.kind]) { EV_START[ev.kind](ev);   // v2.10 別的模組登記的事件（夢潮裂隙、獻祭圈、迷霧）
   } else if (ev.kind === 'vision') {
-    w.explored.fill(1); paintMiniAll(w);
-    w.mm = Object.assign({}, w.mm, { q: (w.mm.q || 0) + 25 });
-    const before = G.mons.length; spawnPack(ev.x + rnd(-120, 120), ev.y + rnd(-120, 120), w);
-    for (let i = before; i < G.mons.length; i++) { const m = G.mons[i]; m.prophesied = true; m.aggro = true; if (m.rarity === 'normal') { m.rarity = 'magic'; m.maxLife *= 1.8; m.life = m.maxLife; } }
-    UI.banner('瞻望之柱', '整張地圖都看見了・這一區掉落數量 +25%', '#ffe9a0');
+    if (typeof visionProphecy === 'function') visionProphecy(ev);   // v2.17 預言三選一（prophecy.js）
   }
   saveGame();
 }
@@ -116,10 +112,9 @@ damagePlayer = function (parts, opts = {}) {
   if (G.shrine && G.shrine.type === 'iron' && Array.isArray(parts)) parts = parts.map(p => Array.isArray(p) ? [p[0] * 0.65, p[1]] : p);
   return _dmgEV(parts, opts);
 };
-// 精髓、被預言的敵人：死亡掉寶
+// 精髓：死亡掉寶
 Hook.on('kill', m => {
   if (m.essence) mapLoot(m.x, m.y, { n: 3, r: 50, bonus: 6, rare: 1, ilvl: m.mlvl + 2 });
-  if (m.prophesied && Math.random() < 0.5) mapLoot(m.x, m.y, { n: 1, bonus: 3 });
 });
 // 畫：事件本體＋神殿效果提示
 const _drawStageEV = drawStageExtras;

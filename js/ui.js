@@ -33,12 +33,11 @@ const EQUIP_SLOTS = [
   ['ring2', '戒指', 256, 104, 46, 46], ['gloves', '手套', 20, 148, 60, 60], ['belt', '腰帶', 174, 176, 72, 32], ['boots', '鞋子', 340, 148, 60, 60],
 ];
 const UI = {
-  open: { inv: false, char: false, skills: false, tree: false, help: false, shop: false, stash: false, journal: false, jewels: false },
-  jewelSel: null,
+  open: { inv: false, char: false, skills: false, tree: false, help: false, shop: false, stash: false, journal: false },
   stashTab: 0,
   get treeOpen() { return this.open.tree; },
   mouseOverUI: false, curSel: null,
-  paused() { return this.open.tree || this.open.help || this.open.journal || this.storyOpen || (typeof Pause !== 'undefined' && Pause.open); },
+  paused() { return this.open.tree || this.open.help || this.open.journal || this.storyOpen || (typeof Pause !== 'undefined' && Pause.open) || (typeof ChoiceBox !== 'undefined' && ChoiceBox.open); },
   msg(t, color = '#e8e0d0') { G.msgs.push({ txt: t, color, t: G.time }); if (G.msgs.length > 5) G.msgs.shift(); },
   // v2.3 重要事件的大橫幅（升級、傳奇掉落、擊敗首領）
   banner(title, sub, color = "#ffe6a0") { G.banner = { title, sub, color, t: G.time }; },
@@ -102,9 +101,8 @@ const UI = {
     this.open[name] = v;
     $('#' + name).classList.toggle('show', v);
     // 左側面板一次只開一個；商人與倉庫會順便打開背包
-    const LEFT = ['char', 'skills', 'shop', 'stash', 'jewels', 'gemshop', 'craft'];
+    const LEFT = ['char', 'skills', 'shop', 'stash', 'jewelbox', 'gemshop', 'craft'];
     if (v && LEFT.includes(name)) for (const o of LEFT) if (o !== name && this.open[o]) { this.open[o] = false; $('#' + o).classList.remove('show'); }
-    if (name === 'jewels' && !v) this.jewelSel = null;
     // 打開過就把紅點清掉
     if (v && G.P && G.P.ui) { if (name === 'skills') G.P.ui.skillLvl = G.P.lvl; if (name === 'journal') G.P.ui.journalN = Object.keys(G.P.story.seen).length; }
     document.querySelectorAll('.mbtn').forEach(b => b.classList.toggle('on', !!this.open[b.dataset.m]));
@@ -130,7 +128,6 @@ const UI = {
     inv: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9 12h6"/>',
     char: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/>',
     skills: '<path d="M13 2L5 13h6l-1 9 8-12h-6z"/>',
-    jewels: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M9 3l3 18 3-18"/>',
     tree: '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><circle cx="12" cy="13" r="2"/><path d="M12 7.5v3.5M10.5 14.5l-4 2M13.5 14.5l4 2"/>',
     journal: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6"/>',
     portal: '<ellipse cx="12" cy="12" rx="6" ry="9"/><path d="M12 7c-2 1.5-2 8.5 0 10M12 7c2 1.5 2 8.5 0 10"/>',
@@ -141,7 +138,6 @@ const UI = {
     { id: 'inv', name: '背包', key: 'I', desc: '裝備、藥劑、通貨、整理與分解' },
     { id: 'char', name: '角色', key: 'C', desc: '生命、防禦、抗性、技能傷害' },
     { id: 'skills', name: '技能', key: 'K', desc: '換技能、插輔助寶石' },
-    { id: 'jewels', name: '珠寶', key: 'G', desc: '鑲嵌、拆下、合成珠寶' },
     { id: 'craft', name: '強化', key: 'B', desc: '用磨石強化武器、用護貝劑強化防具（+1～+10）' },
     { id: 'tree', name: '天賦', key: 'P', desc: '升級得到的天賦點數' },
     { id: 'journal', name: '日誌', key: 'J', desc: '記憶碎片、人物故事、怪物圖鑑' },
@@ -244,17 +240,18 @@ const UI = {
       else {
         let hintShown = false, nDone = 0;
         ch.steps.forEach((st, i) => {
-          const done = q.done[q.ch + '_' + i];
+          const done = q.done[Quest.key(q.ch, st, i)];
           if (done) { nDone++; return; } // 完成的步驟收起來，只顯示還沒做的
           const prog = st.goal ? `（${Math.min(st.goal, Math.max(0, st.prog(P, q.base)))}/${st.goal}）` : '';
-          h += `<div class="qstep ${st.boss ? 'boss' : ''}">${st.boss ? '☠' : '○'} ${st.text}${prog}</div>`;
-          if (!hintShown && st.hint) { h += `<div class="qhint">${st.hint}</div>`; hintShown = true; }
+          h += `<div class="qstep ${st.boss ? 'boss' : ''}">${st.boss ? '☠' : '○'} ${ctlText(st.text)}${prog}</div>`;
+          if (!hintShown && st.hint) { h += `<div class="qhint">${ctlText(st.hint)}</div>`; hintShown = true; }
         });
         if (nDone) h += `<div class="qstep done">✓ 已完成 ${nDone}/${ch.steps.length} 步</div>`;
         const r = ch.reward, rw = [r.pts ? `天賦點+${r.pts}` : '', r.respec ? `重置點+${r.respec}` : ''].filter(x => x)
           .concat(Object.keys(r.cur || {}).map(k => `${CURRENCY[k].name}×${r.cur[k]}`)).concat(r.jewel ? [jewelName(r.jewel)] : []);
         h += `<div class="qreward">獎勵：${rw.join('、')}</div>`;
       }
+      h += PanelRows.html('quest', P);   // 帶話任務等（core.js 的 PanelRows）
     }
     if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; }
   },
@@ -307,7 +304,7 @@ const UI = {
     if (isFlask(it)) return `<img src="${flaskIconURL(it.type, 64)}"><span class="iname c-${it.rarity}">${FLASKS[it.type].name.slice(0, 4)}</span><span class="ftier">${it.tier}</span>`;
     const b = BASE_BY_ID[it.base];
     const socks = (it.sockets || []).map(k => `<i style="background:${k ? JEWELS[parseJewel(k).type].color : 'transparent'}"></i>`).join('');
-    return `<img src="${itemIconURL(b, 64)}"><span class="iname c-${it.rarity}">${it.name.length > 6 ? it.name.slice(0, 6) : it.name}</span>${socks ? `<span class="sdots">${socks}</span>` : ''}`;
+    return `<img src="${itemIconURL(b, 64)}"><span class="iname c-${it.set ? 'set' : it.rarity}">${it.name.length > 6 ? it.name.slice(0, 6) : it.name}</span>${socks ? `<span class="sdots">${socks}</span>` : ''}`;
   },
   refreshInv() {
     const P = G.P; if (!P) return;
@@ -370,7 +367,6 @@ const UI = {
     if (isStack(it)) {   // v2.6.1：點通貨＝選起來準備使用；其他堆疊打開對應的介面
       if (it.stack === 'cur') { if (CURRENCY[it.key].scroll) return usePortalScroll(); this.curSel = this.curSel === it.key ? null : it.key; this.select(null); return this.refreshInv(); }
       if (it.stack === 'sup') return this.toggle('skills', true);
-      if (it.stack === 'jewel') return this.toggle('jewels', true);
       return this.toggle('craft', true);
     }
     if (this.curSel) return this.useCurOn(it, e);
@@ -380,7 +376,7 @@ const UI = {
   rightInv(i, e) {
     if (this.curSel) { this.curSel = null; return this.refreshInv(); } // 右鍵取消通貨
     const it = G.P.inv[i]; if (!it) return;
-    if (isStack(it)) { if (this.open.stash) this.depositItem(i); else if (this.open.shop) this.msg('通貨、材料不用賣，拿去用或存倉庫', '#d8c8a0'); return; }   // v2.6.1
+    if (isStack(it)) { if (this.open.stash) this.depositItem(i); else if (this.open.shop) this.msg('通貨、寶石不用賣，拿去用或存倉庫', '#d8c8a0'); return; }   // v2.6.1
     if (this.open.shop) this.sellItem(i);
     else if (this.open.stash) this.depositItem(i);
     else { this.equipFromInv(i); this.select(null); if (G.P.inv[i]) this.hoverInv(i, e); else this.hideTip(); return; }   // v2.7.6 裝備後不開左邊的比較面板；換下來的那件還在格子裡，就直接顯示它和身上那件的對照
@@ -420,7 +416,7 @@ const UI = {
     if (this.sel.inv != null) {
       if (this.open.shop) btns.push(['sell', `賣出（${this.valueText(sellValue(it))}）`]);
       if (this.open.stash) btns.push(['stash', '放進倉庫']);
-      if (this.open.shop) btns.push(['salvage', '分解成材料']);
+      if (this.open.shop) btns.push(['salvage', '分解成碎片']);
     }
     h += `<div class="cmpbtns">${btns.map(([k, t]) => `<button data-a="${k}">${t}</button>`).join('')}</div>`;
     box.innerHTML = h; box.classList.add('show');
@@ -557,7 +553,7 @@ const UI = {
     const base = BASE_BY_ID[it.base];
     const slot = base.slot === 'ring' ? 'ring1' : base.slot;
     const cur = G.P.equip[slot];
-    const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? `右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解成材料` : this.open.stash ? '右鍵：放進倉庫　左鍵：選取比較' : '左鍵：選取並比較　右鍵：裝備（要分解或賣掉請找商人）';
+    const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? `右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解成碎片` : this.open.stash ? '右鍵：放進倉庫　左鍵：選取比較' : '左鍵：選取並比較　右鍵：裝備（要分解或賣掉請找商人）';
     let h = `<div class="tipcols"><div class="tipcol">${itemTipHTML(it, { hint })}</div>`;
     if (cur) h += `<div class="tipcol cmp"><div class="tip-cmp">目前裝備</div>${itemTipHTML(cur)}</div>`;
     h += '</div>';
@@ -622,7 +618,7 @@ const UI = {
     const parts = [];
     for (const k in c.d) if (c.d[k][1] > 0.5) parts.push(`${ELEM_NAME[k]} ${c.d[k][0].toFixed(0)}–${c.d[k][1].toFixed(0)}`);
     let info = `${parts.join('、') || '無傷害'}　<b>${sk.type === 'zone' ? '每片每秒' : 'DPS'} ${c.dps.toFixed(0)}</b>　${(1 / c.time).toFixed(2)} 次/秒`;
-    const ails = AIL_KEYS.filter(a => c.ail[a] > 0).map(a => `<span style="color:${AILMENTS[a].color}">${AILMENTS[a].name} ${Math.round(c.ail[a])}%</span>`);
+    const ails = AIL_KEYS.filter(a => c.ail[a] > 0).map(a => `<span style="color:${AILMENTS[a].color}" title="${AILMENTS[a].desc}">${AILMENTS[a].name} ${Math.round(c.ail[a])}%</span>`);
     if (ails.length) info += '　' + ails.join(' ');
     if (sk.type === 'proj') info += `　投射物 ${Math.max(1, c.count)}${c.count > 1 ? '（同一個目標：第 2 發起每發 35%）' : ''}`;
     if (c.crit) info += `　暴擊 ${c.crit.toFixed(1)}%`;
@@ -655,7 +651,7 @@ const UI = {
       h += `<div class="gearrow ${sid ? '' : 'empty'}">
         <div class="gearbox ${gear ? 'r-' + gear.rarity : ''}" title="${gear ? gear.name : '沒有裝備（寶石還是可以放）'}">${gearIcon}<b class="gkey">${key}</b></div>
         <span class="gsock skill ${sid ? (err ? 'bad' : '') : 'empty'}" data-drop="skill:${i}" ${sid ? `data-gem="slot:${i}"` : ''}>${sid ? `<img src="${skillIconURL(sid, 64)}">` : '技能'}</span>
-        <div class="gsocks">${socks}</div>
+        <div class="gsocks">${socks}</div>${sid && typeof EvoCodex !== 'undefined' ? EvoCodex.cell(sid) : ''}
         <div class="ginfo">${sid ? this.gemLine(sid, err) : `<span class="thint">${gname}：把技能寶石拖到大格</span>`}</div></div>`;
     });
     $('#skillSlots').innerHTML = h;
@@ -667,9 +663,12 @@ const UI = {
       const bad = skillUsable(S, s);
       return `<span class="bgem ${bad ? 'bad' : ''} ${this.gemPick === 'skill:' + s ? 'picked' : ''}" data-gem="skill:${s}"><img src="${skillIconURL(s, 64)}"><i>${SKILLS[s].name}<br><span class="mpct">Lv ${gemLv(s)}</span></i>${gemCanLevel(s) ? '<b class="gup">↑</b>' : ''}</span>`;
     }).join('') || '<span class="thint">（都放在裝備上了）</span>'}</div>`;
-    g += `<div class="bagrow" data-drop="bag"><span class="bagt">輔助寶石</span>${supIds.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}<br><span class="mpct">耗魔 ${Math.round(SUPPORTS[id].cost * 100)}%</span></i><b>${supHave(id)}</b></span>`).join('')
-      || '<span class="thint">（沒有多的輔助寶石。打怪會掉，首領一定掉 2 顆）</span>'}</div>`;
+    // v2.17 預設只顯示「推薦」的（gems4.js 的 supBagFilter），按「顯示全部」切換
+    const supShow = supBagFilter(supIds, this.gemPick), supHid = supIds.length - supShow.length, all = supShowAll();
+    g += `<div class="bagrow" data-drop="bag"><span class="bagt">輔助寶石<small>${all ? '全部' : '推薦的'}</small><button class="supall ${all ? 'on' : ''}" data-supall="1">${all ? '只看推薦' : `顯示全部${supHid ? `（還有 ${supHid}）` : ''}`}</button></span>${supShow.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}<br><span class="mpct">耗魔 ×${+SUPPORTS[id].cost.toFixed(2)}</span></i><b>${supHave(id)}</b></span>`).join('')
+      || (supIds.length ? `<span class="thint">（沒有適合技能欄上技能的寶石，按「顯示全部」看其他 ${supHid} 種）</span>` : '<span class="thint">（沒有多的輔助寶石。打怪會掉，首領一定掉 2 顆）</span>')}</div>`;
     $('#gemBag').innerHTML = g;
+    $('#gemBag').querySelectorAll('[data-supall]').forEach(b => b.onclick = e => { e.stopPropagation(); supSetShowAll(!supShowAll()); this.refreshSkills(); });
     // 拖放、提示、右鍵拿下
     $('#skills').querySelectorAll('[data-gem]').forEach(el => {
       el.onpointerdown = e => { if (e.button === 2) return; e.preventDefault(); this.gemDragStart(e, el.dataset.gem, el.querySelector('img') && el.querySelector('img').src); };
@@ -679,13 +678,17 @@ const UI = {
     });
     $('#skills').querySelectorAll('[data-drop]').forEach(el => el.classList.toggle('canDrop', !!this.gemPick && this.gemAccepts(this.gemPick, el.dataset.drop)));
     $('#skills').querySelectorAll('[data-gemup]').forEach(b => b.onclick = e => { e.stopPropagation(); gemLevelUp(b.dataset.gemup); this.refreshSkills(); });
+    $('#skills').querySelectorAll('[data-gemlock]').forEach(b => b.onclick = e => { e.stopPropagation(); gemSetLock(b.dataset.gemlock, !gemLocked(b.dataset.gemlock)); this.refreshSkills(); });
+    Hook.emit('skillsPanel', $('#skills'));   // 技能頁畫好之後（進化圖鑑 evocodex.js）
   },
   // v2.4 技能欄右邊那一行：名字、寶石等級、經驗條、升級按鈕
   gemLine(sid, err) {
     const sk = SKILLS[sid], d = gemData(sid), need = gemXpNeed(sid, d.lv), full = d.lv < GEM_MAX && d.xp >= need;
     const lack = full ? gemReqLack(sid, d.lv + 1) : null;
     const pct = d.lv >= GEM_MAX ? 100 : Math.floor(d.xp / need * 100);
+    const locked = gemLocked(sid);   // v2.17 經驗滿了自動升級；鎖住等級的要自己按
     let h = `<b style="color:${sk.color}">${sk.name}</b>　<span class="glv">Lv ${d.lv}${d.lv >= GEM_MAX ? '（最高）' : ''}</span>`;
+    if (d.lv < GEM_MAX) h += `<button class="glock ${locked ? 'on' : ''}" data-gemlock="${sid}" title="${locked ? '現在不會自動升級（升級會更耗魔）。點一下改回自動升級' : '經驗滿了會自動升級。點一下鎖住等級（升級會更耗魔）'}">${locked ? '🔒 鎖住等級' : '自動升級'}</button>`;
     h += `<div class="gxp"><i style="width:${pct}%"></i></div>`;
     if (err) h += `<span class="c-bad">${err}</span>`;
     else if (full && !lack) h += `<button class="gupbtn" data-gemup="${sid}">升級到 ${d.lv + 1} 級</button>`;
@@ -717,7 +720,7 @@ const UI = {
     const id = kind === 'sup' ? a : P.links[+a][+b];
     const sp = SUPPORTS[id]; if (!sp) return '';
     const fit = Object.keys(SKILLS).filter(s => supportFits(id, s)).map(s => SKILLS[s].name).join('、');
-    return `<div class="tip-name" style="color:${sp.color}"><img class="skico" src="${supportIconURL(id, 48)}">${sp.name}</div><div class="tip-sub">輔助寶石 · <span style="color:#8fb8ff">${manaEffTxt(sp.cost)}</span>（插上去後這個技能耗魔 ×${sp.cost}）${kind === 'sup' ? ` · 還有 ${P.supports[id]} 顆` : ''}</div>
+    return `<div class="tip-name" style="color:${sp.color}"><img class="skico" src="${supportIconURL(id, 48)}">${sp.name}</div><div class="tip-sub">輔助寶石 · <span style="color:#8fb8ff">${manaEffTxt(sp.cost)}</span>${kind === 'sup' ? ` · 還有 ${supHave(id)} 顆` : ''}</div>
       <div class="tip-mod" style="color:#d8ccb4">${sp.desc}</div><div class="tip-mod" style="color:#a89878">可搭配：${fit}</div>
       <div class="tip-hint">${kind === 'link' ? '右鍵或拖回寶石袋＝拿下來' : '拖到裝備旁邊的小格（輔助孔）'}</div>`;
   },
@@ -901,6 +904,7 @@ const UI = {
       saveGame(); this.refresh();
       return true;
     }
+    if (Talk.run(n.id, n)) return true;   // 帶話任務、各人的分工（core.js 的 Talk）
     this.toggle(n.panel, true);
     this.msg(`${n.name}：${pick(NPC_LINES[n.id])}`, '#e8d8a0');
     return true;
@@ -1053,7 +1057,7 @@ const UI = {
     // v2.6.1 一鍵存入
     let bulk = $('#stashBulk');
     if (!bulk) { bulk = document.createElement('div'); bulk.id = 'stashBulk'; $('#stashGrid').before(bulk); }
-    bulk.innerHTML = '<span class="bulkt">一鍵存入</span><button data-sb="cur">通貨</button><button data-sb="mat">材料</button><button data-sb="sup,jewel">寶石、珠寶</button><button data-sb="cur,mat,sup,jewel">全部（裝備以外）</button><span class="thint">倉庫所有角色共用</span>';
+    bulk.innerHTML = '<span class="bulkt">一鍵存入</span><button data-sb="cur">通貨</button><button data-sb="sup,jewel">寶石、珠寶</button><button data-sb="cur,mat,sup,jewel">全部（裝備以外）</button><span class="thint">倉庫所有角色共用</span>';
     bulk.querySelectorAll('[data-sb]').forEach(b => b.onclick = () => stashAllStacks(b.dataset.sb.split(',')));
     const grid = $('#stashGrid');
     grid.innerHTML = '';
@@ -1244,8 +1248,9 @@ const UI = {
       if (next) info += `　<span class="thint">下一階：${next}（${LORE_TEXT[lv]}）</span>`;
       h += `<div class="lrow"><b class="${r.boss ? 'c-unique' : ''}">${r.d.name}</b>　${info}</div>`;
     }
-    $('#journalBody').innerHTML = h;
+    $('#journalBody').innerHTML = JournalTabs.wrap(h);   // 上方的分頁（反應圖鑑、第一百三十八本……，見 core.js）
     $('#journalBody').querySelectorAll('.replay').forEach(b => b.onclick = () => this.queueStory(b.dataset.k));
+    JournalTabs.bind($('#journalBody'), () => this.refreshJournal());
   },
 };
 function resTag(e, v) {

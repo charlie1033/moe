@@ -15,6 +15,8 @@
   const _bwc = buildWorldCanvas; buildWorldCanvas = function (w) { const r = _bwc(w); Hook.emit('worldCanvas', w); return r; };   // v2.12.1 地圖底圖畫好之後（要畫進底圖、只畫一次的東西）
   const _hud = drawHUD; drawHUD = function (g) { const r = _hud.apply(this, arguments); Hook.emit('drawHUD', g); return r; };   // v2.13.9 畫面下方介面全部畫完之後（美術外框也畫完了）
   const _cast = castSkill; castSkill = function (sid, c) { const r = _cast.apply(this, arguments); Hook.emit('cast', sid, c); return r; };   // v2.16.2 放完技能之後（技能型傳奇用）
+  const _cs = computeStats; computeStats = function (P) { const S = _cs(P); Hook.emit('stats', S, P); return S; };   // v2.17 能力算好之後（套裝、首領傳奇、爬塔贈禮用）
+  const _dp = damagePlayer; damagePlayer = function (parts, opts) { const pl = G.pl, b = pl ? pl.life + (pl.es || 0) : 0; const r = _dp.apply(this, arguments); if (pl && !(opts && opts.dot) && pl.life + (pl.es || 0) < b - 0.5) Hook.emit('hurt', b - pl.life - (pl.es || 0), opts || {}); return r; };   // v2.17 被打到、真的掉血或掉護盾之後（持續傷害不算；夢囈．受傷用）
   const _interact = UI.interact.bind(UI);
   UI.interact = function () { return Interact.use() || _interact(); };
 })();

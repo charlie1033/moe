@@ -141,9 +141,11 @@ function render() {
     if (e === pl) drawPlayer(g, pl);
     else if (e.kind === 'min') {
       shadow(g, e.x, e.y + e.r * 0.8, e.r);
-      const spr = { skel: 'minion', wolf: 'mwolf', spirit: 'mspirit', golem: 'mgolem' }[e.mtype] || 'minion';
+      const spr = e.sprite || { skel: 'minion', wolf: 'mwolf', spirit: 'mspirit', golem: 'mgolem' }[e.mtype] || 'minion';
       const bob = e.mtype === 'spirit' ? Math.sin(G.time * 6 + e.x) * 3 - 6 : 0;
-      const sp = drawSprite(g, spr, e.x, e.y + e.r * 0.8, e.mtype === 'golem' ? 3 : 2, e.facing, null, e.flash > 0, bob, true, (e.x | 0) % 4);
+      if (e.ghost) g.globalAlpha = 0.55;   // v2.17 殘影（套裝）半透明
+      const sp = drawSprite(g, spr, e.x, e.y + e.r * 0.8, e.mscale || (e.mtype === 'golem' ? 3 : 2), e.facing, e.tint || null, e.flash > 0, bob, true, (e.x | 0) % 4);   // v2.17 召喚物可以自帶大小、顏色（大白）
+      g.globalAlpha = 1;
       lifeBar(g, e.x, e.y + e.r * 0.8 - sp.h - 6, 22, e.life / e.maxLife, '#60e060');
     } else drawMonster(g, e);
   }
@@ -348,7 +350,9 @@ function drawMonster(g, m) {
   // v2.3 受擊的瞬間被打扁一下再彈回來
   const sq = m.squash > 0 ? Math.min(1, m.squash / 0.1) : 0; if (m.squash > 0) m.squash -= 1 / 60;
   if (sq) { g.save(); g.translate(m.x, feet); g.scale(1 + 0.2 * sq, 1 - 0.16 * sq); g.translate(-m.x, -feet); }
+  if (m.alpha) g.globalAlpha = m.alpha;   // 半透明的怪（上一個我的殘影）
   const sp = drawSprite(g, m.def.sprite, m.x, feet, m.scale, m.facing, tint, m.flash > 0, bob, !!m.aggro && !(m.frozen > 0), (m.x | 0) % 4);
+  g.globalAlpha = 1;
   if (sq) g.restore();
   // 異常狀態特效（v1.2：更明顯，頭上也有小圖示）
   drawAilmentFx(g, m, feet, sp.h, m.r, monAilState(m), m.boss ? 14 : (m.rarity !== 'normal' && dist(m, G.pl) < 360) ? (m.mods.length ? 44 : 31) : 17);
@@ -779,7 +783,7 @@ function drawHUD(g) {
   const pts = treePointsTotal(P) - treePointsUsed(P);
   if (pts > 0) {
     const a = 0.6 + Math.sin(G.time * 5) * 0.4;
-    g.globalAlpha = a; txt(g, `＋${pts} 天賦點數（P）`, VW / 2, VH - 64, 11, '#9fff9f', 'center'); g.globalAlpha = 1;
+    g.globalAlpha = a; txt(g, `＋${pts} 天賦點數（${ctlText('{tree}', true)}）`, VW / 2, VH - 64, 11, '#9fff9f', 'center'); g.globalAlpha = 1;
   }
   // 區域名稱與訊息
   txt(g, w.name, 12, 16, 14, '#e8d8a0');

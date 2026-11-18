@@ -50,7 +50,7 @@ Hook.on('update', dt => {
     if (G.time - f.lastSay > 25 + Math.random() * 400) folkSay(f);   // 偶爾自言自語
   }
 });
-Interact.add('folk', (pl, w) => w.kind === 'town' ? campFolk(w).map(f => ({ ref: f, label: '聊聊' })) : null, f => { folkSay(f); Sfx.play('click'); });
+Interact.add('folk', (pl, w) => w.kind === 'town' ? campFolk(w).map(f => ({ ref: f, label: '聊聊' })) : null, f => { Sfx.play('click'); if (!Talk.run(f.id, f)) folkSay(f); });   // 帶話任務的對象先處理（core.js 的 Talk）
 
 // 畫：營火、掛燈、路人、對話泡泡、氛圍粒子
 const _townDecoCamp = drawTownDeco;

@@ -29,7 +29,7 @@ const SCARS = [
   { id: 'sc_thorns', slot: 'body', name: '荊甲', r: [40, 60], text: v => `被近戰打到時，把 ${v}% 傷害反彈給攻擊者` },
   { id: 'sc_soulward', slot: 'body', name: '魂護', r: [100, 100], text: () => '生命自然回復時，能量護盾也一起回復' },
   // 鞋子
-  { id: 'sc_wind', slot: 'boots', name: '乘風', r: [25, 35], text: v => `用閃現、居合斬這類位移技能後，2 秒內移動速度 +${v}%` },
+  { id: 'sc_wind', slot: 'boots', name: '乘風', r: [25, 35], text: v => `用空白鍵的「瞬移」「一閃」或「猛衝」之後，2 秒內移動速度 +${v}%` },
   { id: 'sc_rooted', slot: 'boots', name: '紮根', r: [12, 18], text: v => `站著不動 1.5 秒後，受到的傷害 −${v}%` },
   { id: 'sc_riposte', slot: 'boots', name: '見切', r: [100, 100], text: () => '閃避或閃身成功後，下一次擊中必定暴擊' },
   { id: 'sc_cinder', slot: 'boots', name: '焦土', r: [20, 30], text: v => `走過的地方留下 2 秒的火焰足跡（每 0.5 秒 ${v}% 左鍵技能傷害）` },

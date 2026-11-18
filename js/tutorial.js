@@ -6,15 +6,15 @@
 if (CFG.tutorial === undefined) CFG.tutorial = true;
 CFG_DEFAULT.tutorial = true;
 const TUT_STEPS = [
-  { text: () => `用 <b>${keyLabel('up')} ${keyLabel('left')} ${keyLabel('down')} ${keyLabel('right')}</b> 移動，走出營地的傳送門（按 <b>${keyLabel('interact')}</b>）就能進入夢境`, done: T => G.world && G.world.kind === 'map' },
-  { text: () => '<b>滑鼠左鍵</b>攻擊（朝滑鼠的方向），<b>右鍵</b>是第二個技能。先打倒 5 隻怪物', done: T => G.P.kills - T.k0 >= 5 },
-  { text: () => `珠寶、通貨走過去會自動撿；<b>裝備</b>要走近按 <b>${keyLabel('interact')}</b> 撿（會撿有金色外框的那個）`, done: T => G.P.inv.some(it => it && !isStack(it) && !isFlask(it) && !T.inv0.has(it)) || T.t > 60 },
-  { text: () => `按 <b>${keyLabel('inv')}</b> 打開背包，在裝備上按<b>右鍵</b>穿上（也可以拖到上面的裝備格）`, done: T => UI.open.inv && T.t > 2 },
-  { text: () => `生命變少時按 <b>${keyLabel('f1')}</b> 喝生命藥劑；看到地上的紅色預警，按 <b>${keyLabel('dodge')}</b> 用職業位移技能閃開（翻滾／瞬移／躍擊／一閃，過程中不會受傷）`, done: T => T.t > 14 },
-  { text: () => `升級會得到天賦點：按 <b>${keyLabel('tree')}</b> 打開天賦樹，從你的起點往外點`, done: T => G.P.tree.length > 1 || T.t > 90 },
-  { text: () => `按 <b>${keyLabel('skills')}</b> 看技能寶石：撿到的技能寶石在這裡裝上，輔助寶石插在技能旁邊`, done: T => UI.open.skills || T.t > 60 },
-  { text: () => `每張夢境的盡頭有<b>看守者</b>（首領），打倒它就能去下一夜。想回營地按 <b>${keyLabel('portal')}</b> 用傳送卷軸`, done: T => G.P.maxTier > 1 || T.t > 240 },
-  { text: () => `在營地可以賣裝備、存倉庫；撿到磨石、護貝劑就按 <b>${keyLabel('craft')}</b> 強化裝備。按 <b>${keyLabel('help')}</b> 隨時看說明。祝你好夢！`, done: T => T.t > 14 },
+  { text: () => ctlText('{move}移動，走進營地的傳送門（{interact}）就能進入夢境'), done: T => G.world && G.world.kind === 'map' },
+  { text: () => ctlText('{lmb}攻擊{aimNote}，{rmb}是第二個技能。先打倒 5 隻怪物'), done: T => G.P.kills - T.k0 >= 5 },
+  { text: () => ctlText('珠寶、通貨走過去會自動撿；<b>裝備</b>要走近{pickup}'), done: T => G.P.inv.some(it => it && !isStack(it) && !isFlask(it) && !T.inv0.has(it)) || T.t > 60 },
+  { text: () => ctlText('打開背包（{inv}），{equip}'), done: T => UI.open.inv && T.t > 2 },
+  { text: () => ctlText('生命變少時喝生命藥劑（{f1}）；看到地上的紅色預警，用職業位移技能閃開（{dodge}：翻滾／瞬移／躍擊／一閃，過程中不會受傷）'), done: T => T.t > 14 },
+  { text: () => ctlText('升級會得到天賦點：打開天賦樹（{tree}），從你的起點往外點'), done: T => G.P.tree.length > 1 || T.t > 90 },
+  { text: () => ctlText('打開技能寶石（{skills}）：撿到的技能寶石在這裡裝上，輔助寶石插在技能旁邊'), done: T => UI.open.skills || T.t > 60 },
+  { text: () => `每張夢境的盡頭有<b>看守者</b>（首領），打倒它就能去下一夜。想回營地就用傳送卷軸（${ctl('portal')}）`, done: T => G.P.maxTier > 1 || T.t > 240 },
+  { text: () => ctlText('在營地可以賣裝備、存倉庫；在商人那裡分解裝備會得到磨石、護貝劑碎片，湊滿就能強化裝備（{craft}）。隨時可以看說明（{help}）。祝你好夢！'), done: T => T.t > 14 },
 ];
 const Tut = {
   T: null,

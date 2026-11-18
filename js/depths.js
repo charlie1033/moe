@@ -63,7 +63,7 @@ Hook.on('update', dt => {
   if (w.blasts && w.blasts.length) {
     for (const b of w.blasts) if ((b.t -= dt) <= 0) {
       G.fx.push({ k: 'boom', x: b.x, y: b.y, r: b.r, t: 0, dur: 0.35 });
-      if (Math.hypot(pl.x - b.x, pl.y - b.y) < b.r + pl.r) damagePlayer([[b.dmg, 'fire']], { spell: true });
+      if (Math.hypot(pl.x - b.x, pl.y - b.y) < b.r + pl.r && !(G.S && G.S.flags.wrEmber)) damagePlayer([[b.dmg, 'fire']], { spell: true });   // v2.17 餘燼搖籃：不會炸到你
     }
     w.blasts = w.blasts.filter(b => b.t > 0);
   }

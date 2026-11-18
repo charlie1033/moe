@@ -56,6 +56,7 @@ function dreamRestore(id) {
       if (!m) continue; m.life = Math.max(1, m.maxLife * s.lf); if (s.treasure) m.treasure = true; mons.push(m);
     }
     if (!w.portal) w.portal = { x: (w.start.x + w.start.w / 2) * TS, y: (w.start.y + w.start.h / 2) * TS, exit: true };
+    for (const l of rec.l || []) fixOldFlask(l.item);   // v2.17 地上的舊單抗藥劑
     G.savedMap = { world: w, mons, loot: rec.l || [], bossBar: null, expireAt };
     const left = Math.ceil((expireAt - Date.now()) / 60000);
     UI.msg(`上次沒打完的夢還在！${left} 分鐘內可以從營地的藍色傳送門回去`, '#9fd0ff');

@@ -4,17 +4,17 @@
 //  ・防具（頭盔、胸甲、手套、鞋子、盾牌／法器）：護貝劑（+1～+4）、高級護貝劑（+5～+10）
 //  ・飾品（戒指、項鍊、腰帶）、箭袋、藥劑不能強化
 //  ・+1～+4 失敗：只用掉磨石／護貝劑，裝備沒事
-//  ・+5～+10 失敗：裝備會消失；有砥石（武器）／針線（防具）就會用掉 1 個保護裝備——一樣算失敗，只是裝備留著、等級不變
+//  ・+5～+10 失敗：退一級（例如 +6 升 +7 失敗 → 變 +5），裝備不會碎；有砥石（武器）／針線（防具）就會用掉 1 個，等級不退（v2.17 起不再碎裝）
 //  ・效果：每級 +4%（+1～+4）、+6%（+5～+10），加在武器物理傷害（法系武器另外給一半的法術傷害）或防具防禦值
-//  ・掉落：這幾種和神聖石、崇高石在主線章節幾乎不掉，深層夢境、懸賞、首領連戰才是主要來源
+//  ・掉落：v2.17 起這幾種在主線章節完全不掉（主線只掉 MAIN_CURRENCY，見 data.js），深層夢境、懸賞、首領連戰才會掉；主線靠分解裝備的碎片先認識強化
 // =============================================================
 Object.assign(CURRENCY, {
   whet: { name: '磨石', color: '#b8c4cc', weight: 0, enh: true, desc: '武器強化 +1～+4。失敗只會用掉磨石，武器不會壞。' },
-  whet2: { name: '異界磨石', color: '#a88aff', weight: 0, enh: true, desc: '武器強化 +5～+10。失敗時武器會碎掉；有砥石就會用掉 1 個保護武器。' },
+  whet2: { name: '異界磨石', color: '#a88aff', weight: 0, enh: true, desc: '武器強化 +5～+10。失敗時武器退一級（不會碎）；有砥石就會用掉 1 個，等級不退。' },
   lam: { name: '護貝劑', color: '#e0d090', weight: 0, enh: true, desc: '防具（頭盔、胸甲、手套、鞋子、盾牌、法器）強化 +1～+4。失敗只會用掉護貝劑。' },
-  lam2: { name: '高級護貝劑', color: '#ffa850', weight: 0, enh: true, desc: '防具強化 +5～+10。失敗時防具會壞掉；有針線就會用掉 1 組保護防具。' },
-  hone: { name: '砥石', color: '#7ad8c0', weight: 0, enh: true, desc: '武器 +5 以上強化失敗時，自動用掉 1 個，讓武器不會碎掉（還是算失敗）。' },
-  thread: { name: '針線', color: '#f0a0c0', weight: 0, enh: true, desc: '防具 +5 以上強化失敗時，自動用掉 1 組，讓防具不會壞掉（還是算失敗）。' },
+  lam2: { name: '高級護貝劑', color: '#ffa850', weight: 0, enh: true, desc: '防具強化 +5～+10。失敗時防具退一級（不會壞）；有針線就會用掉 1 組，等級不退。' },
+  hone: { name: '砥石', color: '#7ad8c0', weight: 0, enh: true, desc: '武器 +5 以上強化失敗時，自動用掉 1 個，讓武器不會退級（還是算失敗）。' },
+  thread: { name: '針線', color: '#f0a0c0', weight: 0, enh: true, desc: '防具 +5 以上強化失敗時，自動用掉 1 組，讓防具不會退級（還是算失敗）。' },
 });
 // 圖示
 Object.assign(CUR_ART, {
@@ -26,18 +26,14 @@ Object.assign(CUR_ART, {
   thread: g => { paint(g, A_.rrect(30, 30, 40, 44, 6), mat(g, '#e890b0')); paint(g, 'M30 40 H70 M30 50 H70 M30 60 H70', 'rgba(120,40,70,0.6)', { s: 2, noOutline: true }); paint(g, 'M70 70 L88 18', '#d8d8e0', { s: 3 }); },
 });
 
-// —— 掉落：章節幾乎不掉 ——
+// —— 掉落：只有深層夢境會掉（包一次 randomCurrency：要改它的回傳值） ——
 const ENH_DROP = [['whet', 30], ['lam', 30], ['whet2', 8], ['lam2', 8], ['hone', 4], ['thread', 4]];
 const isDeepWorld = () => { const w = G.world; return !!w && ((w.tier || 0) >= DEEP_TIER || (w.arena && (w.mlvl || 0) >= 70)); };
 const _randomCurrencyEnh = randomCurrency;
 randomCurrency = function () {
-  const deep = isDeepWorld();
-  // 強化通貨：深層夢境每次掉通貨有 2.5% 是強化類；章節只有 0.15%，而且只會是磨石／護貝劑
-  if (Math.random() < (deep ? 0.025 : 0.0015)) { const list = deep ? ENH_DROP : ENH_DROP.slice(0, 2); const tot = list.reduce((a, b) => a + b[1], 0); let r = Math.random() * tot; for (const [k, w] of list) { r -= w; if (r <= 0) return k; } }
-  let k = _randomCurrencyEnh();
-  // 神聖石、崇高石：章節裡 90% 的機會換成別的
-  if (!deep && (k === 'divine' || k === 'exalt') && Math.random() < 0.9) { do { k = _randomCurrencyEnh(); } while (k === 'divine' || k === 'exalt'); }
-  return k;
+  // 強化通貨：深層夢境每次掉通貨有 2.5% 是強化類；章節不掉（主線的通貨種類由 items.js 的 randomCurrency 管）
+  if (isDeepWorld() && Math.random() < 0.025) { const tot = ENH_DROP.reduce((a, b) => a + b[1], 0); let r = Math.random() * tot; for (const [k, w] of ENH_DROP) { r -= w; if (r <= 0) return k; } }
+  return _randomCurrencyEnh();
 };
 
 // —— 強化規則 ——
@@ -58,12 +54,6 @@ function enhInfo(it) {
   const stone = kind === 'weapon' ? (high ? 'whet2' : 'whet') : (high ? 'lam2' : 'lam');
   return { kind, n, to: n + 1, stone, protect: kind === 'weapon' ? 'hone' : 'thread', risk: high, rate: ENH_RATE[n] };
 }
-// 找到這件裝備在哪裡（背包或身上），壞掉時要拿掉
-function enhLocate(it) {
-  const P = G.P, i = P.inv.indexOf(it); if (i >= 0) return { inv: i };
-  for (const s in P.equip) if (P.equip[s] === it) return { eq: s };
-  return null;
-}
 // 強化一次。pay(k) 負責扣通貨；useProtect＝失敗時要不要用保護
 function enhanceItem(it, pay, have, useProtect = true) {
   const I = enhInfo(it); if (I.err) return { err: I.err };
@@ -75,13 +65,10 @@ function enhanceItem(it, pay, have, useProtect = true) {
     return { ok: true, msg: `強化成功！${it.name} → +${it.enh}`, color: '#9fff9f' };
   }
   if (!I.risk) { Sfx.play('deny'); return { ok: false, msg: `強化失敗（+${I.to}），${CURRENCY[I.stone].name}用掉了，裝備沒事`, color: '#ff9a9a' }; }
-  if (useProtect && have(I.protect) > 0) { pay(I.protect, 1); Sfx.play('deny'); return { ok: false, msg: `強化失敗（+${I.to}），用掉 1 個${CURRENCY[I.protect].name}，裝備保住了（還是 +${I.n}）`, color: '#ffcf70' }; }
-  // 裝備消失
-  const loc = enhLocate(it), P = G.P;
-  if (loc) { if (loc.inv != null) P.inv[loc.inv] = null; else P.equip[loc.eq] = null; }
-  if (typeof returnJewels === 'function') returnJewels(it);
-  Sfx.play('bosskill'); G.shake = Math.max(G.shake || 0, 6);
-  return { ok: false, broke: true, msg: `強化失敗（+${I.to}），${it.name} 碎掉了……${(it.sockets || []).some(x => x) ? '（鑲的珠寶退回背包）' : ''}`, color: '#ff6a6a' };
+  if (useProtect && have(I.protect) > 0) { pay(I.protect, 1); Sfx.play('deny'); return { ok: false, msg: `強化失敗（+${I.to}），用掉 1 個${CURRENCY[I.protect].name}，等級沒有退（還是 +${I.n}）`, color: '#ffcf70' }; }
+  // 退一級（最低 +0），裝備不會碎
+  it.enh = Math.max(0, I.n - 1); Sfx.play('deny');
+  return { ok: false, msg: `強化失敗（+${I.to}），${it.name} 退回 +${it.enh}`, color: '#ff8a6a' };
 }
 // 顯示名稱：+N 前綴
 const enhName = it => (it && it.enh ? `+${it.enh} ` : '') + (it ? it.name : '');
@@ -106,18 +93,17 @@ const _useCurEnh = UI.useCurOn.bind(UI);
 UI.useCurOn = function (it, e) {
   const k = this.curSel;
   if (!CURRENCY[k] || !CURRENCY[k].enh) return _useCurEnh(it, e);
-  if (k === 'hone' || k === 'thread') { this.curSel = null; this.refreshInv(); return this.msg(`${CURRENCY[k].name}不用手動使用：強化 +5 以上失敗時會自動保護裝備`, '#d8c8a0'); }
+  if (k === 'hone' || k === 'thread') { this.curSel = null; this.refreshInv(); return this.msg(`${CURRENCY[k].name}不用手動使用：強化 +5 以上失敗時會自動用掉，讓裝備不退級`, '#d8c8a0'); }
   const I = enhInfo(it);
   if (I.err) return this.msg(I.err, '#ff9a9a');
   if (I.stone !== k) return this.msg(`這件要升到 +${I.to}，要用${CURRENCY[I.stone].name}`, '#ff9a9a');
   const go = () => {
     const r = enhanceItem(it, (c, n) => { G.P.cur[c] -= n; }, c => G.P.cur[c] || 0);
     if (r.err) return this.msg(r.err, '#ff9a9a');
-    this.msg(r.msg, r.color); if (r.broke) UI.banner('強化失敗', '裝備碎掉了', '#ff6a6a');
-    if (!e.shiftKey || (G.P.cur[k] || 0) <= 0 || r.broke) this.curSel = null;
+    this.msg(r.msg, r.color);
+    if (!e.shiftKey || (G.P.cur[k] || 0) <= 0) this.curSel = null;
     this.hideTip(); onBuildChanged(); this.refreshInv(); saveGame();
   };
-  if (I.risk && !(G.P.cur[I.protect] > 0)) return gameAsk(`「${it.name}」升到 +${I.to} 的成功率是 ${Math.round(I.rate * 100)}%。\n背包裡沒有${CURRENCY[I.protect].name}，失敗的話這件裝備會消失。\n確定要強化嗎？`, go);
   go();
 };
 
@@ -165,11 +151,11 @@ UI.refreshCraft = function () {
         <div class="enhrow">需要：<img src="${currencyIconURL(I.stone, 40)}">${CURRENCY[I.stone].name} ×1（有 <b class="${haveS ? '' : 'c-bad'}">${haveS}</b>）</div>`;
       if (I.risk) {
         h += `<div class="enhrow"><label><input type="checkbox" id="eprot" ${useP ? 'checked' : ''}> 失敗時用<img src="${currencyIconURL(I.protect, 40)}">${CURRENCY[I.protect].name}保護（有 <b>${haveP}</b>）</label></div>`;
-        h += (useP && haveP) ? `<div class="enhrow" style="color:#ffcf70">失敗：用掉 1 個${CURRENCY[I.protect].name}，裝備留著、還是 +${I.n}</div>` : `<div class="enhrow c-bad">⚠ 失敗的話，這件裝備會消失！</div>`;
+        h += (useP && haveP) ? `<div class="enhrow" style="color:#ffcf70">失敗：用掉 1 個${CURRENCY[I.protect].name}，還是 +${I.n}</div>` : `<div class="enhrow" style="color:#ff9a7a">失敗的話退一級，變成 +${I.n - 1}（不會碎）</div>`;
       } else h += `<div class="enhrow" style="color:#9fd8ff">+1～+4：失敗只會用掉${CURRENCY[I.stone].name}，裝備不會壞</div>`;
       h += `<div class="cbtns"><button id="edo" ${haveS ? '' : 'disabled'}>強化</button></div>`;
     }
-    h += `<table class="enhtab"><tr><th>升到</th>${ENH_RATE.map((r, i) => `<th>+${i + 1}</th>`).join('')}</tr><tr><td>成功率</td>${ENH_RATE.map(r => `<td>${Math.round(r * 100)}%</td>`).join('')}</tr><tr><td>失敗</td>${ENH_RATE.map((r, i) => `<td class="${i >= 4 ? 'c-bad' : ''}">${i >= 4 ? '消失' : '沒事'}</td>`).join('')}</tr></table>`;
+    h += `<table class="enhtab"><tr><th>升到</th>${ENH_RATE.map((r, i) => `<th>+${i + 1}</th>`).join('')}</tr><tr><td>成功率</td>${ENH_RATE.map(r => `<td>${Math.round(r * 100)}%</td>`).join('')}</tr><tr><td>失敗</td>${ENH_RATE.map((r, i) => `<td class="${i >= 4 ? 'c-bad' : ''}">${i >= 4 ? '退一級' : '沒事'}</td>`).join('')}</tr></table>`;
     h += '</div></div>';
   }
   $('#craftBody').innerHTML = h;
@@ -177,14 +163,13 @@ UI.refreshCraft = function () {
   const pr = $('#eprot'); if (pr) pr.onchange = () => { P.ui.enhProtect = pr.checked; this.refreshCraft(); };
   const btn = $('#edo');
   if (btn && tgt) btn.onclick = () => {
-    const it = tgt[2], I = enhInfo(it), useP = P.ui.enhProtect !== false;
+    const it = tgt[2], useP = P.ui.enhProtect !== false;
     const go = () => {
       const r = enhanceItem(it, (c, n) => craftCurPay(c, n), cnt, useP);
       if (r.err) return this.msg(r.err, '#ff9a9a');
-      this.msg(r.msg, r.color); if (r.broke) UI.banner('強化失敗', '裝備碎掉了', '#ff6a6a');
+      this.msg(r.msg, r.color);
       onBuildChanged(); this.refreshInv(); this.refreshCraft(); saveGame();
     };
-    if (I.risk && !(useP && cnt(I.protect) > 0)) return gameAsk(`「${it.name}」升到 +${I.to} 的成功率是 ${Math.round(I.rate * 100)}%。\n失敗的話這件裝備會消失。\n確定要強化嗎？`, go);
     go();
   };
 };

@@ -7,6 +7,10 @@
 //     'drawOver'(g) 畫完角色和怪物之後（世界座標）　'light'(cut, cx, cy) 在黑暗上挖光（cut(螢幕x, 螢幕y, 半徑, 強度)）　'glow'(g, cx, cy) 黑暗之後畫彩色光（螢幕座標）
 //     'stage'(w) 每一區的怪和事件放好之後　'worldCanvas'(w) 地圖底圖畫好之後（畫進底圖、只畫一次）　'drawHUD'(g) 下方介面全部畫完之後（螢幕座標）　'drawMinimap'(g, mx, my, s) 小地圖上加標記（世界座標 / TS * s + mx）
 //     'cast'(sid, c) 放完技能之後（c＝這次施放算好的數值）
+//     'hurt'(掉了多少, opts) 角色被打到、真的掉血或掉護盾之後（持續傷害不算）
+//     'preHit'(ctx)／'crit'(m, 技能欄) 打中怪之前可改暴擊與倍率／打出暴擊之後（gems4.js 發的，ctx 見那個檔頭）
+//     'stats'(S, P) 能力算好之後、技能數值算之前（要影響技能傷害的加成放這裡；生命上限、移動速度已經算完，要改就直接改 S.maxLife／S.moveSpeed）
+//     'dropItem'(item, l) 裝備掉到地上時（dropLoot 裡發；可以在這裡改這件裝備，例如深層傳奇升級底材）
 //  Interact.add(種類, find, use)   按 F 互動：find(pl, w) 回傳 [{ ref, label, r? }]（r＝互動距離，預設 60）
 //     系統會挑「離角色最近」的那個放進 G.nearAct，按 F 時呼叫 use(ref)
 //  SettingsRows.add(分頁, html, bind)   在 Esc → 設定的某一頁最下面多加一列
@@ -32,9 +36,40 @@ const Interact = {
   },
   use() { const a = G.nearAct, k = a && this.kinds[a.kind]; if (!k) return false; k.use(a.ref); return true; },
 };
+//  Talk.add(fn)   跟營地的人物（NPC）或路人說話（按 F）時，先問登記者：fn(id, ref) 回傳 true＝這次由它處理（帶話任務、各人的分工）
+//     人物有新故事時先說故事；登記者都不處理才打開原本的功能
+const Talk = {
+  fns: [],
+  add(f) { this.fns.push(f); },
+  run(id, ref) { for (const f of this.fns) { try { if (f(id, ref)) return true; } catch (err) { console.error('[Talk]', err); } } return false; },
+};
+//  PanelRows.add('quest', P => html)   任務面板（展開時）最下面多一段（帶話任務）
+const PanelRows = {
+  rows: {},
+  add(tab, f) { (this.rows[tab] = this.rows[tab] || []).push(f); },
+  html(tab, P) { let h = ''; for (const f of (this.rows[tab] || [])) { try { h += f(P) || ''; } catch (err) { console.error('[PanelRows ' + tab + ']', err); } } return h; },
+};
 const SettingsRows = {
   rows: {},
   add(tab, html, bind) { (this.rows[tab] = this.rows[tab] || []).push({ html, bind }); },
   html(tab) { return (this.rows[tab] || []).map(r => r.html()).join(''); },
   bind(tab, root) { for (const r of (this.rows[tab] || [])) if (r.bind) r.bind(root); },
 };
+//  JournalTabs.add(代號, 分頁名稱, html(), bind(root)?)   日誌（J）上方多一個分頁按鈕（反應圖鑑、第一百三十八本……）；原本的內容是第一頁「記憶與圖鑑」
+const JournalTabs = {
+  list: [], cur: 'main',
+  add(id, name, html, bind) { if (!this.list.some(t => t.id === id)) this.list.push({ id, name, html, bind }); },
+  wrap(mainHtml) {
+    if (!this.list.length) return mainHtml;
+    const t = this.list.find(x => x.id === this.cur); if (!t) this.cur = 'main';
+    const tabs = [['main', '記憶與圖鑑']].concat(this.list.map(x => [x.id, x.name]));
+    let body = mainHtml; if (t) { try { body = t.html(); } catch (e) { console.error('[JournalTabs ' + t.id + ']', e); } }
+    return `<div class="jtabs">${tabs.map(([id, n]) => `<button data-jtab="${id}" class="${this.cur === id ? 'on' : ''}">${n}</button>`).join('')}</div>` + body;
+  },
+  bind(root, refresh) {
+    root.querySelectorAll('[data-jtab]').forEach(b => b.onclick = () => { if (this.cur === b.dataset.jtab) return; this.cur = b.dataset.jtab; refresh(); root.scrollTop = 0; if (root.parentNode) root.parentNode.scrollTop = 0; });
+    const t = this.list.find(x => x.id === this.cur); if (t && t.bind) try { t.bind(root); } catch (e) { console.error('[JournalTabs ' + t.id + ']', e); }
+  },
+};
+(() => { const st = document.createElement('style'); st.textContent = `.jtabs { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 6px; padding-bottom:8px; border-bottom:1px solid #4a3a24; }
+  .jtabs button { flex:1 1 auto; min-height:32px; font-size:13px; } .jtabs button.on { border-color:#f2d692 !important; color:#ffe6a0 !important; background:rgba(242,214,146,.12) !important; }`; document.head.appendChild(st); })();

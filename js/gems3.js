@@ -1,5 +1,5 @@
 // =============================================================
-//  v2.9.1 更多技能寶石與輔助寶石：每個職業多 2 個技能選擇＋8 個新的輔助寶石
+//  v2.9.1 更多技能寶石：每個職業多 2 個技能選擇（v2.17 起這裡的輔助寶石已併掉）
 //  技能（標 cls 的前期比較容易掉給那個職業，但任何職業都能用，看屬性需求）
 // =============================================================
 Object.assign(SKILLS, {
@@ -41,26 +41,4 @@ Object.assign(SKILL_ATTR, { quake: ['str'], cleave: ['str'], bladewind: ['str', 
 const GLYPH_FROM3 = { quake: 'whirl', cleave: 'heavy', bladewind: 'knives', thousandcuts: 'swallow', fanknives: 'knives', viper: 'venom', barrage: 'rapid', frostrain: 'rain', flamewave: 'nova', frostchain: 'arc', soulbolt: 'thorn', bonenova: 'nova' };
 for (const k of NEW_GEMS3) { SKILLS[k].id = k; SKILLS[k].req = gemReqAttr(k, 1); if (typeof SKILL_GLYPHS !== 'undefined' && !SKILL_GLYPHS[k]) SKILL_GLYPHS[k] = SKILL_GLYPHS[GLYPH_FROM3[k]] || SKILL_GLYPHS.heavy; }
 
-// —— 輔助寶石 ——
-const DMG_EX3 = ['movement', 'minion', 'curse', 'buff', 'aura'];
-Object.assign(SUPPORTS, {
-  lmp: { name: '少量多重投射', color: '#5cc45c', req: ['projectile'], cost: 1.25, exclType: ['rain'], mods: { proj_count: 1, more_dmg: -10 },
-    desc: '+1 投射物；這個技能傷害總降 10%。比多重投射溫和、比較省魔。' },
-  impact: { name: '重擊打擊', color: '#e05a4f', req: ['attack'], excl: DMG_EX3, cost: 1.4, mods: { more_phys: 20, crit_multi: 25, aspd_inc: -5 },
-    desc: '物理傷害總增 20%、暴擊傷害 +25%；攻擊速度 −5%。' },
-  shockwave: { name: '震擊範圍', color: '#e05a4f', req: ['area'], excl: ['curse', 'aura'], cost: 1.35, mods: { area_inc: 20, more_area: 15 },
-    desc: '範圍 +20%，範圍技能傷害總增 15%。' },
-  bloodlust: { name: '嗜血', color: '#e05a4f', req: ['melee'], cost: 1.3, mods: { leech: 3, more_phys: 10 },
-    desc: '打中時偷取 3% 傷害回復生命；物理傷害總增 10%。近戰的續航。' },
-  mfury: { name: '召喚狂暴', color: '#5b8cff', req: ['minion'], cost: 1.35, mods: { more_minion: 30, more_minion_life: -20 },
-    desc: '召喚物傷害總增 30%，但召喚物生命總降 20%。' },
-  precision: { name: '精準', color: '#5cc45c', req: ['attack', 'spell'], excl: DMG_EX3, cost: 1.3, mods: { crit_inc: 60, more_dmg: 5 },
-    desc: '暴擊率 +60%，傷害總增 5%。' },
-  combust: { name: '燃燒爆發', color: '#e05a4f', req: ['attack'], excl: DMG_EX3, cost: 1.4, mods: { extra_fire: 25, ignite_ch: 25 },
-    desc: '額外獲得物理傷害 25% 的火焰傷害；+25% 點燃機率。' },
-  catalyst: { name: '元素催化', color: '#5b8cff', req: ['spell'], excl: DMG_EX3, cost: 1.4, mods: { more_ele: 20, shock_ch: 15, freeze_ch: 10 },
-    desc: '元素傷害總增 20%；+15% 感電、+10% 冰凍機率。' },
-});
-for (const k of ['lmp', 'impact', 'shockwave', 'bloodlust', 'mfury', 'precision', 'combust', 'catalyst']) SUPPORT_MANA[k] = SUPPORTS[k].cost;
-// 舊的傷害類輔助也不能插在光環上
-for (const id of ['elefocus', 'crit', 'echo', 'leech', 'burn', 'venom', 'frostbite', 'static', 'conc', 'dotamp']) { const s = SUPPORTS[id]; if (s && !(s.excl || []).includes('aura')) s.excl = [...(s.excl || []), 'aura']; }
+// v2.17：這裡原本的八顆輔助寶石（少量多重投射、重擊打擊、震擊範圍、嗜血、召喚狂暴、精準、燃燒爆發、元素催化）已經併進 data.js 的威力／暴擊／範圍擴大／生命偷取／召喚物強化／燃燒（舊存檔在 gems4.js 自動換）

@@ -143,7 +143,10 @@ function randomItem(ilvl, bonus = 1) {
   const r = Math.random();
   const pU = 0.006 * bonus, pR = 0.07 * bonus, pM = 0.30 * Math.min(bonus, 2);
   if (r < pU) {
-    const pool = UNIQUES.filter(u => !u.boss && BASE_BY_ID[u.base].lvl <= ilvl + 3);
+    // v2.17 世界規則專屬傳奇（u.wr）只在帶那條規則的夜掉，而且那一夜掉傳奇時有 30% 是它
+    const pool = UNIQUES.filter(u => !u.boss && (!u.wr || (typeof wrFlag === 'function' && wrFlag(u.wr))) && BASE_BY_ID[u.base].lvl <= ilvl + 3);
+    const wrp = pool.filter(u => u.wr);
+    if (wrp.length && Math.random() < 0.3) return makeUnique(pick(wrp).id, ilvl);
     if (pool.length) return makeUnique(pick(pool).id, ilvl);
   }
   const base = pickBase(ilvl);
@@ -263,7 +266,13 @@ function returnJewels(item) {
   for (const k of item.sockets || []) if (k) { G.P.jewels[k] = (G.P.jewels[k] || 0) + 1; n++; }
   if (n) UI.msg(`裝備上的 ${n} 顆珠寶已退回珠寶袋`, '#e8c890');
 }
-function randomCurrency() { return wpick(Object.keys(CURRENCY), k => CURRENCY[k].weight); }
+// v2.17 主線地圖只掉 MAIN_CURRENCY；深層夢境（或高等競技場）全部都掉。isDeepWorld 在 enhance.js
+function randomCurrency() { const deep = typeof isDeepWorld === 'function' && isDeepWorld(); return wpick(Object.keys(CURRENCY).filter(k => deep || MAIN_CURRENCY.has(k)), k => CURRENCY[k].weight); }
+// 還沒打到深層夢境的角色：商人的價錢、賣東西換到的碎片，把改造石、增幅石換成蛻變石（主線不掉那兩種）
+function curMainOnly(v) {
+  if (!G.P || (G.P.maxTier || 0) >= DEEP_TIER) return v;
+  const o = {}; for (const k in v) { const kk = (k === 'alter' || k === 'aug') ? 'transmute' : k; o[kk] = (o[kk] || 0) + v[k]; } return o;
+}
 
 // ---------- 工藝石 ----------
 function applyCurrency(cur, item) {
@@ -281,7 +290,7 @@ function applyCurrency(cur, item) {
     if (item.rarity === 'normal' || !item.mods.length) return '這件物品沒有可以重骰的詞綴';
     if (item.rarity === 'unique') {
       const u = UNIQUE_BY_ID[item.uniqueId];
-      item.mods.forEach((m, i) => { m.v = rollUniqueValue(u.mods[i]); });
+      item.mods.forEach((m, i) => { if (m.type === 'u' && u.mods[i]) m.v = rollUniqueValue(u.mods[i]); else if (AFFIX_BY_ID[m.id]) { const a = AFFIX_BY_ID[m.id]; m.v = rollValue(a, a.tiers.length - m.tier, base); } });   // v2.17 深層傳奇多的那條是一般詞綴
     } else item.mods.forEach(m => { const a = AFFIX_BY_ID[m.id]; m.v = rollValue(a, a.tiers.length - m.tier, base); });
     return null;
   }
@@ -298,7 +307,7 @@ function applyCurrency(cur, item) {
       if (item.rarity === 'magic') nameItem(item); break;
     case 'chance': {
       if (item.rarity !== 'normal') return '只能用在普通物品';
-      const us = UNIQUES.filter(u => u.base === item.base && !u.boss);
+      const us = UNIQUES.filter(u => u.base === item.base && !u.boss && !u.wr);
       if (us.length && Math.random() < 0.08) { const keep = item.sockets; Object.assign(item, makeUnique(pick(us).id, item.ilvl), { uid: item.uid, sockets: keep || [] }); return null; }
       item.rarity = Math.random() < 0.25 ? 'rare' : 'magic'; rollMods(item); break;
     }
@@ -386,7 +395,7 @@ function computeStats(P) {
     if (base.cls === 'shield') hasShield = true;
   }
   // 正在生效的功能藥劑（同種只算一次）
-  for (const type in (G.flaskBuffs || {})) { const b = G.flaskBuffs[type], F = FLASKS[type]; if (F.stat) addStat(S, F.stat, Math.round(b.v)); }
+  for (const type in (G.flaskBuffs || {})) { const b = G.flaskBuffs[type], F = FLASKS[type]; if (F.stat) for (const st of [].concat(F.stat)) addStat(S, st, Math.round(b.v)); }
   S.str += S.all_attr; S.dex += S.all_attr; S.int += S.all_attr;
   S.res_fire += S.res_all; S.res_cold += S.res_all; S.res_light += S.res_all;
   const L = P.lvl;
@@ -446,6 +455,7 @@ function supportAgg(sid, sups) {
 function calcSkill(S, sid, lvl, sups) {
   const sk = SKILLS[sid];
   const X = supportAgg(sid, sups);
+  if (X.flags.allin && typeof allinOn === 'function' && allinOn(sid)) X.more_dmg *= 1.4;   // v2.17 輔助寶石「孤注」：技能欄只有這一個打傷害的技能（gems4.js）
   const GB = gemBonus(sid, gemLv(sid)); lvl = GB.effLvl;   // v2.4：法術與召喚物的威力看寶石等級，不看角色等級
   const tags = sk.tags;
   const isAtk = tags.includes('attack'), isSpell = tags.includes('spell');
@@ -504,6 +514,8 @@ function calcSkill(S, sid, lvl, sups) {
   for (const a of AIL_KEYS) out.ail[a] = Math.min(100, ((sk.ail && sk.ail[a]) || 0) + S[a + '_ch'] + X[a + '_ch']);
   out.dotMult = Math.max(0, 1 + S.dot_inc / 100) * X.more_dot;
   out.ailDur = 1 + S.ail_dur / 100;
+  if (X.flags.bloodpay) { out.lifeCost = out.cost; out.cost = 0; }   // v2.17「血祭」：改耗生命（game.js useSkill 扣）
+  if (X.flags.overdraw) out.overdraw = true;                         // v2.17「透支」：魔力不夠用生命補
   if (sk.type === 'summon') { out.minion = calcMinion(S, lvl, X, sk); out.minion.max += GB.minion; }
   if (sk.type === 'zone') out.dps = eavg / sk.tick; // 每片地面的每秒傷害
   if (sk.dpsMul) out.dps *= sk.dpsMul;   // v2.5.5 連斬、雷球這類一次施放打很多下的技能
@@ -524,11 +536,12 @@ function calcMinion(S, lvl, X, sk) {
 }
 
 // ---------- 物品說明（滑鼠移上去的提示框） ----------
+const ITEM_TIP_EXTRA = [];   // v2.17 物品說明多加的段落：push(item => HTML 字串)
 function itemTipHTML(item, opts = {}) {
   if (isFlask(item)) return flaskTipHTML(item, opts);
   const base = BASE_BY_ID[item.base];
   const loc = itemLocal(item);
-  const cl = 'c-' + item.rarity;
+  const cl = 'c-' + (item.set ? 'set' : item.rarity);   // v2.17 套裝用綠色
   let h = `<div class="tip-head ${cl}"><div class="tip-name">${item.name}</div>${item.rarity === 'rare' || item.rarity === 'unique' ? `<div class="tip-base">${base.name}</div>` : ''}</div>`;
   const tierTxt = TIERED_SLOTS.has(base.slot) ? ` · <span style="color:${['#a8a8a8', '#c8c8a0', '#e8d890', '#c8a0ff', '#ff8a8a'][base.tier]}">${BASE_TIER_NAME[base.tier]}基底</span>` : '';
   h += `<div class="tip-sub">${base.clsName}${base.hands === 2 ? '（雙手）' : ''} · ${RARITY_NAME[item.rarity]}${tierTxt} · 物品等級 ${item.ilvl}</div>`;
@@ -563,16 +576,18 @@ function itemTipHTML(item, opts = {}) {
     h += `<div class="tip-sock">插槽 ${socks.length}/${smax}${socks.length ? '' : '（可用鑿孔石增加）'}</div>`;
     for (const k of socks) h += k ? `<div class="tip-mod" style="color:${JEWELS[parseJewel(k).type].color}">◆ ${jewelName(k)}：${jewelText(k)}</div>` : '<div class="tip-mod" style="color:#6a6070">◇ 空插槽</div>';
   }
+  for (const f of ITEM_TIP_EXTRA) { try { h += f(item) || ''; } catch (e) { } }   // v2.17 別的模組加的說明（套裝、首領傳奇效果、深層傳奇）
   if (item.rarity === 'unique') {
     const u = UNIQUE_BY_ID[item.uniqueId];
-    h += `<div class="tip-flavor">「${u.flavor}」</div>`;
-    if (u.boss) h += `<div class="tip-boss">首領專屬掉落：${BOSSES[u.boss].name}</div>`;
+    if (u) h += `<div class="tip-flavor">「${u.flavor}」</div>`;
+    if (u && u.boss) h += `<div class="tip-boss">首領專屬掉落：${BOSSES[u.boss].name}</div>`;
   }
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;
 }
 // ---------- 商人：以物易物 ----------
-function sellValue(it) {
+function sellValue(it) { return curMainOnly(sellValueRaw(it)); }
+function sellValueRaw(it) {
   if (isFlask(it)) return it.rarity === "magic" ? { alter: 2 } : { transmute: 1 };
   if (it.rarity === 'normal') return { transmute: 2 };
   if (it.rarity === 'magic') return { alter: 3, aug: 2 };
@@ -585,7 +600,7 @@ function genShop() {
   const list = [];
   list.push({ cur: 'portal', qty: 3, price: { transmute: 1 } });
   list.push({ respec: 2, price: { chaos: 1 } }); // 遺忘藥水：天賦重置點數
-  list.push({ cur: 'aug', qty: 2, price: { alter: 2 } });
+  if ((G.P.maxTier || 0) >= DEEP_TIER) list.push({ cur: 'aug', qty: 2, price: { alter: 2 } });   // 增幅石主線不掉，深層才賣
   list.push({ cur: 'alch', qty: 1, price: { aug: 3, alter: 3 } });
   const gr = mapGrade(Math.max(1, G.P.maxTier - 1)); // 商人的貨跟你打到的地圖等級走
   for (let i = 0; i < 3; i++) list.push({ item: makeItem(pickBase(ilvl, gr).id, 'magic', ilvl), price: { alter: 2 } });
@@ -594,7 +609,9 @@ function genShop() {
   // 藥劑：商人賣跟地圖等級一樣的藥劑
   list.push({ item: makeFlask("life", Math.max(1, gr), "normal"), price: { transmute: 1 } });
   list.push({ item: randomFlask(gr, 0.6), price: { alter: 2 } });
-  for (let i = 0; i < 3; i++) list.push({ gem: pick(Object.keys(SUPPORTS)), price: { chaos: 1 } });
+  const supPool = Object.keys(SUPPORTS).filter(k => (G.P.maxTier || 1) >= DEEP_TIER || !SUPPORTS[k].risk);   // v2.17 有代價的輔助寶石：到過深層夢境才賣
+  for (let i = 0; i < 3; i++) list.push({ gem: pick(supPool), price: { chaos: 1 } });
+  for (const e of list) e.price = curMainOnly(e.price);
   return list;
 }
 function canEquip(item) {

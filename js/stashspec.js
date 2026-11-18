@@ -1,5 +1,5 @@
 // =============================================================
-//  v2.7 倉庫專屬分頁：通貨、材料、輔助寶石、珠寶各有一頁
+//  v2.7 倉庫專屬分頁：通貨、輔助寶石、珠寶各有一頁（材料系統已拿掉：舊存檔的 spec.mat 資料留著，只是不顯示）
 //  ・每一種東西有固定的位置，沒有的會顯示成暗格（數量 0），一眼看出缺什麼
 //  ・專屬分頁沒有容量上限，所有角色共用
 //  ・存：在背包右鍵、或按「一鍵存入」→ 自動進專屬分頁
@@ -50,10 +50,6 @@ Object.assign(UI, {
       const seen = new Set();
       for (const [g, ks] of CUR_GROUPS) { const list = ks.filter(k => CURRENCY[k]); list.forEach(k => seen.add(k)); h += `<div class="spg">${g}</div><div class="sprow">${list.map(k => this.specCell('cur', k, true)).join('')}</div>`; }
       const rest = Object.keys(CURRENCY).filter(k => !seen.has(k)); if (rest.length) h += `<div class="spg">其他</div><div class="sprow">${rest.map(k => this.specCell('cur', k, true)).join('')}</div>`;
-    } else if (type === 'mat') {
-      h += `<table class="sptab"><tr><th></th>${MAT_TIER.map((r, i) => `<th style="color:${MAT_TIER_COLOR[i]}">${r}</th>`).join('')}</tr>`;
-      for (const t in MATS) h += `<tr><td class="spn" title="${MATS[t].desc}">${MATS[t].name}</td>${MAT_TIER.map((r, i) => `<td>${this.specCell('mat', matKey(t, i + 1))}</td>`).join('')}</tr>`;
-      h += `</table><div class="phint">I～V＝材料等級，對應裝備基底：初階、中階、高階、夢鑄、深淵。</div>`;
     } else if (type === 'sup') {
       const groups = {}; for (const k in SUPPORTS) { const g = SUP_GROUP[SUPPORTS[k].color] || '其他'; (groups[g] = groups[g] || []).push(k); }
       for (const g of [...Object.values(SUP_GROUP), '其他']) if (groups[g]) h += `<div class="spg">${g}</div><div class="sprow">${groups[g].map(k => this.specCell('sup', k, true)).join('')}</div>`;

@@ -1,7 +1,7 @@
 // =============================================================
 //  技能寶石等級 v2.4
-//  ・每顆技能寶石有自己的等級（1–20）。裝在技能欄上、打怪就會累積經驗；經驗滿了，
-//    在技能頁（K）按「升級」才會升。升級和裝備都要符合「角色等級」和「屬性」需求。
+//  ・每顆技能寶石有自己的等級（1–20）。裝在技能欄上、打怪就會累積經驗；經驗滿了（v2.17 起）自動升級，
+//    技能頁可以「鎖住等級」（P.gemLock），鎖住的要自己按升級。升級和裝備都要符合「角色等級」和「屬性」需求。
 //  ・寶石等級越高：傷害（法術的基礎傷害、攻擊的傷害效用）越高、冷卻越短、
 //    投射物／穿透／連鎖／箭雨波數／落雷數變多、範圍變大；代價是耗魔變多。
 //  ・屬性需求跟著寶石等級變高：只有「主屬性」對得上的職業，才拿得到高等版本。
@@ -73,7 +73,19 @@ function gemBonusText(sid, g) {
   if (g > 1) out.push(`耗魔 +${Math.round((B.cost - 1) * 100)}%`);
   return out.join('、');
 }
-// 打怪時：裝在技能欄上的寶石一起拿經驗（滿了就停，要按升級）
+// 打怪時：裝在技能欄上的寶石一起拿經驗。v2.17 經驗滿了而且等級、屬性夠就自動升級（跳一行訊息）；
+//   鎖住等級的（P.gemLock[技能]，技能頁的開關）不會自動升，經驗滿了停在那裡，要升自己按
+function gemLocked(sid, P = G.P) { return !!(P && P.gemLock && P.gemLock[sid]); }
+function gemSetLock(sid, v) { const P = G.P; if (!P) return; P.gemLock = P.gemLock || {}; if (v) P.gemLock[sid] = true; else delete P.gemLock[sid]; gemAutoLevel(); saveGame(); }
+function gemAutoLevel(quiet) {
+  const P = G.P; if (!P) return;
+  for (const sid of new Set(P.skills.filter(Boolean))) {
+    if (gemLocked(sid) || !gemCanLevel(sid)) continue;
+    const d = gemData(sid); d.xp = 0; d.lv++;
+    if (!quiet) { UI.msg(`${SKILLS[sid].name} 自動升到 ${d.lv} 級（不想升可以在技能頁鎖住等級）`, '#9fffd0'); Sfx.play('levelup'); }
+    onBuildChanged(); saveGame();
+  }
+}
 function gemGainXp(n) {
   const P = G.P; if (!P || !n) return;
   for (const sid of new Set(P.skills.filter(Boolean))) {
@@ -82,10 +94,15 @@ function gemGainXp(n) {
     d.xp = Math.min(need, d.xp + n);
     if (!was && d.xp >= need) {
       const lack = gemReqLack(sid, d.lv + 1);
-      UI.msg(lack ? `${SKILLS[sid].name} 可以升到 ${d.lv + 1} 級了，但${lack}` : `${SKILLS[sid].name} 可以升到 ${d.lv + 1} 級了（按 K 到技能頁升級）`, lack ? '#d8b080' : '#9fffd0');
+      if (lack) UI.msg(`${SKILLS[sid].name} 經驗滿了，但升到 ${d.lv + 1} 級${lack}`, '#d8b080');
+      else if (gemLocked(sid)) UI.msg(`${SKILLS[sid].name} 經驗滿了（鎖住等級中，要升到技能頁按）`, '#d8c8a0');
     }
   }
+  gemAutoLevel();
 }
+// 角色升級、換裝備之後屬性變夠了：之前卡住的寶石也自動升（每秒看一次）
+let _gemAutoT = 0;
+Hook.on('update', () => { if (!G.P || G.state !== 'play' || G.time - _gemAutoT < 1) return; _gemAutoT = G.time; gemAutoLevel(); });
 // v2.12.9 技能頁開著時，經驗條跟著打怪即時更新（只在百分比或「可以升級」變了才重畫，拖曳寶石時不重畫）
 let _gemPageSig = '', _gemPageT = 0;
 Hook.on('update', () => {

@@ -18,9 +18,9 @@ const CLASSES = {
   samurai: {
     name: '武士', attrName: '力量', main: 'str', color: '#e0a040', start: 'S_sam',
     attr: { str: 22, dex: 14, int: 8 }, bonus: { aspd_inc: 5, crit_multi: 10, life: 15, armour: 15 },
-    skills: ['heavy', 'iai', null, null, null],
+    skills: ['heavy', 'swallow', null, null, null],
     weapon: 'katana', weaponTier: 0,
-    desc: '力量區：太刀、暴擊、流血、居合斬。一刀一個。',
+    desc: '力量區：太刀、暴擊、流血。空白鍵「一閃」拔刀衝刺，一刀一個。',
   },
   ranger: { // 存檔代號沿用 ranger
     name: '盜賊', attrName: '敏捷', main: 'dex', color: '#5cc45c', start: 'S_ran',
@@ -172,78 +172,67 @@ const CLASS_GEMS = {
 const hasSkillGem = (P, sid) => !!(P && ((CLASS_GEMS[P.cls] || []).includes(sid) || (P.skillGems && P.skillGems[sid]) || (typeof G !== 'undefined' && G.stash && G.stash.skillGems && G.stash.skillGems[sid])));   // v2.16.3 倉庫裡（全帳號）會的技能寶石也算
 const skillGemPrice = sid => ({ chaos: Math.max(1, Math.ceil(SKILLS[sid].lvl / 10)) }); // 塞拉的價格：等級越高越貴
 
-// ---------- 輔助寶石 ----------
+// ---------- 輔助寶石（v2.17 整理：只換數字的併成「威力／速度／暴擊」，全部約 25 顆；被併掉的舊代號見 gems4.js 的 SUP_MERGE） ----------
 // req：技能只要有其中一個標籤就能用；excl：技能有這些標籤就不能用
-// cost：魔力消耗倍率；mods 裡 more_ 開頭是「總增／總降」
-const DMG_EXCL = ['movement', 'minion'];
+// cost：插上去後這個技能耗魔變成幾倍（多顆相乘）；mods 裡 more_ 開頭是「傷害變成幾倍」（+30 ＝ 1.3 倍，−25 ＝ 0.75 倍）
+// desc：第一行一句人話，<br> 後面才放數字
+const DMG_EXCL = ['movement', 'minion', 'curse', 'buff', 'aura', 'control'];
 const SUPPORTS = {
-  gmp: { name: '多重投射', color: '#5cc45c', req: ['projectile'], cost: 1.5, mods: { proj_count: 2, more_dmg: -25 },
-    desc: '+2 投射物；這個技能傷害總降 25%。同一次施放的投射物，對同一隻怪只算一次傷害（清怪強、單體弱）。' },
-  pierce: { name: '穿透', color: '#5cc45c', req: ['projectile'], cost: 1.2, mods: { pierce: 3, more_dmg: 10 },
-    desc: '投射物額外穿透 3 個敵人；傷害總增 10%。' },
+  // —— 純數字：三顆就夠 ——
+  power: { name: '威力', color: '#e05a4f', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.4, mods: { more_dmg: 30 },
+    desc: '這個技能打得更痛。<br>傷害變成 1.3 倍（中毒、流血、點燃也跟著變痛）。' },
+  speed: { name: '速度', color: '#5cc45c', req: ['attack', 'spell'], excl: ['movement', 'aura'], cost: 1.25, mods: { aspd_inc: 30, cspd_inc: 30 },
+    desc: '這個技能出手更快。<br>攻擊速度、施法速度 +30%。' },
+  crit: { name: '暴擊', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.35, mods: { crit_inc: 100, crit_multi: 30 },
+    desc: '更容易打出暴擊，暴擊也更痛。<br>暴擊率 +100%（例如 5% 變 10%），暴擊傷害 +30%。' },
+  // —— 投射物 ——
+  gmp: { name: '多重投射', color: '#5cc45c', req: ['projectile'], cost: 1.5, exclType: ['rain'], mods: { proj_count: 2, more_dmg: -25 },
+    desc: '多射兩支，每支弱一點。<br>投射物 +2，每支傷害變成 0.75 倍。同一次射出的多支打到同一隻怪，第 2 支起只算 35%（清怪強、打王普通）。' },
+  pierce: { name: '穿透', color: '#5cc45c', req: ['projectile'], cost: 1.25, exclType: ['rain'], mods: { pierce: 3, more_dmg: 10 },
+    desc: '投射物打穿敵人，繼續往後飛。<br>多穿過 3 個敵人，傷害變成 1.1 倍。' },
+  // —— 範圍 ——
   aoe: { name: '範圍擴大', color: '#5b8cff', req: ['area'], cost: 1.4, mods: { area_inc: 50 },
-    desc: '增加 50% 技能範圍。' },
-  conc: { name: '集中效應', color: '#5b8cff', req: ['area'], cost: 1.4, mods: { area_inc: -30, more_area: 45 },
-    desc: '技能範圍減少 30%；範圍傷害總增 45%。' },
-  addfire: { name: '附加火焰', color: '#e05a4f', req: ['attack'], cost: 1.3, mods: { extra_fire: 35 },
-    desc: '額外獲得「物理傷害 35%」的火焰傷害。' },
-  hypo: { name: '寒霜轉化', color: '#5cc45c', req: ['attack'], cost: 1.2, mods: { conv_cold: 60 },
-    desc: '60% 物理傷害轉為冰冷傷害（會冰緩敵人，吃冰冷與元素加成）。' },
-  brutal: { name: '殘暴', color: '#e05a4f', req: ['attack'], cost: 1.3, mods: { more_phys: 45, noEle: true },
-    desc: '物理傷害總增 45%；但這個技能無法造成元素傷害。' },
-  elefocus: { name: '元素集中', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.3, mods: { more_ele: 35, noChill: true },
-    desc: '元素傷害總增 35%；但無法冰緩敵人。' },
-  crit: { name: '強化暴擊', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.2, mods: { crit_inc: 100, crit_multi: 20 },
-    desc: '增加 100% 暴擊率，+20% 暴擊傷害。' },
-  fasta: { name: '快速攻擊', color: '#5cc45c', req: ['attack'], cost: 1.15, mods: { aspd_inc: 30 },
-    desc: '這個技能增加 30% 攻擊速度。' },
-  fastc: { name: '快速施法', color: '#5b8cff', req: ['spell'], excl: ['movement'], cost: 1.2, mods: { cspd_inc: 30 },
-    desc: '這個技能增加 30% 施法速度。' },
-  echo: { name: '法術回響', color: '#5b8cff', req: ['spell'], excl: DMG_EXCL, cost: 1.4, mods: { echo: true, more_dmg: -30 },
-    desc: '施放後會自動再施放一次（不另扣魔力）；傷害總降 30%（兩次合計約 ×1.4）。' },
-  leech: { name: '生命偷取', color: '#e05a4f', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.2, mods: { leech: 2 },
-    desc: '這個技能擊中時，2% 傷害轉為生命偷取。' },
-  mdmg: { name: '召喚物傷害', color: '#5b8cff', req: ['minion'], cost: 1.3, mods: { more_minion: 40 },
-    desc: '召喚物傷害總增 40%。' },
-  army: { name: '骷髏大軍', color: '#5b8cff', req: ['minion'], cost: 1.5, mods: { minion_max: 2, more_minion: -15 },
-    desc: '+2 骷髏上限；召喚物傷害總降 15%。' },
-  mlife: { name: '召喚物生命', color: '#e05a4f', req: ['minion'], cost: 1.2, mods: { more_minion_life: 50 },
-    desc: '召喚物生命總增 50%。' },
+    desc: '技能的圈圈變大。<br>範圍 +50%。' },
+  conc: { name: '集中效應', color: '#5b8cff', req: ['area'], excl: DMG_EXCL, cost: 1.5, mods: { area_inc: -30, more_area: 45 },
+    desc: '圈圈變小，但打得更痛。<br>範圍 −30%，範圍傷害變成 1.45 倍。' },
+  // —— 改變打法 ——
+  hypo: { name: '寒霜轉化', color: '#5cc45c', req: ['attack'], excl: DMG_EXCL, cost: 1.25, mods: { conv_cold: 60 },
+    desc: '武器打出去變成冰，打中的怪會變慢。<br>60% 物理傷害變成冰冷傷害（吃冰冷和元素加成）。' },
+  echo: { name: '法術回響', color: '#5b8cff', req: ['spell'], excl: DMG_EXCL, cost: 1.6, mods: { echo: true, more_dmg: -30 },
+    desc: '法術自動再放一次。<br>第二次不耗魔；每一次傷害變成 0.7 倍（兩次加起來約 1.4 倍）。' },
+  leech: { name: '生命偷取', color: '#e05a4f', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.2, mods: { leech: 3 },
+    desc: '打中敵人時回血。<br>打出傷害的 3% 變成生命（每一下最多回 8% 最大生命）。' },
+  // —— 召喚物 ——
+  mdmg: { name: '召喚物強化', color: '#5b8cff', req: ['minion'], cost: 1.4, mods: { more_minion: 40, more_minion_life: 30 },
+    desc: '召喚物更會打、更耐打。<br>召喚物傷害變成 1.4 倍，生命變成 1.3 倍。' },
+  army: { name: '骷髏大軍', color: '#5b8cff', req: ['minion'], cost: 1.6, mods: { minion_max: 2, more_minion: -15 },
+    desc: '多召喚兩隻，每隻弱一點。<br>召喚上限 +2，召喚物傷害變成 0.85 倍。' },
   // —— 異常狀態 ——
-  burn: { name: '燃燒', color: '#e05a4f', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.3, mods: { ignite_ch: 40, more_dot: 20 },
-    desc: '+40% 點燃機率；持續傷害總增 20%。' },
+  burn: { name: '燃燒', color: '#e05a4f', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.35, mods: { ignite_ch: 40, more_dot: 20 },
+    desc: '更容易把敵人點燃，燒得更久更痛。<br>點燃機率 +40%（要有火焰傷害），持續傷害變成 1.2 倍。' },
   venom: { name: '毒蛇之牙', color: '#5cc45c', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.3, mods: { poison_ch: 50, more_dot: 10 },
-    desc: '+50% 中毒機率（可疊加）；持續傷害總增 10%。' },
-  rend: { name: '撕裂', color: '#e05a4f', req: ['attack'], cost: 1.3, mods: { bleed_ch: 50, more_dot: 15 },
-    desc: '+50% 流血機率；持續傷害總增 15%。' },
-  frostbite: { name: '冰封', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.3, mods: { freeze_ch: 25, more_ele: 10 },
-    desc: '+25% 冰凍機率（需要冰冷傷害）；元素傷害總增 10%。' },
-  static: { name: '感電', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.3, mods: { shock_ch: 40, more_ele: 10 },
-    desc: '+40% 感電機率（需要閃電傷害）；元素傷害總增 10%。' },
-  addchaos: { name: '附加毒素', color: '#5cc45c', req: ['attack'], cost: 1.3, mods: { extra_chaos: 30 },
-    desc: '額外獲得「物理傷害 30%」的毒素傷害（毒素傷害會讓中毒更痛）。' },
+    desc: '更容易讓敵人中毒，毒可以一直疊。<br>中毒機率 +50%（要有物理或毒素傷害），持續傷害變成 1.1 倍。' },
+  rend: { name: '撕裂', color: '#e05a4f', req: ['attack'], excl: DMG_EXCL, cost: 1.35, mods: { bleed_ch: 50, more_dot: 15 },
+    desc: '更容易讓敵人流血。<br>流血機率 +50%（要有物理傷害），持續傷害變成 1.15 倍。' },
+  frostbite: { name: '冰封', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.25, mods: { freeze_ch: 25, more_ele: 10 },
+    desc: '更容易把敵人凍住不動。<br>冰凍機率 +25%（要有冰冷傷害），元素傷害變成 1.1 倍。' },
+  static: { name: '感電', color: '#5b8cff', req: ['attack', 'spell'], excl: DMG_EXCL, cost: 1.25, mods: { shock_ch: 40, more_ele: 10 },
+    desc: '更容易讓敵人感電，感電的怪會受到更多傷害。<br>感電機率 +40%（要有閃電傷害），元素傷害變成 1.1 倍。' },
 };
 // 連結孔數量：依角色等級解鎖
 const LINK_LEVELS = [1, 6, 15, 28];
 function linkSlots(lvl) { return LINK_LEVELS.filter(l => lvl >= l).length; }
 function supportFits(id, sid) {
-  if (!id || !sid) return false;
+  if (!id || !sid || !SUPPORTS[id] || !SKILLS[sid]) return false;
   const sp = SUPPORTS[id], tags = SKILLS[sid].tags;
   return sp.req.some(t => tags.includes(t)) && !(sp.excl || []).some(t => tags.includes(t));
 }
-// 各職業開局送的輔助寶石（第一顆自動插在左鍵技能上）
-// v1.6 魔力效用：每顆輔助寶石依強度讓技能多耗魔（倍率相乘）。越強的寶石越耗魔
-//   強：160%／150%　中：135–140%　弱：120–130%
-const SUPPORT_MANA = {
-  gmp: 1.6, echo: 1.6, army: 1.6, conc: 1.5, brutal: 1.5, elefocus: 1.5,
-  aoe: 1.4, addfire: 1.4, addchaos: 1.4, crit: 1.4, mdmg: 1.4, rend: 1.35, burn: 1.35,
-  fasta: 1.3, fastc: 1.3, venom: 1.3, pierce: 1.25, hypo: 1.25, frostbite: 1.25, static: 1.25, leech: 1.2, mlife: 1.2,
-};
-for (const k in SUPPORTS) if (SUPPORT_MANA[k]) SUPPORTS[k].cost = SUPPORT_MANA[k];
-const manaEffTxt = c => `魔力效用 ${Math.round(c * 100)}%`;
+// 耗魔說明（白話）：插上去之後這個技能耗魔變成幾倍
+const manaEffTxt = c => `這個技能耗魔變成 ${+c.toFixed(2)} 倍`;
 
-const STARTER_SUPPORTS = { warrior: ['addfire', 'aoe'], ranger: ['venom', 'gmp'], mage: ['echo', 'elefocus'],
-  samurai: ['crit', 'rend'], druid: ['gmp', 'fasta'], summoner: ['army', 'mdmg'] };
+// 各職業開局送的輔助寶石（第一顆自動插在左鍵技能上）
+const STARTER_SUPPORTS = { warrior: ['power', 'aoe'], ranger: ['venom', 'gmp'], mage: ['echo', 'power'],
+  samurai: ['crit', 'rend'], druid: ['gmp', 'speed'], summoner: ['army', 'mdmg'] };
 
 // ---------- 物品基底 ----------
 // cls：物品類別；slot：裝備欄；def：防禦類型 ar=護甲 ev=閃避 es=能量護盾
@@ -566,6 +555,9 @@ const CURRENCY = {
   scour: { name: '重鑄石', color: '#c0c0c0', weight: 7, desc: '清除所有詞綴，變回普通（插槽與珠寶會保留）' },
   socket: { name: '鑿孔石', color: '#e8c890', weight: 1.2, desc: '為裝備多鑿 1 個珠寶插槽（不能超過該部位的上限）。非常稀有。' },
 };
+// v2.17 通貨分段：主線（第 1 夜到深層夢境之前）只掉這幾種（變藍、變黃、重骰黃裝、鑿孔，加上傳送卷軸）；其他通貨和強化材料進深層夢境（DEEP_TIER）才開始掉
+//   已經有的不會刪；主線的任務、人物故事還是會送少量，讓玩家先認識。判斷在 items.js 的 randomCurrency／curMainOnly
+const MAIN_CURRENCY = new Set(['portal', 'transmute', 'alch', 'chaos', 'socket']);
 
 // =============================================================
 //  v1.4 材料（在商人那裡分解裝備得到）：5 種 × 5 個等級（I–V）
@@ -598,13 +590,14 @@ const FLASKS = {
   speed: { name: '迅捷藥劑', color: '#c0e8ff', stat: 'move_inc', vals: [15, 20, 25, 30, 35, 40], dur: 5, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內移動速度 +${v}%` },
   granite: { name: '花崗岩藥劑', color: '#a8a090', stat: 'armour_inc', vals: [40, 60, 80, 100, 125, 150], dur: 5, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內護甲 +${v}%` },
   jade: { name: '翠玉藥劑', color: '#60c070', stat: 'evasion_inc', vals: [40, 60, 80, 100, 125, 150], dur: 5, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內閃避 +${v}%` },
-  rubyf: { name: '紅寶石藥劑', color: '#ff6040', stat: 'res_fire', vals: [15, 20, 25, 30, 35, 40], dur: 6, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內火焰抗性 +${v}%` },
-  sapphiref: { name: '藍寶石藥劑', color: '#60a0ff', stat: 'res_cold', vals: [15, 20, 25, 30, 35, 40], dur: 6, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內冰冷抗性 +${v}%` },
-  topazf: { name: '黃玉藥劑', color: '#ffe060', stat: 'res_light', vals: [15, 20, 25, 30, 35, 40], dur: 6, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內閃電抗性 +${v}%` },
-  antidote: { name: '解毒藥劑', color: '#80e060', stat: 'res_chaos', vals: [15, 20, 25, 30, 35, 40], dur: 6, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內毒素抗性 +${v}%` },
+  // v2.17 稜鏡藥劑：取代舊的紅寶石、藍寶石、黃玉、解毒四瓶單抗藥劑（舊存檔：讀角色、讀倉庫、還原沒打完的夢時，用 fixOldFlask 換成同階、同詞綴的稜鏡藥劑）
+  prism: { name: '稜鏡藥劑', color: '#d8a0ff', stat: ['res_all', 'res_chaos'], noPoison: true, vals: [15, 20, 25, 30, 35, 40], dur: 6, max: [50, 55, 60, 65, 70, 80], use: 25, desc: (v, d) => `${d} 秒內火焰、冰冷、閃電、毒素抗性各 +${v}%，而且不會中毒` },
   rage: { name: '狂暴藥劑', color: '#ff4060', stat: 'dmg_inc', vals: [10, 14, 18, 22, 26, 30], dur: 5, max: [50, 55, 60, 65, 70, 80], use: 30, desc: (v, d) => `${d} 秒內全部傷害 +${v}%` },
 };
 // 舊版存檔用字串記藥劑（例如 'life_1'），讀檔時會換成新的藥劑物品
+// v2.17 拿掉的藥劑種類 → 換成哪一種（同階、同詞綴）
+const FLASK_RENAMED = { rubyf: 'prism', sapphiref: 'prism', topazf: 'prism', antidote: 'prism' };
+function fixOldFlask(it) { if (it && it.flask && FLASK_RENAMED[it.type]) { it.type = FLASK_RENAMED[it.type]; if (typeof nameFlask === 'function') nameFlask(it); } return it; }
 const parseFlask = k => { const i = k.lastIndexOf('_'); return { type: k.slice(0, i), tier: +k.slice(i + 1) }; };
 
 // 藥劑詞綴：最多 2 條（1 個前綴＋1 個後綴）。不加角色屬性，只改藥劑本身

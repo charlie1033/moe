@@ -93,7 +93,6 @@
         case 'KeyP': UI.toggle('tree'); break;
         case 'KeyH': UI.toggle('help'); break;
         case 'KeyJ': UI.toggle('journal'); break;
-        case 'KeyG': UI.toggle('jewels'); break;
         case 'KeyB': UI.toggle('craft'); break;
         // v2.4：有開著的視窗就先關掉；什麼都沒開才打開暫停選單
         case 'Escape': if (Object.values(UI.open).some(v => v)) UI.closeAll(); else Pause.show(); break;

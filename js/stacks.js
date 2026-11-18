@@ -15,7 +15,7 @@ const STACK_TYPES = {
   sup: { name: k => SUPPORTS[k].name, max: () => 10, color: k => SUPPORTS[k].color, ok: k => !!SUPPORTS[k],
     icon: k => supportIconURL(k, 64), desc: k => SUPPORTS[k].desc + '（按 K 插到技能上）', kind: '輔助寶石' },
   jewel: { name: k => jewelName(k), max: () => 10, color: k => JEWELS[parseJewel(k).type].color, ok: k => { try { return !!JEWELS[parseJewel(k).type]; } catch (e) { return false; } },
-    icon: k => jewelIconURL(k), desc: k => jewelText(k) + '（按 G 鑲到裝備的孔裡；3 顆同階合成高一階）', kind: '珠寶' },
+    icon: k => jewelIconURL(k), desc: k => jewelText(k) + '（在背包點它，再點有空孔的裝備就鑲上去；3 顆同階可以找營地的小雀合成高一階）', kind: '珠寶' },
 };
 const STACK_FIELD = { cur: 'cur', mat: 'mats', sup: 'supports', jewel: 'jewels' };
 const isStack = it => !!(it && it.stack);

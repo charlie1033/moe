@@ -2,11 +2,15 @@
 //  v2.11 終局天賦盤（按 N，或功能選單「終局盤」）— 只影響深層夢境（第 11 夜起）
 //  讓玩家自己決定「我的地圖多出現什麼」：怪海路線（範圍流派擅長）、打王路線（單體流派擅長）、通用
 //
-//  點數怎麼來（一個角色最多 39 點，節點全點滿要 46 點 → 一定要取捨；隨時可以免費重置）：
+//  點數怎麼來（一個角色最多 48 點，節點全點滿要 46 點；隨時可以免費重置）：
 //   ・第一次打倒第 11～40 夜的看守者：每一夜 1 點（30 點）
 //   ・夢潮裂隙單次擊殺 40／80／120 隻：各 1 點
 //   ・獻祭圈累計完成 1／5／15 次：各 1 點
 //   ・迷霧撐到第 3／5／7 層：各 1 點
+//   ・v2.17 傳奇收藏冊每集滿一類：1 點（9 類，分類在 uniqstash.js 的 UNIQ_COLS）
+//
+//  v2.17 上方三張大卡「怪海／打王／尋寶」：點一下就把目前所有點數照那個方向重新配好（ATLAS_PRESETS 的順序：前面的先點滿）
+//    盤面的節點彼此沒有連線，所以照順序點就好；想細調的人照常左鍵加、右鍵退。節點說明是白話（text）
 //
 //  節點（每點的效果寫在 ATLAS_NODES 的 per／text）：
 //   怪海：裂隙機率、裂隙時間、蟲群機率、怪群數量、迷霧機率、迷霧起始時間
@@ -17,23 +21,36 @@
 //  別的檔案用 atlasVal('節點') 拿「目前加了多少」（沒點＝0；不在深層夢境也＝0）
 // =============================================================
 const ATLAS_NODES = [
-  { id: 'mech_tide', col: 0, name: '潮汐共鳴', max: 3, per: 15, text: v => `夢潮裂隙出現機率 +${v}%` },
-  { id: 'tide_len', col: 0, name: '漫長的潮', max: 2, per: 4, text: v => `夢潮裂隙擴張時間 +${v} 秒` },
-  { id: 'swarm', col: 0, name: '蟲巢', max: 3, per: 10, text: v => `每個房間出現蟲群的機率 +${v}%` },
-  { id: 'pack', col: 0, name: '擁擠的夢', max: 3, per: 8, text: v => `怪群數量 +${v}%` },
-  { id: 'mech_mist', col: 0, name: '霧季', max: 3, per: 15, text: v => `迷霧出現機率 +${v}%` },
-  { id: 'mist_time', col: 0, name: '深呼吸', max: 2, per: 2, text: v => `迷霧起始時間 +${v} 秒` },
-  { id: 'boss_life', col: 1, name: '夢魘之主', max: 3, per: 40, text: v => `看守者生命 +${v}%，倒下時多掉一批寶物（每點 3 件、保底 1 件黃裝）` },
-  { id: 'boss_twin', col: 1, name: '成雙的惡夢', max: 3, per: 15, text: v => `最後一區有 ${v}% 機率多一隻別的場景的看守者` },
-  { id: 'elite', col: 1, name: '菁英集結', max: 3, per: 10, text: v => `藍色、黃色精英怪出現機率 +${v}%` },
-  { id: 'essence', col: 1, name: '封印之地', max: 3, per: 12, text: v => `每一區 ${v}% 機率多一顆精髓水晶` },
-  { id: 'mech_rite', col: 1, name: '血祭傳統', max: 3, per: 15, text: v => `獻祭圈出現機率 +${v}%` },
-  { id: 'rite_rare', col: 1, name: '貪婪的祭壇', max: 2, per: 1, text: v => `獻祭圈第 3 輪多 ${v} 隻黃色精英` },
-  { id: 'chest', col: 2, name: '遺落的寶藏', max: 3, per: 12, text: v => `每一區 ${v}% 機率多一個寶箱` },
-  { id: 'qty', col: 2, name: '豐饒', max: 5, per: 4, text: v => `掉落數量 +${v}%` },
-  { id: 'rar', col: 2, name: '鍍金', max: 5, per: 4, text: v => `掉落稀有度 +${v}%` },
+  { id: 'mech_tide', col: 0, name: '潮汐共鳴', max: 3, per: 15, text: v => `夢潮裂隙（一波比一波多的怪潮）出現機率 +${v}%` },
+  { id: 'tide_len', col: 0, name: '漫長的潮', max: 2, per: 4, text: v => `夢潮裂隙多撐 ${v} 秒（撐越久、殺越多）` },
+  { id: 'swarm', col: 0, name: '蟲巢', max: 3, per: 10, text: v => `每個房間有 ${v}% 機率多一大群蟲（很多隻好殺的小怪）` },
+  { id: 'pack', col: 0, name: '擁擠的夢', max: 3, per: 8, text: v => `每一群怪多 ${v}%` },
+  { id: 'mech_mist', col: 0, name: '霧季', max: 3, per: 15, text: v => `迷霧（越走越深、越來越難）出現機率 +${v}%` },
+  { id: 'mist_time', col: 0, name: '深呼吸', max: 2, per: 2, text: v => `迷霧裡一開始多 ${v} 秒可以待` },
+  { id: 'boss_life', col: 1, name: '夢魘之主', max: 3, per: 40, text: v => `看守者更耐打（生命 +${v}%），倒下時多掉一批寶物（每點多 3 件，保底 1 件黃裝）` },
+  { id: 'boss_twin', col: 1, name: '成雙的惡夢', max: 3, per: 15, text: v => `最後一區有 ${v}% 機率多來一隻別的看守者（牠也會掉一批寶物）` },
+  { id: 'elite', col: 1, name: '菁英集結', max: 3, per: 10, text: v => `藍色、黃色精英怪變多 ${v}%` },
+  { id: 'essence', col: 1, name: '封印之地', max: 3, per: 12, text: v => `每一區有 ${v}% 機率多一顆封著黃色精英的水晶（打碎必掉寶）` },
+  { id: 'mech_rite', col: 1, name: '血祭傳統', max: 3, per: 15, text: v => `獻祭圈（站進去連打三輪怪）出現機率 +${v}%` },
+  { id: 'rite_rare', col: 1, name: '貪婪的祭壇', max: 2, per: 1, text: v => `獻祭圈最後一輪多 ${v} 隻黃色精英` },
+  { id: 'chest', col: 2, name: '遺落的寶藏', max: 3, per: 12, text: v => `每一區有 ${v}% 機率多一個寶箱` },
+  { id: 'qty', col: 2, name: '豐饒', max: 5, per: 4, text: v => `掉的東西多 ${v}%` },
+  { id: 'rar', col: 2, name: '鍍金', max: 5, per: 4, text: v => `掉到黃裝、傳奇的機率 +${v}%` },
 ];
 const ATLAS_COLS = [['怪海', '怪多、要跑、要清得快', '#7ad8ff'], ['打王', '單隻更硬、獎勵集中', '#ff8a70'], ['通用', '', '#ffd36a']];
+// v2.17 三張大卡：一鍵把點數照方向配好（照順序，前面的先點滿）
+const ATLAS_PRESETS = {
+  sea: { name: '怪海', sub: '怪很多、一路清過去（範圍、召喚流派）', color: '#7ad8ff', order: ['pack', 'swarm', 'mech_tide', 'tide_len', 'qty', 'mech_mist', 'mist_time', 'elite', 'rar', 'chest', 'essence', 'mech_rite', 'rite_rare', 'boss_life', 'boss_twin'] },
+  boss: { name: '打王', sub: '看守者更多更硬、掉更多（單體爆發流派）', color: '#ff8a70', order: ['boss_life', 'boss_twin', 'elite', 'essence', 'mech_rite', 'rite_rare', 'rar', 'qty', 'chest', 'pack', 'swarm', 'mech_tide', 'tide_len', 'mech_mist', 'mist_time'] },
+  loot: { name: '尋寶', sub: '不管打什麼，掉的東西更多更好', color: '#ffd36a', order: ['qty', 'rar', 'chest', 'essence', 'boss_life', 'elite', 'mech_rite', 'rite_rare', 'pack', 'boss_twin', 'swarm', 'mech_tide', 'tide_len', 'mech_mist', 'mist_time'] },
+};
+function atlasPreset(P, kind) {
+  const A = atlasOf(P), pr = ATLAS_PRESETS[kind]; if (!pr) return;
+  A.pts = {}; let free = atlasTotal(P);
+  for (const id of pr.order) { const n = ATLAS_NODES.find(x => x.id === id); if (!n || free <= 0) continue; const k = Math.min(n.max, free); A.pts[id] = k; free -= k; }
+  A.preset = kind;
+}
+const atlasMaxPts = () => 30 + 9 + (typeof UNIQ_COLS !== 'undefined' ? UNIQ_COLS.length : 0);
 const ATLAS_MILE = { tide: [40, 80, 120], rite: [1, 5, 15], mist: [3, 5, 7] };
 const ATLAS_NIGHTS = [11, 40];
 const atlasOf = P => (P.atlas = P.atlas || { pts: {}, got: {}, rites: 0 });
@@ -107,13 +124,18 @@ const AtlasUI = {
     .atl-n:hover { border-color:#c8a050; } .atl-n.has { border-color:#8a6a30; background:rgba(255,211,106,.07); } .atl-n.full { border-color:#ffd36a; }
     .atl-n .nm { font-size:14px; color:#f2e2b8; display:flex; justify-content:space-between; } .atl-n .pip { letter-spacing:2px; color:#ffd36a; }
     .atl-n .ds { font-size:12px; color:#b8ac98; margin-top:3px; line-height:1.45; } .atl-n .ds i { color:#9fff9f; font-style:normal; }
-    .atl-src { margin-top:10px; font-size:12px; color:#9a8f80; line-height:1.7; } .atl-src span { margin-right:12px; white-space:nowrap; } .atl-src .ok { color:#9fff9f; }`;
+    .atl-src { margin-top:10px; font-size:12px; color:#9a8f80; line-height:1.7; } .atl-src span { margin-right:12px; white-space:nowrap; } .atl-src .ok { color:#9fff9f; }
+    .atl-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; } @media (max-width:700px) { .atl-cards { grid-template-columns:1fr; } }
+    .atl-card { border:2px solid #3a3040; border-radius:8px; padding:10px 12px; cursor:pointer; background:rgba(255,255,255,.03); user-select:none; display:flex; flex-direction:column; gap:3px; }
+    .atl-card:hover { border-color:var(--c); } .atl-card.on { border-color:var(--c); background:rgba(255,255,255,.07); box-shadow:0 0 10px color-mix(in srgb, var(--c) 40%, transparent); }
+    .atl-card b { color:var(--c); font-size:20px; } .atl-card span { font-size:12px; color:#c8bca8; } .atl-card i { font-style:normal; font-size:11px; color:#8a8070; }`;
     document.head.appendChild(st);
   },
   render() {
     const P = G.P; if (!P) return; this.build();
     const A = atlasOf(P), total = atlasTotal(P), free = total - atlasUsed(P);
-    let h = `<div class="atl-top"><span>可用點數 <b>${free}</b>　／　已獲得 ${total}（上限 39）</span><button id="atlReset">全部重置</button><span class="thint">左鍵加點・右鍵退點</span></div><div class="atl-cols">`;
+    let h = `<div class="atl-top"><span>可用點數 <b>${free}</b>　／　已獲得 ${total}（最多 ${atlasMaxPts()}，全點滿要 46）</span><button id="atlReset">全部重置</button><span class="thint">左鍵加點・右鍵退點</span></div>`;
+    h += `<div class="atl-cards">${Object.entries(ATLAS_PRESETS).map(([k, p]) => `<div class="atl-card${A.preset === k ? ' on' : ''}" data-pre="${k}" style="--c:${p.color}"><b>${p.name}</b><span>${p.sub}</span><i>${A.preset === k ? '目前用這個' : '點一下自動配點'}</i></div>`).join('')}</div><div class="atl-cols">`;
     ATLAS_COLS.forEach(([name, sub, color], c) => {
       h += `<div class="atl-col"><h4 style="color:${color}">${name}<small>${sub}</small></h4>`;
       for (const n of ATLAS_NODES.filter(x => x.col === c)) {
@@ -124,14 +146,15 @@ const AtlasUI = {
     });
     const nights = Object.keys(A.got).filter(k => k[0] === 'n').length;
     const mile = (kind, label) => ATLAS_MILE[kind].map(n => `<span class="${A.got[kind + n] ? 'ok' : ''}">${A.got[kind + n] ? '✔' : '○'} ${label(n)}</span>`).join('');
-    h += `</div><div class="atl-src"><b>點數來源：</b><span class="${nights >= 30 ? 'ok' : ''}">第一次打倒第 11～40 夜的看守者（${nights} / 30）</span><br>${mile('tide', n => `夢潮裂隙單次殺 ${n} 隻`)}<br>${mile('rite', n => `獻祭圈完成 ${n} 次`)}（目前 ${A.rites || 0} 次）<br>${mile('mist', n => `迷霧第 ${n} 層`)}</div>`;
+    h += `</div><div class="atl-src"><b>點數來源：</b><span class="${nights >= 30 ? 'ok' : ''}">第一次打倒第 11～40 夜的看守者（${nights} / 30）</span><br>${mile('tide', n => `夢潮裂隙單次殺 ${n} 隻`)}<br>${mile('rite', n => `獻祭圈完成 ${n} 次`)}（目前 ${A.rites || 0} 次）<br>${mile('mist', n => `迷霧第 ${n} 層`)}${typeof UNIQ_COLS !== 'undefined' ? `<br><span class="${UNIQ_COLS.every(c => A.got['col_' + c.id]) ? 'ok' : ''}">傳奇收藏冊集滿一類（${UNIQ_COLS.filter(c => A.got['col_' + c.id]).length} / ${UNIQ_COLS.length}，在倉庫的「傳奇」頁看進度）</span>` : ''}</div>`;
     const body = document.getElementById('atlasBody'); body.innerHTML = h;
     body.querySelectorAll('.atl-n').forEach(el => {
       const n = ATLAS_NODES.find(x => x.id === el.dataset.n);
-      el.onclick = () => { const r = A.pts[n.id] || 0; if (r >= n.max) return; if (atlasTotal(P) - atlasUsed(P) <= 0) return UI.msg('沒有可用的終局盤點數', '#ff9a9a'); A.pts[n.id] = r + 1; Sfx.play('click'); saveGame(); this.render(); this.badge(); };
-      el.oncontextmenu = e => { e.preventDefault(); const r = A.pts[n.id] || 0; if (!r) return; A.pts[n.id] = r - 1; Sfx.play('click'); saveGame(); this.render(); this.badge(); };
+      el.onclick = () => { const r = A.pts[n.id] || 0; if (r >= n.max) return; if (atlasTotal(P) - atlasUsed(P) <= 0) return UI.msg('沒有可用的終局盤點數', '#ff9a9a'); A.pts[n.id] = r + 1; A.preset = null; Sfx.play('click'); saveGame(); this.render(); this.badge(); };
+      el.oncontextmenu = e => { e.preventDefault(); const r = A.pts[n.id] || 0; if (!r) return; A.pts[n.id] = r - 1; A.preset = null; Sfx.play('click'); saveGame(); this.render(); this.badge(); };
     });
-    document.getElementById('atlReset').onclick = () => { A.pts = {}; saveGame(); this.render(); this.badge(); };
+    document.getElementById('atlReset').onclick = () => { A.pts = {}; A.preset = null; saveGame(); this.render(); this.badge(); };
+    body.querySelectorAll('.atl-card').forEach(el => el.onclick = () => { atlasPreset(P, el.dataset.pre); Sfx.play('click'); saveGame(); this.render(); this.badge(); UI.msg(`終局盤照「${ATLAS_PRESETS[el.dataset.pre].name}」配好了`, '#ffe9a0'); });
   },
   badge() {   // 功能選單上的紅點：有沒用的點數
     const b = document.querySelector('.mbtn[data-m="atlas"] .mbadge'); if (!b || !G.P) return;

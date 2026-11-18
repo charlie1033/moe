@@ -48,7 +48,7 @@ const MOE_DEV = {
       const s = w.start, at = { x: (s.x + s.w / 2) * TS, y: (s.y + s.h / 2) * TS };
       for (const kind of ['shrine', 'essence', 'vision', 'chest', 'abyss']) {
         const ev = Object.assign({ kind, done: false, type: 'might', mon: w.theme.monsters[0] }, at); w.events.push(ev); G.loot = [];
-        T.ok(T.near(ev).kind === 'mapev', kind + ' 沒被選到'); UI.interact(); T.ok(ev.done, kind + ' 沒啟動'); T.run(0.3);
+        T.ok(T.near(ev).kind === 'mapev', kind + ' 沒被選到'); UI.interact(); T.ok(ev.done, kind + ' 沒啟動'); if (typeof ChoiceBox !== 'undefined' && ChoiceBox.open) ChoiceBox.pick(0); T.run(0.3);
       }
       const n = w.stage.n; for (let k = 1; k < n; k++) { G.loot = []; T.ok(T.near(G.world.gate).kind === 'gate', '出口門沒被選到'); UI.interact(); T.ok(G.world.stage.i === k + 1, '沒進下一區'); }
       T.ok(G.world.bossGate && !G.mons.some(m => m.boss), '最後一區應該是首領之門'); T.ok(T.near(G.world.bossGate).kind === 'bossgate', '首領之門沒被選到');
@@ -159,6 +159,176 @@ const MOE_DEV = {
         let miss = 0; for (let i = 0; i < g.length; i++) if (g[i] && !seen[i]) miss++;
         T.ok(!miss, `${w.theme.name || w.theme.id}有 ${miss} 格走不到`);
       }
+    },
+    '強化失敗退一級、不碎': T => {
+      const P = T.hero('warrior', 30, 13), w = Object.values(P.equip).find(it => it && enhKind(it) === 'weapon');
+      const rnd = Math.random; Math.random = () => 0.999;
+      try {
+        w.enh = 6; P.cur.whet2 = 2; P.cur.hone = 0; enhanceItem(w, (c, n) => { P.cur[c] -= n; }, c => P.cur[c] || 0, true);
+        T.ok(w.enh === 5 && Object.values(P.equip).includes(w), '+7 失敗沒有退回 +5，或裝備不見了');
+        P.cur.hone = 1; enhanceItem(w, (c, n) => { P.cur[c] -= n; }, c => P.cur[c] || 0, true);
+        T.ok(w.enh === 5 && P.cur.hone === 0, '有砥石失敗還是退級了');
+      } finally { Math.random = rnd; }
+    },
+    '懸賞：擊殺進度回城、重讀都保留': T => {
+      const P = T.hero('warrior', 30, 13), B = bountyState();
+      B.board[0] = { type: 'kills', n: 10, reward: { n: 1, q: 0, r: 0, rare: 0 } }; B.active = 0;
+      enterMap(12); T.quiet(); for (let i = 0; i < 4; i++) Hook.emit('kill', { rarity: 'normal' });
+      leaveMapToTown(); saveGame(); const id = G.charId; startGame(loadChar(id), id); T.quiet();
+      T.ok(G.P.bounty.board[0].prog && G.P.bounty.board[0].prog.kills === 4, '回城重讀後懸賞進度不見了');
+      enterMap(13); T.quiet(); for (let i = 0; i < 6; i++) Hook.emit('kill', { rarity: 'normal' });
+      T.ok(G.P.bounty.done === 1, '換一張深層夢境沒有接著算');
+    },
+    '稜鏡藥劑：舊單抗藥劑自動換掉、全抗、不中毒': T => {
+      const P = T.hero('warrior', 30, 5);
+      P.flaskSlots[2] = { uid: newUid(), flask: true, type: 'rubyf', tier: 3, rarity: 'normal', ilvl: 3, mods: [], implicit: [], sockets: [] };
+      saveGame(); const id = G.charId; startGame(loadChar(id), id); T.quiet();
+      T.ok(G.P.flaskSlots[2].type === 'prism', '舊的紅寶石藥劑沒換成稜鏡藥劑');
+      enterMap(5); T.quiet(); const c0 = G.S.res_cold, h0 = G.S.res_chaos; G.pl.fl[2].c = G.pl.fl[2].max; useFlask(2); onBuildChanged();
+      T.ok(G.S.res_cold > c0 && G.S.res_chaos > h0, '稜鏡藥劑沒有加抗性');
+      for (let i = 0; i < 30; i++) applyPlayerAilments({ fire: 0, cold: 0, light: 0, chaos: 50, phys: 0 }, false);
+      T.ok(!G.pl.ail.poison.length, '稜鏡藥劑生效時還是中毒了');
+    },
+    '小雀的寶石盒：合成、沒有 G 鍵': T => {
+      const P = T.hero('warrior', 30, 3); P.hub = 0; goTown(false); T.quiet();
+      for (const k in P.jewels) P.jewels[k] = 0; P.jewels.ruby_1 = 3;
+      const girl = G.world.npcs.find(n => n.id === 'girl'); T.ok(girl && girl.panel === 'jewelbox', '小雀沒接到寶石盒');
+      G.pl.x = girl.x; G.pl.y = girl.y + 30; UI.toggle('jewelbox', true); T.run(0.1);
+      T.ok(document.querySelectorAll('#jewelbox .jbrow').length === 1, '寶石盒沒列出珠寶');
+      document.querySelector('#jewelbox [data-jbk="ruby_1"]').click();
+      T.ok(P.jewels.ruby_2 === 1 && !P.jewels.ruby_1, '合成沒有作用'); UI.toggle('jewelbox', false);
+      T.ok(!KEY_ACTIONS.some(a => a.id === 'jewels') && !UI.MENU.some(m => m.id === 'jewels'), 'G 鍵／珠寶選單還在');
+    },
+    '通貨分段：主線只掉四種，深層全部': T => {
+      const P = T.hero('warrior', 30, 13);
+      enterMap(5); T.quiet(); const a = new Set(); for (let i = 0; i < 3000; i++) a.add(randomCurrency());
+      T.ok([...a].every(k => MAIN_CURRENCY.has(k)), '主線掉了不該掉的通貨：' + [...a].filter(k => !MAIN_CURRENCY.has(k)));
+      enterMap(12); T.quiet(); const b = new Set(); for (let i = 0; i < 6000; i++) b.add(randomCurrency());
+      T.ok(b.has('exalt') && b.has('whet'), '深層沒有掉崇高石或磨石');
+      P.maxTier = 5; T.ok(!genShop().some(e => e.price.alter || e.price.aug || e.cur === 'aug'), '主線商人還在用改造石／增幅石');
+    },
+    '說明文字：按鍵說法、拿掉的技能名稱': T => {
+      T.ok(IS_TOUCH || ctl('tree') === `按 <b>${keyLabel('tree')}</b>`, '天賦的按鍵說法不對');
+      T.ok(!QUESTS.some(q => q.steps.some(s => /\{\w+\}/.test(ctlText(s.text) + ctlText(s.hint)))), '任務文字還有沒換掉的代號');
+      T.ok(!/居合斬|閃現/.test(STAT_TEXT.iaiWave() + CLASSES.samurai.desc + SCARS.find(s => s.id === 'sc_wind').text(30)), '還有拿掉的技能名稱');
+      T.ok(!/以外……/.test(SKILLS.charge.desc), '猛衝說明還是壞句子');
+    },
+    '元素連動：碎冰、毒爆、凝血、反應圖鑑': T => {
+      T.hero('mage', 20, 6); enterMap(3); T.quiet(); const keep = G.stash.reactSeen; G.stash.reactSeen = {};
+      const mk = dx => { const m = makeMonster(G.world.theme.monsters[0], G.pl.x + dx, G.pl.y, 10, 'normal', G.world.theme); G.mons.push(m); return m; };
+      const a = mk(200), b = mk(240), c = mk(-300), d = mk(-200);
+      a.frozen = 3; c.poisons.push({ dps: 20, t: 3 }); d.bleed = { dps: 1, t: 4 }; T.run(0.05);
+      const bl = b.life; hitMonster(a, { d: { phys: [a.maxLife * 0.3, a.maxLife * 0.3] }, crit: 0, multi: 100, ail: {} }, false, G.pl, 0); c.ign = { dps: 1, t: 3 }; d.chill = 2; T.run(0.05);
+      T.ok(G.stash.reactSeen.shatter && b.life < bl, '碎冰沒有炸到旁邊');
+      T.ok(G.stash.reactSeen.toxic && !c.poisons.length, '毒爆沒有結算毒');
+      T.ok(G.stash.reactSeen.clot && d._clotT > 0, '凝血沒有定身');
+      UI.toggle('journal', true); JournalTabs.cur = 'react'; UI.refreshJournal(); T.ok(document.querySelector('#journalBody').textContent.includes('碎冰'), '反應圖鑑沒有顯示'); JournalTabs.cur = 'main'; UI.toggle('journal', false);
+      G.stash.reactSeen = keep || {};
+    },
+    '進化圖鑑、第一百三十八本、夢話三選一': T => {
+      const P = T.hero('mage', 20, 6); const keep = G.stash.uniqFound; G.stash.uniqFound = {};
+      P.skills[0] = 'fireball'; onBuildChanged(); P.inv[30] = makeUnique('u_flamecrown', 30); T.run(1.2);
+      UI.toggle('skills', true); T.ok(document.querySelector('#skillSlots .evocell.on'), '撿到炎環冠，技能旁邊的格子沒亮'); T.ok(document.querySelector('#evoCodex [data-evorow="fireball"].on'), '進化圖鑑沒亮'); UI.toggle('skills', false); G.stash.uniqFound = keep || {};
+      enterMap(1); T.quiet(); const b = makeBoss('boneking', G.pl.x + 100, G.pl.y, 5); b.awake = true; G.mons.push(b); G.bossBar = b; G.pl.life = 0; playerDie(); T.run(0.1);
+      T.ok(P.book138.deaths.length === 1 && P.book138.deaths[0].boss === 'boneking', '冊子沒記下被誰打倒'); UI.hideDeath(); T.run(0.1);
+      T.ok(Book138.record('測試紀錄', 5) && !Book138.record('測試紀錄', 3), '紀錄沒有只取最高');
+      DreamWords.pick = 'olly'; enterMap(2); T.ok(DreamWords.act && DreamWords.act.id === 'olly', '夢話沒有生效'); goTown(); T.run(0.1); T.ok(!DreamWords.act, '回營地夢話沒有失效');
+    },
+    '輔助寶石整理：舊存檔換代號、推薦、代價型只在深層': T => {
+      T.hero('warrior', 30, 5);
+      const raw = JSON.parse(JSON.stringify(G.P)); raw.links[0] = ['brutal', 'impact', 'fasta']; raw.inv[raw.inv.indexOf(null)] = { stack: 'sup', key: 'addfire', n: 2 };
+      const m = migrateSave(raw); T.ok(m.links[0].join() === 'power,,speed' && m.supRefund.power === 1, '技能上的舊輔助沒有換成新的');
+      T.ok(m.inv.some(it => it && it.stack === 'sup' && it.key === 'power' && it.n === 2), '背包的舊輔助沒有換');
+      const st = { tabs: [[]], spec: { sup: { lmp: 2, gmp: 1 } } }; gemMergeStash(st); T.ok(st.spec.sup.gmp === 3 && !st.spec.sup.lmp, '倉庫的舊輔助沒有合併');
+      T.ok(Object.keys(SUPPORTS).length <= 28 && supGoodFor('power', 'heavy') && !supGoodFor('burn', 'heavy') && !supGoodFor('streak', 'heavy'), '推薦規則不對');
+      enterMap(3); T.ok(![...Array(300)].some(() => SUPPORTS[randomSupport()].risk), '主線掉了有代價的輔助寶石');
+    },
+    '夢囈、孤注、血祭、透支': T => {
+      T.hero('warrior', 30, 5); const P = G.P, pl = G.pl; P.skills = ['heavy', 'slam', null, null, null]; P.links = [[], ['dream_kill'], [], [], []]; onBuildChanged(); enterMap(3); T.quiet();
+      spawnPack(pl.x + 50, pl.y, G.world); const m = G.mons.find(x => !x.dead && !x.boss); m.life = 1; let n = 0; const h = s => { if (s === 'slam') n++; }; Hook.on('cast', h);
+      hitMonster(m, { d: G.slotCalc[0].d, crit: 0, multi: 150, ail: {} }, false, pl, 1); Hook.m.cast.splice(Hook.m.cast.indexOf(h), 1);
+      T.ok(n === 1, '夢囈．擊殺沒有自動施放');
+      P.skills[1] = 'warcry'; P.links = [['allin'], [], [], [], []]; onBuildChanged(); const a = G.slotCalc[0].d.phys[0]; P.skills[1] = 'slam'; onBuildChanged(); T.ok(Math.abs(a / G.slotCalc[0].d.phys[0] - 1.4) < 0.01, '孤注倍率不對');
+      P.links[0] = ['bloodpay']; onBuildChanged(); pl.cd = {}; pl.act = 0; pl.life = 300; pl.mana = 100; useSkill(0); T.ok(pl.mana === 100 && pl.life < 300, '血祭沒有改扣生命');
+      P.links[0] = ['overdraw']; onBuildChanged(); pl.cd = {}; pl.act = 0; pl.life = 300; pl.mana = 0; useSkill(0); T.ok(pl.life < 300 && pl.act > 0, '透支魔力不夠時沒有用生命補');
+    },
+    '新技能：蓄力射擊、搖籃曲；寶石自動升級': T => {
+      T.hero('druid', 20, 3); const P = G.P, pl = G.pl;
+      T.ok(['druid', 'ranger', 'summoner', 'samurai'].every((c, i) => CLASS_GEMS[c].includes(['chargeshot', 'sleepwalk', 'lullaby', 'inscribe'][i])), '新技能沒有加進職業');
+      P.skills[0] = 'chargeshot'; P.links[0] = []; onBuildChanged(); enterMap(3); T.quiet(); G.projs = [];
+      input.wx = pl.x + 200; input.wy = pl.y; pl.mana = 99; pl.cd = {}; pl.act = 0; input.l = true; T.run(1.7); input.l = false; T.run(0.05);
+      const p = G.projs.find(x => x.team === 'ally'); T.ok(p && p.pierce >= 99, '蓄滿沒有全穿透');
+      P.skills[2] = 'lullaby'; P.skillGems = P.skillGems || {}; P.skillGems.lullaby = true; onBuildChanged(); spawnPack(pl.x + 150, pl.y, G.world); input.wx = pl.x + 150; input.wy = pl.y; const _su = skillUsable; skillUsable = () => null; pl.cd = {}; pl.act = 0; pl.mana = 99; try { useSkill(2); } finally { skillUsable = _su; }
+      T.ok(G.mons.some(m => m.sleep > 0), '搖籃曲沒有讓怪睡著');
+      const sid = P.skills[1], d = gemData(sid); d.xp = 0; const lv = d.lv; gemGainXp(gemXpNeed(sid, lv) + 1); T.ok(gemData(sid).lv === lv + 1 || gemReqLack(sid, lv + 1), '寶石經驗滿了沒有自動升級');
+    },
+    '帶話任務：接話、帶到、回報、禮物': T => {
+      T.hero('ranger', 20, 4); const P = G.P; P.story.seen.are1 = P.story.seen.are2 = true; P.hubs.icecamp = true;
+      for (const c of NPC_STORIES.girl.chapters) P.story.seen[c.id] = true;
+      P.hub = 'icecamp'; goTown(); T.near(G.world.npcs.find(n => n.id === 'are')); UI.interact();
+      document.querySelector('#gask .gask-yes').click(); T.ok(P.errands.er_are === 'got', '沒接到帶話');
+      P.hub = 'cell'; goTown(); T.near(G.world.npcs.find(n => n.id === 'girl')); UI.interact(); T.ok(P.errands.er_are === 'told', '小雀沒收到話');
+      UI.storyQ = []; UI.nextStory(); P.hub = 'icecamp'; goTown(); T.near(G.world.npcs.find(n => n.id === 'are')); UI.interact();
+      T.ok(P.errands.er_are === 'done' && P.story.seen.er_are, '回報沒完成'); T.ok(P.inv.some(x => x && x.name === '阿雷的舊獵手套'), '沒拿到禮物');
+      UI.storyQ = []; UI.nextStory();
+    },
+    '夢境試煉：犯規重來、完成會記住': T => {
+      T.hero('ranger', 10, 2); const P = G.P; P.quest = { ch: 0, done: { '0_0': true }, base: Quest.base(P) }; P.trials = {};
+      enterMap(1); T.quiet(); T.run(0.1); T.ok(G.trialRun && G.trialRun.id === 'onlyone', '第一章試煉沒啟動');
+      const kill = n => { for (let i = 0; i < n; i++) { const m = makeMonster(G.world.theme.monsters[0], G.pl.x + 50, G.pl.y, 1, 'normal', G.world.theme); G.mons.push(m); killMonster(m); } };
+      P.skills[1] = P.skills[1] || 'split'; Hook.emit('cast', P.skills[0]); kill(5); Hook.emit('cast', P.skills[1]); T.ok(G.trialRun.kills === 0, '換技能沒有重來');
+      kill(15); T.ok(P.trials.onlyone, '試煉完成沒記住'); Quest.tick(); T.ok(P.quest.done['0_1'], '任務步驟沒打勾');
+    },
+    '上一個我：出現、半透明、掉重骰裝備': T => {
+      T.hero('mage', 30, 6); const c0 = PAST.chance; PAST.chance = 1;
+      try { enterMap(5); const m = G.mons.find(x => x.pastSelf); T.ok(m && m.alpha < 1 && m.name.startsWith('上一個我'), '殘影沒出現');
+        const n0 = G.loot.length; hitMonster(m, { d: { phys: [1e7, 1e7] }, crit: 0, multi: 150 }, false, G.pl, 0); T.run(0.1); T.ok(m.dead && G.loot.length > n0, '打倒沒掉東西'); }
+      finally { PAST.chance = c0; }
+    },
+    '莫的釣竿：一趟夢一次、動畫跑完有東西': T => {
+      T.hero('ranger', 20, 6); const P = G.P; P.hubs.harbor = true; P.hub = 'harbor'; goTown();
+      const s = fishSpot(G.world); T.ok(s && T.near(s).kind === 'fish', '釣魚點沒被選到'); UI.interact(); T.ok(G.fishAnim, '沒有拋竿');
+      T.run(5); T.ok(!G.fishAnim && (P.fish.got.length || G.mons.length), '沒釣到東西'); UI.interact(); T.ok(!G.fishAnim, '同一趟不該再拋');
+      enterMap(5); T.ok(P.fish.ok, '進夢之後沒恢復');
+    },
+    '營地分工：卡爾陪打一區、格倫講看守者': T => {
+      T.hero('warrior', 20, 8); const P = G.P; P.karlGo = true; enterMap(3); T.ok(G.mins.some(m => m.karl), '卡爾沒跟來');
+      nextStage(); T.run(0.1); T.ok(!G.mins.some(m => m.karl), '換區後卡爾沒回營地');
+      T.ok(glenWarden(P).includes('看守者'), '格倫沒講看守者');
+    },
+    '看守者抉擇：請託、半血轉場、三選一、殘片': T => {
+      T.hero('warrior', 30, 3); enterMap(3); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); T.run(0.2);
+      const wd = G.world.wd; T.ok(wd && wd.id === 'beast', '巢穴沒有建立抉擇狀態');
+      const yes = document.querySelector('#gask.show .gask-yes'); if (yes) yes.click(); T.ok(wd.trial && wd.stage === 'fight', '請託沒有接下');
+      const b = G.mons.find(m => m.boss); b.awake = true; hitMonster(b, { d: { fire: [1e8, 1e8] }, crit: 0, multi: 100, ail: {} });
+      T.ok(!b.dead && b.life / b.maxLife >= 0.49, '首領沒有停在半血'); T.run(1.3); T.ok(wd.stage === 'choice', '沒有跳出三選一');
+      const sh0 = wShardHave('beast'); document.querySelectorAll('#wchoose .wc-opt')[1].click(); document.querySelectorAll('#wchoose .wc-opt')[0].click();
+      T.ok(b.dead && G.P.wardens.first.beast === 'kill', '了結沒有結束戰鬥或沒記下選擇'); T.ok(wShardHave('beast') > sh0, '銅檔沒有給殘片');
+      wShardAdd('beast', sh0 - wShardHave('beast'));
+      T.ok(BOSS_ABILITIES.w2_witch && UNIQUE_BY_ID.u_w_key && STORY.wreq_b_void, '第二階段招式、信物或請託故事沒登記');
+    },
+    '套裝、深層傳奇、世界規則傳奇': T => {
+      const P = T.hero('summoner', 70, 25);
+      for (const id in SET_PIECES) T.ok(makeSetItem(id, 75).set, '套件做不出來 ' + id);
+      P.equip.amulet = makeSetItem('set_dabai_collar', 75); P.equip.helmet = makeSetItem('set_dabai_crown', 75); P.equip.gloves = makeSetItem('set_dabai_paw', 75); onBuildChanged();
+      T.ok(G.S.flags.setDabaiDog && G.S.flags.setDabaiPounce, '大白 2／3 件沒生效');
+      T.ok(itemTipHTML(P.equip.amulet).includes('身上 3 / 3'), '套裝說明沒有件數');
+      enterMap(22); T.quiet(); const u = makeUnique('u_wind', 70); dropLoot(G.pl.x, G.pl.y, { item: u });
+      T.ok(u.deep && u.base === 'bow4' && u.mods.length === 5, '第 22 夜的傳奇沒有升級');
+      T.ok(WR_UNIQUES.every(x => UNIQUE_BY_ID[x.id]), '世界規則傳奇沒登記');
+    },
+    '無盡爬塔：贈禮、寶箱': T => {
+      const P = T.hero('warrior', 70, 25); P.cur.chaos = 10; enterBossRush();
+      for (let f = 1; f <= 5; f++) { const b = G.mons.find(x => x.boss && !x.dead); b.life = 0; killMonster(b); T.ok(ChoiceBox.open, '沒有跳贈禮'); ChoiceBox.pick(0); G.time += 4; T.run(0.2); }
+      const R = G.world.rush; T.ok(R.cleared === 5 && R.floor === 6 && G.mons.some(m => m.boss && !m.dead), '爬塔層數不對');
+      enterMap(12); T.run(0.1); T.ok(P.climbBest === 5 && !ChoiceBox.open, '爬塔紀錄沒存');
+    },
+    '預言三選一、終局盤大卡': T => {
+      const P = T.hero('warrior', 70, 25); enterMap(22); T.quiet();
+      const ev = { kind: 'vision', x: G.pl.x, y: G.pl.y, done: false }; activateEvent(ev); T.ok(ChoiceBox.open && UI.paused(), '預言沒跳');
+      ChoiceBox.pick(1); G.loot = []; mapLoot(G.pl.x, G.pl.y, { n: 20, rare: 2 }); T.ok(!G.loot.some(l => l.item && !isFlask(l.item)), '豐收還掉裝備');
+      const A = atlasOf(P); for (let t = 11; t <= 30; t++) A.got['n' + t] = true; atlasPreset(P, 'boss'); T.ok(atlasUsed(P) === 20 && A.pts.boss_life === 3, '打王大卡沒配點');
+      T.ok(atlasMaxPts() >= 46, '點數上限還是不夠點滿');
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');

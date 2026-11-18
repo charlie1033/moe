@@ -21,7 +21,7 @@ const CFG_DEFAULT = {
   minimap: 'normal',   // 小地圖：off／small／normal／large
   targetBar: true,     // 上方的怪物資訊列
   msgLog: true,        // 左下角的訊息
-  autoPick: true,      // 珠寶、通貨、材料走過去自動撿
+  autoPick: true,      // 珠寶、通貨走過去自動撿
   // 操作
   swapMouse: false,    // 滑鼠左右鍵互換
   keys: {},            // 重新設定過的按鍵：{ 動作: 實體按鍵 }
@@ -38,7 +38,7 @@ const KEY_ACTIONS = [
   { id: 'f1', name: '藥劑 1', def: 'Digit1', grp: '藥劑' }, { id: 'f2', name: '藥劑 2', def: 'Digit2', grp: '藥劑' }, { id: 'f3', name: '藥劑 3', def: 'Digit3', grp: '藥劑' }, { id: 'f4', name: '藥劑 4', def: 'Digit4', grp: '藥劑' },
   { id: 'interact', name: '互動（對話／撿東西／進門）', def: 'KeyF', grp: '動作' }, { id: 'dodge', name: '閃避翻滾', def: 'Space', grp: '動作' }, { id: 'portal', name: '傳送卷軸回城', def: 'KeyT', grp: '動作' },
   { id: 'inv', name: '背包', def: 'KeyI', grp: '介面' }, { id: 'char', name: '角色', def: 'KeyC', grp: '介面' }, { id: 'skills', name: '技能寶石', def: 'KeyK', grp: '介面' },
-  { id: 'tree', name: '天賦樹', def: 'KeyP', grp: '介面' }, { id: 'jewels', name: '珠寶', def: 'KeyG', grp: '介面' }, { id: 'craft', name: '強化工坊', def: 'KeyB', grp: '介面' },
+  { id: 'tree', name: '天賦樹', def: 'KeyP', grp: '介面' }, { id: 'craft', name: '強化工坊', def: 'KeyB', grp: '介面' },
   { id: 'journal', name: '日誌', def: 'KeyJ', grp: '介面' }, { id: 'help', name: '說明', def: 'KeyH', grp: '介面' },
   { id: 'labels', name: '顯示／隱藏白裝名稱', def: 'KeyZ', grp: '介面' }, { id: 'mute', name: '開關聲音', def: 'KeyM', grp: '介面' },
 ];
@@ -60,6 +60,26 @@ function keyName(code) {
   return code;
 }
 const keyLabel = id => keyName(keyOfAction(id));
+// v2.17 操作說法：電腦版「按 P」，手機（觸控）版「點右上角 ☰ → 天賦」。同一份文字：
+//   ctl('tree') 直接回傳一段說法；文字裡寫 {tree}、{lmb} 這種代號，ctlText(文字) 會換成對的說法（plain＝拿掉 <b>，給左下訊息用）
+//   沒列在表裡的代號＝「按 <b>那個鍵</b>」（照玩家改過的按鍵）
+const CTL_MENU = n => `點右上角 ☰ → <b>${n}</b>`;
+const CTL_TOUCH = {
+  tree: CTL_MENU('天賦'), inv: CTL_MENU('背包'), skills: CTL_MENU('技能'), char: CTL_MENU('角色'), craft: CTL_MENU('強化'), journal: CTL_MENU('日誌'), help: CTL_MENU('說明'), portal: CTL_MENU('回城'),
+  interact: '點右邊跳出來的<b>互動鈕</b>', dodge: '點<b>「閃」</b>鈕', f1: '點左下角<b>第 1 格藥劑</b>',
+  move: '在<b>左半邊畫面</b>按住拖曳就能', lmb: '按<b>右下的大圓鈕</b>', rmb: '<b>大圓鈕旁邊的小圓鈕</b>', aimNote: '（會自動瞄準最近的怪）',
+  pickup: '<b>點地上的名稱</b>撿起來', equip: '點一下裝備，再按<b>「裝備」</b>鈕穿上',
+};
+const CTL_PC = {
+  move: () => `用 <b>${keyLabel('up')} ${keyLabel('left')} ${keyLabel('down')} ${keyLabel('right')}</b> `, lmb: '按<b>滑鼠左鍵</b>', rmb: '<b>右鍵</b>', aimNote: '（朝滑鼠的方向）',
+  pickup: () => `按 <b>${keyLabel('interact')}</b> 撿（會撿有金色外框的那個）`, equip: '在裝備上按<b>右鍵</b>穿上（也可以拖到上面的裝備格）',
+};
+function ctl(id) {
+  const t = typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? CTL_TOUCH[id] : null; if (t) return t;
+  const p = CTL_PC[id]; if (p) return typeof p === 'function' ? p() : p;
+  return `按 <b>${keyLabel(id)}</b>`;
+}
+const ctlText = (s, plain) => { const r = String(s == null ? '' : s).replace(/\{(\w+)\}/g, (m, id) => ctl(id)); return plain ? r.replace(/<[^>]+>/g, '') : r; };
 
 // —— 套用設定 ——
 function applyCfg() {
@@ -129,13 +149,13 @@ const Pause = {
       body += row('小地圖', sel('minimap', [['normal', '一般'], ['large', '大'], ['small', '小'], ['off', '不顯示']]));
       body += row('怪物資訊列', chk('targetBar'), '畫面上方顯示正在打的怪物');
       body += row('訊息', chk('msgLog'), '左下角的撿到東西、任務等訊息');
-      body += row('自動撿取', chk('autoPick'), '珠寶、通貨、材料走過去就撿');
+      body += row('自動撿取', chk('autoPick'), '珠寶、通貨走過去就撿');
     } else if (this.tab === 'loot') {
       body += row('白裝（普通）', chk('showNormal'), '也可以按 ' + keyLabel('labels') + ' 切換');
       body += row('藍裝（魔法）', chk('lootMagic'));
       body += row('藥劑', chk('lootFlask'));
       body += row('白裝、藍裝的最低基底', sel('lootMinTier', BASE_TIER_NAME.map((n, i) => [i, i ? n + '以上才顯示' : '全部顯示'])), '只影響武器、副手、防具');
-      body += row('黃裝只顯示有夢痕的', chk('lootScarOnly'), '傳奇、通貨、材料、寶石、珠寶永遠會顯示');
+      body += row('黃裝只顯示有夢痕的', chk('lootScarOnly'), '傳奇、通貨、寶石、珠寶永遠會顯示');
       body += `<div class="phint">藏起來的東西還在地上，只是不顯示名稱和圖示；改回來就看得到。</div>`;
     } else {
       body += row('滑鼠左右鍵互換', chk('swapMouse'), '左鍵放「右鍵技能」、右鍵放「左鍵技能」');

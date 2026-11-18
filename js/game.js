@@ -508,9 +508,10 @@ function migrateSave(P) {
   if (!P.jewels) P.jewels = {};
   if (P.questVer !== QUEST_VERSION) { P.quest = null; P.questVer = QUEST_VERSION; } // 任務改版：重新從進度判斷
   // 藥劑：v0.9 用字串記（'life_1'），v1.0 起是背包裡的物品（有詞綴）
-  const toFlask = k => typeof k === 'string' ? (() => { const f = parseFlask(k); return FLASKS[f.type] ? makeFlask(f.type, f.tier) : null; })() : k;
+  const toFlask = k => typeof k === 'string' ? (() => { const f = parseFlask(k); f.type = FLASK_RENAMED[f.type] || f.type; return FLASKS[f.type] ? makeFlask(f.type, f.tier) : null; })() : fixOldFlask(k);
   if (!P.flaskSlots) P.flaskSlots = ['life_1', 'mana_1', null, null];
   P.flaskSlots = P.flaskSlots.map(k => k ? toFlask(k) : null);
+  P.inv.forEach(fixOldFlask);   // v2.17 背包裡的舊單抗藥劑 → 稜鏡藥劑
   if (P.flaskBag) { // 舊的藥劑袋：搬進背包空格
     for (const k in P.flaskBag) for (let n = 0; n < P.flaskBag[k]; n++) { const j = P.inv.indexOf(null); const f = toFlask(k); if (j >= 0 && f) P.inv[j] = f; }
     delete P.flaskBag;
@@ -531,6 +532,7 @@ function migrateSave(P) {
   }
   // v2.7 互斥的基石兩個都點了：整棵樹免費退還重點（只影響這種角色）
   if (P.tree && P.tree.some(id => TREE.nodes[id] && TREE.nodes[id].excl && TREE.nodes[id].excl.some(x => P.tree.includes(x)))) { P.tree = [CLASSES[P.cls].start]; P.treeRefunded = true; }
+  if (typeof gemMergeSave === 'function') gemMergeSave(P);   // v2.17 身上、技能欄上被併掉的輔助寶石 → 新的那顆（gems4.js）
   return P;
 }
 // 倉庫是獨立存檔，之後做多角色時可以共用
@@ -591,6 +593,8 @@ function loadStash() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(STASH_KEY)); } catch (e) { }
   if (!s || !s.tabs) s = { tabs: [0, 1, 2, 3].map(() => Array(60).fill(null)) };
+  for (const t of s.tabs) t.forEach(fixOldFlask);   // v2.17 倉庫裡的舊單抗藥劑 → 稜鏡藥劑
+  if (typeof gemMergeStash === 'function') gemMergeStash(s);   // v2.17 倉庫裡被併掉的輔助寶石 → 新的那顆（gems4.js）
   return s;
 }
 // ---------- 備份：把所有角色＋倉庫存成一個檔案（存在你的電腦，不會上傳） ----------
@@ -739,9 +743,14 @@ function useSkill(i) {
   const err = skillUsable(S, sid);
   if (err) return msgOnce('use' + sid, `${sk.name}：${err}`);
   const c = G.slotCalc[i];
-  if (S.flags.bloodMagic) {
-    if (pl.life <= c.cost + 1) return msgOnce('cost', '生命不足以施放');
-    pl.life -= c.cost;
+  if (S.flags.bloodMagic || c.lifeCost) {   // v2.17 輔助寶石「血祭」：耗魔改成耗生命（c.lifeCost）
+    const lc = c.lifeCost || c.cost;
+    if (pl.life <= lc + 1) return msgOnce('cost', '生命不足以施放');
+    pl.life -= lc;
+  } else if (pl.mana < c.cost && c.overdraw) {   // v2.17 輔助寶石「透支」：魔力不夠，差的用生命補
+    const lack = c.cost - pl.mana;
+    if (pl.life <= lack + 1) return msgOnce('cost', '魔力不夠，生命也不夠補');
+    pl.mana = 0; pl.life -= lack;
   } else {
     if (pl.mana < c.cost) return msgOnce('cost', '魔力不足', '#8fb8ff');
     pl.mana -= c.cost;
@@ -1139,7 +1148,8 @@ function killMonster(m) {
       : r < 0.34 ? { item: randomFlask(G.world.grade || 1) } : r < 0.37 ? { skill: randomSkillGem(m.mlvl) } : { item: randomItem(ilvl, bonus) });
   }
 }
-function randomSupport() { return pick(Object.keys(SUPPORTS)); }
+// v2.17 有代價的輔助寶石（SUPPORTS[k].risk）只在深層夢境（第 DEEP_TIER 夜起）掉
+function randomSupport() { const deep = ((G.world && G.world.tier) || 0) >= DEEP_TIER; return pick(Object.keys(SUPPORTS).filter(k => deep || !SUPPORTS[k].risk)); }
 function bossDefeated(b) {
   const P = G.P, w = G.world;
   UI.banner('擊敗首領', b.name, '#ffcf70');
@@ -1184,12 +1194,15 @@ function bossDefeated(b) {
   saveGame();
 }
 function dropLoot(x, y, o) {
+  if (G.world && G.world.lootRule && !G.world.lootRule(o, x, y)) return;   // v2.17 這一區的掉落規則（預言：只掉通貨）
   const p = randomFloorNear(x, y, 46);
   const l = Object.assign({ x: p.x, y: p.y, t: 0 }, o);
   if (l.item) {
-    l.label = l.item.name; l.color = RARITY_COLOR[l.item.rarity];
-    if (l.item.rarity === 'unique') { Sfx.play('unique'); UI.banner('傳奇物品掉落', l.item.name, RARITY_COLOR.unique); } else if (l.item.rarity === 'rare') Sfx.play('rare');
-    if (l.item.rarity === 'unique') UI.msg(`傳奇物品掉落：${l.item.name}`, RARITY_COLOR.unique);
+    Hook.emit('dropItem', l.item, l);   // v2.17 深層傳奇在這裡升級
+    const rk = l.item.set ? 'set' : l.item.rarity, rn = l.item.set ? '套裝物品掉落' : '傳奇物品掉落';   // v2.17 套裝用綠色
+    l.label = l.item.name; l.color = RARITY_COLOR[rk] || RARITY_COLOR[l.item.rarity];
+    if (l.item.rarity === 'unique') { Sfx.play('unique'); UI.banner(rn, l.item.name, l.color); } else if (l.item.rarity === 'rare') Sfx.play('rare');
+    if (l.item.rarity === 'unique') UI.msg(`${rn}：${l.item.name}`, l.color);
   } else if (l.gem) { l.label = `輔助寶石：${SUPPORTS[l.gem].name}`; l.color = '#3fd8b8'; }
   else if (l.skill) { l.label = `技能寶石：${SKILLS[l.skill].name}`; l.color = '#ffd27a'; }
   else if (l.frag) { l.label = NIGHTMARES[l.frag].frag; l.color = NIGHTMARES[l.frag].color; }
@@ -1287,13 +1300,15 @@ function applyPlayerAilments(d, crit) {
     if (d.cold > S.maxLife * 0.15 && !(a.frozen > 0) && !(a.frzImm > 0)) { a.frozen = 0.4; a.frzImm = 2.5; say('冰凍', '#bfefff'); }
   }
   if (d.light > S.maxLife * 0.02 && Math.random() < 0.25) { if (!(a.shock > 0)) say('感電', '#ffe95a'); a.shock = 3; } // 感電：受到傷害 +15%
-  if (d.chaos > 0.5 && Math.random() < 0.35 && a.poison.length < 10) { if (!a.poison.length) say('中毒', '#7ae060'); a.poison.push({ dps: d.chaos * 0.15, t: 3 }); }
+  if (d.chaos > 0.5 && !flaskNoPoison() && Math.random() < 0.35 && a.poison.length < 10) { if (!a.poison.length) say('中毒', '#7ae060'); a.poison.push({ dps: d.chaos * 0.15, t: 3 }); }
   if (d.phys > 0.5 && crit && Math.random() < 0.4) {                    // 流血：被暴擊時
     const dps = d.phys * 0.2; if (!a.bleed || a.bleed.dps < dps) { if (!a.bleed) say('流血', '#e83a3a'); a.bleed = { dps, t: 3 }; }
   }
 }
+const flaskNoPoison = () => { for (const k in (G.flaskBuffs || {})) if (FLASKS[k] && FLASKS[k].noPoison) return true; return false; };   // 稜鏡藥劑生效中：不會中毒
 function tickPlayerAilments(dt) {
   const pl = G.pl, a = pl.ail; if (!a) return;
+  if (a.poison.length && flaskNoPoison()) a.poison = [];
   let dmg = 0;
   if (a.ign) { dmg += a.ign.dps * dt; if ((a.ign.t -= dt) <= 0) a.ign = null; }
   if (a.bleed) { dmg += a.bleed.dps * dt; if ((a.bleed.t -= dt) <= 0) a.bleed = null; }
@@ -1580,7 +1595,7 @@ function pickupLoot(l) {
     else { P.skillGems[l.skill] = true; if (typeof shareSkillGem === 'function') shareSkillGem(l.skill); UI.msg(`學會新技能：${SKILLS[l.skill].name}（按 K 裝上）`, '#ffd27a'); UI.refreshSkills(); }
   }
   else if (l.mat) { P.mats = P.mats || {}; P.mats[l.mat] = (P.mats[l.mat] || 0) + 1; UI.msg(`撿到材料：${matName(l.mat)}（按 B 到工坊使用）`, l.color); if (UI.refreshCraft) UI.refreshCraft(); }
-  else if (l.jewel) { P.jewels[l.jewel] = (P.jewels[l.jewel] || 0) + 1; UI.msg(`撿到珠寶：${jewelName(l.jewel)}（按 G 鑲嵌）`, l.color); UI.refreshJewels(); }
+  else if (l.jewel) { P.jewels[l.jewel] = (P.jewels[l.jewel] || 0) + 1; UI.msg(`撿到珠寶：${jewelName(l.jewel)}（在背包點它，再點有空孔的裝備就能鑲上）`, l.color); UI.refreshJewels(); }
   else if (l.frag) { P.frags[l.frag]++; UI.msg(`撿到 ${NIGHTMARES[l.frag].frag}（${P.frags[l.frag]}/${FRAG_NEED}）`, NIGHTMARES[l.frag].color); }
   else if (l.key) { P.keys[l.key]++; UI.msg(`撿到 ${NIGHTMARES[l.key].key}`, NIGHTMARES[l.key].color); }
   else if (!autoEquipPickup(l.item)) {

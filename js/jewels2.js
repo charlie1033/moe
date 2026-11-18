@@ -3,7 +3,7 @@
 //  ・在背包對珠寶按右鍵（或左鍵）＝選起來 → 再點有空插槽的裝備（身上的或背包裡的）就鑲上去
 //    按住 Shift 點：鑲完還保持選取，可以連續鑲；右鍵或 Esc 取消
 //  ・Shift＋右鍵點珠寶：3 顆同階合成高一階（最高第 8 階）
-//  ・鑲上去就拿不下來；裝備分解、賣掉、強化碎掉時，珠寶「退一階」還給你（完美以上一律退成無瑕；碎裂的就沒了）
+//  ・鑲上去就拿不下來；裝備分解、賣掉時，珠寶「退一階」還給你（完美以上一律退成無瑕；碎裂的就沒了）
 //  ・藍玉：法術傷害 → 最大魔力（對物理職業比較公平）
 // =============================================================
 Object.assign(JEWELS.sapphire, { stat: 'mana', vals: [8, 12, 18, 26, 35, 46, 60, 76], hint: '最大魔力' });
@@ -15,13 +15,7 @@ returnJewels = function (item) {
   if (got.length) UI.msg(`裝備上的珠寶退一階還給你：${got.join('、')}`, '#e8c890');
   else if ((item.sockets || []).some(x => x)) UI.msg('裝備上的碎裂珠寶跟著消失了', '#a89878');
 };
-// 珠寶工坊拿掉：功能選單不顯示；按 G 或跟小雀說話時，告訴玩家新的做法
-UI.MENU = UI.MENU.filter(m => m.id !== 'jewels');
-const _toggleJw = UI.toggle.bind(UI);
-UI.toggle = function (name, force) {
-  if (name === 'jewels') { if (force !== false) UI.msg('珠寶：在背包對珠寶按右鍵選起來，再點要鑲嵌的裝備就好（Shift＋右鍵：3 顆合成高一階）', '#e8c890'); return; }
-  return _toggleJw(name, force);
-};
+// 珠寶工坊和 G 鍵都拿掉了（v2.17）；跟營地的小雀說話會打開「小雀的寶石盒」（jewelgirl.js）合成珠寶
 UI.jewelPick = null;
 function socketJewel(it, k) {
   if (!it || isStack(it) || isFlask(it)) return UI.msg('珠寶只能鑲在裝備上', '#ff9a9a');

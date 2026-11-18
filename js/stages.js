@@ -247,7 +247,7 @@ function nextStage() {
   const old = G.world, st = old.stage; if (!st || st.i >= st.n) return;
   G._stagePlan = { i: st.i + 1, n: st.n };
   let w; try { w = genMap(old.tier); } finally { G._stagePlan = null; }
-  w.mm = old.mm; if (old.bt) { w.bt = old.bt; if (st.i + 1 === st.n) w.bt.t0 = G.time; }   // 懸賞跟著走（速攻從最後一區開始算）
+  w.mm = old.mm; if (old.bt) { w.bt = old.bt; if (st.i + 1 === st.n) w.bt.el = 0; }   // 懸賞跟著走（速攻從最後一區開始算，只算人在地圖裡的時間）
   const mins = G.mins; resetEntities(); G.mins = mins;
   G.world = w; buildWorldCanvas(w);
   const s = w.start; G.pl.x = (s.x + s.w / 2) * TS; G.pl.y = (s.y + s.h / 2) * TS;
