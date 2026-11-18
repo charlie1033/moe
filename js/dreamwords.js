@@ -103,16 +103,12 @@ Hook.on('update', dt => {
   if (a.id === 'sparrow') for (let i = 0, n = G.loot.length; i < n; i++) { const l = G.loot[i];
     if (!l.jewel || l._dw || l.gone) continue; l._dw = true; dropLoot(l.x, l.y, { jewel: l.jewel }); const nl = G.loot[G.loot.length - 1]; if (nl) nl._dw = true; }
 });
-// 畫面上方：這一夜借的是哪句（神殿提示在 72px，這裡排在它上面）
-setInterval(() => {
-  let el = document.getElementById('dreamHud');
+// 小地圖下方的狀態列：這一夜借的是哪句（core.js 的 StatusLines 統一排版）
+StatusLines.add(() => {
   const a = DreamWords.act, D = a && DREAMS[a.id];
-  const t = D && G.P ? `夢話．${DreamWords.label(a.id)}：${D.hud ? D.hud(a) : D.eff}` : '';
-  if (!el) { if (!t) return; el = document.createElement('div'); el.id = 'dreamHud'; document.body.appendChild(el); }
-  el.textContent = t; el.style.display = t ? '' : 'none'; if (t) el.style.color = D.color;
-}, 250);
+  return D && G.P ? { t: `夢話．${DreamWords.label(a.id)}：${D.hud ? D.hud(a) : D.eff}`, c: D.color } : null;
+});
 (() => { const st = document.createElement('style'); st.textContent = `
-  #dreamHud { position:fixed; left:50%; top:54px; transform:translateX(-50%); font-size:12px; text-shadow:0 0 3px #000,0 0 2px #000; pointer-events:none; z-index:5; max-width:92vw; text-align:center; }
   .dwrow { display:flex; flex-wrap:wrap; gap:6px; padding:4px 10px 8px; }
   .dwcard { flex:1 1 150px; min-height:64px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; padding:6px 8px; border:1px solid #4a3a24; border-radius:6px; background:rgba(0,0,0,.25); cursor:pointer; }
   .dwcard b { color:var(--c, #e8dcc0); font-size:13px; } .dwcard i { font-size:11px; color:#a89878; font-style:normal; } .dwcard span { font-size:12px; color:#e8dcc0; }

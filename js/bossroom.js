@@ -1,7 +1,7 @@
 // =============================================================
 //  v2.15 首領房
 //  ・每一夜的最後一區不再直接放看守者，改成首領房裡一扇「首領之門」（封印中）
-//  ・同一區裡散布幾隻「精英守護者」（黃色精英，生命 ×1.8、等級 +2）：全部打倒，門才會打開
+//  ・同一區裡散布幾隻「精英守護者」（黃色精英，生命 ×1.8（第 1～2 夜 ×1.2）、等級 +2）：全部打倒，門才會打開
 //    主線（第 1～10 夜）2 隻；深層夢境 3 隻，每深 10 夜再 +1（最多 5 隻）
 //  ・按 F 進門：進到這個看守者自己的巢穴（一張新的圓形競技場），地形和機關跟著場景變：
 //    熔岩洞窟＝岩漿池＋地底噴火；冰封峽谷＝冰晶柱＋落冰錐；骸骨墓穴＝骨堆石柱＋骷髏爬起來；
@@ -37,7 +37,7 @@ Hook.on('stage', w => {
   for (let i = 0; i < w.bossGate.need; i++) {
     const o = rooms.length ? rooms[i % rooms.length].o : r, p = randomFloorNear((o.x + o.w / 2) * TS, (o.y + o.h / 2) * TS, 40);
     const m = makeMonster(pick(w.theme.monsters), p.x, p.y, w.mlvl + 2, 'rare', w.theme);
-    m.guardian = true; m.maxLife = Math.round(m.maxLife * 1.8); m.life = m.maxLife; m.name = '守護者・' + m.name; G.mons.push(m);
+    m.guardian = true; m.maxLife = Math.round(m.maxLife * ((w.tier || 9) <= 2 ? 1.2 : 1.8));   /* v2.18.2 第 1～2 夜 ×1.2 */ m.life = m.maxLife; m.name = '守護者・' + m.name; G.mons.push(m);
   }
   setTimeout(() => UI.msg(`這一區有 ${w.bossGate.need} 隻精英守護者：全部打倒，首領之門才會打開`, '#ffb070'), 900);
 });
@@ -69,6 +69,7 @@ function genLair(w0) {
 function enterLair() {
   const w0 = G.world, gate = w0.bossGate; if (!gate || !gate.open) return;
   const L = BOSS_LAIR[w0.theme.id] || BOSS_LAIR.void;
+  G.gateBack = { world: w0, mons: G.mons.filter(m => !m.dead), loot: G.loot, bossBar: null };   // v2.18.2 門口回來點：在巢穴裡倒下，可以回到這裡（game.js playerDie、deathhelp.js）
   resetEntities();
   const w = genLair(w0); G.world = w; buildWorldCanvas(w);
   const s = w.start; G.pl.x = (s.x + s.w / 2) * TS; G.pl.y = (s.y + 1) * TS;
@@ -77,18 +78,18 @@ function enterLair() {
   const ref = makeMonster(w.theme.monsters[0], 0, 0, w.mlvl, 'normal', w.theme);
   w.haz = Object.assign({ t: 3, pend: [], ref: (ref.dmg[0] + ref.dmg[1]) / 2 }, L.haz);
   w.flowT = 0; Hook.emit('stage', w);   // 終局盤（看守者強化、雙看守者）、世界規則（巨像、護衛）在這裡套用
-  Sfx.play('portal'); UI.banner(w.name, L.text + '・看預警圈躲開', '#ffb070'); saveGame();
+  Sfx.play('portal'); UI.banner(w.name, L.text + '・看預警圈躲開', '#ffb070'); UI.msg('已經在首領之門前記下回來點：在巢穴裡倒下，可以直接回到門口再打一次', '#9fd0ff'); saveGame();
 }
 Interact.add('bossgate', (pl, w) => w.bossGate ? [{ ref: w.bossGate, label: w.bossGate.open ? '進入首領之門' : `首領之門（封印中：還有 ${guardLeft(w)} 隻守護者）`, r: 70 }] : null, ref => {
   if (!ref.open) return UI.msg(`首領之門被封印了：先打倒這一區的 ${guardLeft(G.world)} 隻精英守護者`, '#ffb070');
-  const left = G.loot.filter(l => !l.gone && Math.hypot(l.x - G.pl.x, l.y - G.pl.y) < 900).length;
-  if (left) gameAsk(`附近地上還有 ${left} 樣東西沒撿。\n進了首領之門就回不來這一區，要進去嗎？`, enterLair); else enterLair();
+  const left = valuableLeft();   // v2.18.2 跟區域門口一樣：只算黃裝、傳奇、套裝（stages.js）
+  if (left) gameAsk(`這一區地上還有 ${left} 件黃裝／傳奇／套裝沒撿。\n進了首領之門，除非在巢穴裡倒下，不然就回不來這一區，要進去嗎？`, enterLair); else enterLair();
 });
 // —— ③ 每格：門的封印、巢穴機關 ——
 Hook.on('update', dt => {
   const w = G.world, pl = G.pl; if (!w || !pl) return;
   const gate = w.bossGate;
-  if (gate && !gate.open && guardLeft(w) === 0 && G.time > 1) { gate.open = true; UI.banner('首領之門開啟了', '守護者都倒下了・走到門前按 F', '#ffd36a'); Sfx.play('unique'); burst(gate.x, gate.y, '#ffd36a', 40, 220); }
+  if (gate && !gate.open && guardLeft(w) === 0 && G.time > 1) { gate.open = true; UI.banner('首領之門開啟了', ctlText('守護者都倒下了・走到門前{interact}', true), '#ffd36a'); Sfx.play('unique'); burst(gate.x, gate.y, '#ffd36a', 40, 220); }
   if (gate && !gate.open) mechHud('guardHud', 168, '#ffb070', `精英守護者　還剩 ${guardLeft(w)} / ${gate.need}`); else mechHud('guardHud', 168, '#ffb070', '');
   const H = w.haz; if (!w.bossRoom || !H) return;
   const boss = G.mons.find(m => m.boss && !m.dead && !m.twin); if (!boss || !boss.awake) return;
@@ -123,6 +124,24 @@ Hook.on('drawWorld', g => {
     for (const s of [-1, 1]) { g.beginPath(); g.moveTo(gate.x - 26, gate.y - 34 * s * 0.6 - 8); g.lineTo(gate.x + 26, gate.y + 34 * s * 0.6 - 8); g.stroke(); }
     g.restore();
   }
+});
+// v2.18.2 守護者在哪：門還封著時，最近一隻守護者在畫面外，就在畫面邊緣畫一個橘色箭頭指過去（旁邊寫距離）
+Hook.on('drawHUD', g => {
+  const w = G.world, gate = w && w.bossGate, pl = G.pl; if (!gate || gate.open || !pl || G.dead) return;
+  let m = null, d = 1e9; for (const x of G.mons) if (x.guardian && !x.dead) { const dd = Math.hypot(x.x - pl.x, x.y - pl.y); if (dd < d) { d = dd; m = x; } }
+  if (!m) return;
+  const cx = G.cam.x, cy = G.cam.y, sx = m.x - cx, sy = m.y - cy;
+  if (sx > 20 && sx < VW - 20 && sy > 20 && sy < VH - 70) return;   // 已經在畫面裡
+  const px = pl.x - cx, py = pl.y - cy, a = Math.atan2(sy - py, sx - px);
+  const L = 46, R = VW - 46, T = 70, B = VH - 96, ca = Math.cos(a), sa = Math.sin(a);
+  const k = Math.min(ca > 0 ? (R - px) / ca : ca < 0 ? (L - px) / ca : 1e9, sa > 0 ? (B - py) / sa : sa < 0 ? (T - py) / sa : 1e9);
+  const ax = px + ca * k, ay = py + sa * k, p = 0.7 + 0.3 * Math.sin(G.time * 6);
+  const sz = IS_TOUCH ? 1.6 : 1.2;   // 手機畫面縮得比較小，箭頭畫大一點
+  g.save(); g.translate(ax, ay); g.rotate(a); g.scale(sz, sz); g.globalAlpha = p;
+  g.fillStyle = '#ff8a30'; g.strokeStyle = '#1a0a00'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(16, 0); g.lineTo(-10, -12); g.lineTo(-4, 0); g.lineTo(-10, 12); g.closePath(); g.fill(); g.stroke();
+  g.restore();
+  txt(g, `守護者 ${Math.round(d / TS)} 格`, clamp(ax - ca * 36 * sz, 50, VW - 50), ay - sa * 30 * sz, IS_TOUCH ? 15 : 12, '#ffb070', 'center');
 });
 Hook.on('light', (cut, cx, cy) => { const w = G.world, gate = w && w.bossGate; if (gate) cut(gate.x - cx, gate.y - cy, gate.open ? 150 : 90, gate.open ? 0.8 : 0.45); });
 // 測試用：直接把守護者清掉、打開門並進去

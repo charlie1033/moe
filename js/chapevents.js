@@ -5,6 +5,7 @@
 //   ・collect 收集：同一夜散在 1～3 區的 2～4 片；每撿一片播那一片，全部撿齊再播完整的故事
 //   ・ambush 伏擊：按 F 播劇情 → 周圍湧出 2～3 波怪（第一波 1 群、最後一波 2 群，比地圖高 1 級）→ 全清才完成，再播一頁「之後」
 //   ・完成：給獎勵（掉在事件旁邊，只有第一次）、記進日誌「夢裡的故事」、可能打開這張圖的封住通道（D）、營地某人多一句平常台詞
+//   ・區域首領綁的劇情點（首領的 story）：首領活著時鎖住（互動鈕「先打倒『名字』」、按了不會觸發、地上不發光），打倒後才亮起來可以撿
 //   ・完成過的：第二次進圖顯示成已查看（變暗、沒有光暈），按 F 可以重看劇情，不再給獎勵；收集的碎片撿過就不再出現
 //   ・任務面板：「✦ 第 3 夜的夢：2 / 3」；日誌多一個分頁「夢裡的故事」
 //  資料：角色 P.chapEv（chapmaps.js 的 'start' 補）；事件狀態在 w.chap.evs（ev.done、伏擊中 ev.amb／wave）；伏擊的怪 m.chapAmb＝事件格子編號
@@ -12,6 +13,13 @@
 // =============================================================
 const ChapEv = {
   keyOf: e => e.kind === 'collect' ? e.id + '#' + (e.part || 1) : e.id,
+  // 被區域首領鎖住的劇情點：這張圖的首領 story 指向它、首領還活著、這個角色還沒打倒過牠 → 回傳首領名字（沒鎖回傳 null）
+  locked(w, ev) {
+    const c = w && w.chap; if (!c || !c.boss || c.boss.dead || !ev || ev.done) return null;
+    const d = ChapterMaps.def(w), bd = d && d.bosses && d.bosses.B;
+    if (!bd || bd.story !== ev.id || (G.P && G.P.chapBoss && G.P.chapBoss[bd.id])) return null;
+    return bd.name || '區域首領';
+  },
   reward(r, x, y) {
     if (!r) return;
     const w = G.world || {}, L = w.mlvl || 1;
@@ -57,6 +65,7 @@ const ChapEv = {
   },
   use(ev) {
     const w = G.world, d = ChapterMaps.evDef(w, ev), P = G.P; if (!d || !P) return;
+    const lk = this.locked(w, ev); if (lk) { UI.msg(`先打倒『${lk}』才拿得到`, '#ffb070'); return; }
     if (ev.done) { if (d.kind !== 'collect' && STORY['chev_' + d.id]) UI.queueStory('chev_' + d.id); return; }
     Sfx.play('click'); burst(ev.x, ev.y - 10, '#ffd36a', 16, 120);
     if (d.kind === 'collect') {
@@ -81,7 +90,9 @@ Interact.add('chapev', (pl, w) => {
   const c = w && w.chap; if (!c) return null; const out = [];
   for (const ev of c.evs) {
     const d = ChapterMaps.evDef(w, ev); if (!d || ev.amb) continue;
-    if (!ev.done) out.push({ ref: ev, label: d.label || (d.kind === 'npc' ? `和${d.who || '他'}說話` : '查看'), r: 64 });
+    const lk = !ev.done && ChapEv.locked(w, ev);
+    if (lk) out.push({ ref: ev, label: `先打倒『${lk}』`, r: 64 });
+    else if (!ev.done) out.push({ ref: ev, label: d.label || (d.kind === 'npc' ? `和${d.who || '他'}說話` : '查看'), r: 64 });
     else if (d.kind !== 'collect') out.push({ ref: ev, label: `重看：${d.title || '夢裡的故事'}`, r: 46 });
   }
   return out;
@@ -136,9 +147,15 @@ JournalTabs.add('chapstory', '夢裡的故事', () => {
     for (const u of us) {
       if (P.chapEv[u.id]) { h += `<div class="jent"><b>${u.title}</b><div>${UI.storyText(u.journal || '')}</div>${STORY['chev_' + u.id] ? `<button class="replay" data-k="chev_${u.id}">重看</button>` : ''}</div>`; continue; }
       const part = u.kind === 'collect' ? u.parts.filter(x => P.chapEv[u.id + '#' + x]).length : 0;
-      h += `<div class="lrow dim">？？？　<span class="thint">在第 ${t} 夜的夢裡${part ? `（已找到 ${part} / ${u.of} 片）` : ''}</span></div>`;
+      // 在哪幾區：一般事件＝它那一區；收集＝每一片所在的區（還沒撿的另外列）；只綁在首領身上的＝首領那一區
+      const at = [], left = [];
+      for (let s = 1; s <= 3; s++) { const d = CHAPTER_MAPS[t + '-' + s]; if (!d) continue;
+        for (const n in d.events || {}) { const e = d.events[n]; if (!e || e.id !== u.id) continue; at.push(s); if (u.kind === 'collect' && !P.chapEv[u.id + '#' + (e.part || 1)]) left.push(s); }
+        for (const b in d.bosses || {}) if (d.bosses[b] && d.bosses[b].story === u.id && !at.length) at.push(s); }
+      const zs = a => [...new Set(a)].sort().join('、');
+      h += `<div class="lrow dim">？？？　<span class="thint">在第 ${t} 夜${at.length ? `第 ${zs(at)} 區` : ''}的夢裡${u.kind === 'collect' ? `（${part ? `已找到 ${part} / ${u.of} 片` : `共 ${u.of} 片`}${part && left.length ? `・還差第 ${zs(left)} 區` : ''}）` : ''}</span></div>`;
     }
-    for (const b of bs) h += P.chapBoss[b.id] ? `<div class="lrow"><b class="c-unique">☠ ${b.name}</b>　<span class="thint">區域首領・已打倒</span></div>` : `<div class="lrow dim">☠ ？？？　<span class="thint">第 ${t} 夜的區域首領</span></div>`;
+    for (const b of bs) h += P.chapBoss[b.id] ? `<div class="lrow"><b class="c-unique">☠ ${b.name}</b>　<span class="thint">區域首領・已打倒</span></div>` : `<div class="lrow dim">☠ ？？？　<span class="thint">第 ${t} 夜${(s => s ? `第 ${s} 區` : '')([1, 2, 3].find(s => { const d = CHAPTER_MAPS[t + '-' + s]; return d && d.bosses && Object.values(d.bosses).includes(b); }))}的區域首領</span></div>`;
   }
-  return `<div class="csec">夢裡的故事　<span class="thint">主線每一夜的夢裡藏著的事（${got} / ${all}）：地上有金色光暈的東西靠近按 F</span></div>` + (h || '<div class="skd">還沒有找到。</div>');
+  return `<div class="csec">夢裡的故事　<span class="thint">主線每一夜的夢裡藏著的事（${got} / ${all}）：地上有金色光暈的東西${ctlText('靠近後{interact}', true)}</span></div>` + (h || '<div class="skd">還沒有找到。</div>');
 });

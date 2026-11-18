@@ -457,7 +457,7 @@ const STAT_TEXT = {
   chillMore: () => '冰緩效果增強為 50% 減速',
   // v2.5.5 新質變基石
   projReturn: () => '所有投射物飛到盡頭後會飛回你身上，回程可以再打一次',
-  riposte: () => '受到傷害時有 30% 機率反擊：用左鍵技能的傷害打你周圍所有敵人',
+  riposte: () => `受到傷害時有 30% 機率反擊：用${ctl('lmbSkill')}的傷害打你周圍所有敵人`,
   berserk: () => '生命越低傷害越高：每少 1% 生命，傷害 +1%',
   soulReap: () => '擊殺得到 1 層「魂」（最多 10 層），每層傷害 +4%；5 秒沒擊殺掉 1 層',
   shatter: () => '被冰凍或冰緩的敵人死掉時，爆出 6 道冰晶（牠最大生命 12% 的冰冷傷害）',
@@ -883,7 +883,9 @@ const BASE_LIFE_REGEN = 0.6;      // v1.2：每秒基礎回復 0.6% 最大生命
 // v2.5.4 地圖等級＝這張地圖怪物的基準等級。主線第 1–10 夜從 2 級到 60 級；深層夢境（EndGame）每夜 +2，最高 80 級
 //   一般怪：地圖等級 −2 ～ 地圖等級；藍色精英 +1；黃色精英 +2；首領（傳奇怪物）+3
 const MAP_LEVEL_MAIN = 60, MAP_LEVEL_END = 80;
-function mapLevel(tier) { return tier <= 10 ? Math.round(2 + (tier - 1) * (MAP_LEVEL_MAIN - 2) / 9) : Math.min(MAP_LEVEL_END, MAP_LEVEL_MAIN + (tier - 10) * 2); }
+// v2.18.2 前幾夜的坡度放緩：第 1～10 夜＝2、5、10、17、25、32、39、46、53、60（以前每夜 +6～7，第 1 夜 2 → 第 2 夜 8 太陡）
+const MAP_LEVEL_MAINLINE = [2, 5, 10, 17, 25, 32, 39, 46, 53, MAP_LEVEL_MAIN];
+function mapLevel(tier) { return tier <= 10 ? MAP_LEVEL_MAINLINE[Math.max(1, tier | 0) - 1] : Math.min(MAP_LEVEL_END, MAP_LEVEL_MAIN + (tier - 10) * 2); }
 const MON_LVL_BONUS = { normal: 0, magic: 1, rare: 2, boss: 3 };
 const PROJ_SHOTGUN = 0.35;      // v2.5.5 同一次施放的第 2 發起打同一隻怪：35% 傷害
 // 怪物強度曲線（等級越高成長越平緩，才能一路打到 100 級）

@@ -545,7 +545,8 @@ function drawPortal(g, x, y, color, label) {
   }
   g.globalAlpha = 1;
   if (Math.random() < 0.4) G.parts.push({ x: x + rnd(-14, 14), y: y + rnd(-20, 14), vx: 0, vy: -30, t: 0, dur: 0.6, color, s: 2 });
-  txt(g, label, x, y - 44, 12, color, 'center');
+  const lc = /^#[0-9a-f]{6}$/i.test(color) ? '#' + [1, 3, 5].map(i => Math.round((parseInt(color.substr(i, 2), 16) + 255 * 1.2) / 2.2).toString(16).padStart(2, '0')).join('') : color;   // v2.18.2 字色調亮（暗紫的封印門以前幾乎看不到）
+  txt(g, label, x, y - 44, 12, lc, 'center');
 }
 function drawTownDeco(g, w) {
   // 火把
@@ -568,7 +569,7 @@ function drawTownDeco(g, w) {
     // 有新故事可以聽：頭上冒金色驚嘆號
     const hasStory = !!nextNpcChapter(n.id, G.P);
     if (hasStory) txt(g, '！', n.x, n.y - 48 + Math.sin(G.time * 4) * 2, 18, '#ffd040', 'center');
-    txt(g, near ? `[F] ${hasStory ? '聊聊' : n.name}` : n.name, n.x, n.y + 26, near ? 13 : 11, near ? '#ffe9a0' : '#c8b890', 'center');
+    txt(g, near ? `${ctlTag()}${hasStory ? '聊聊' : n.name}` : n.name, n.x, n.y + 26, near ? 13 : 11, near ? '#fff2b0' : '#e6d8b4', 'center');   // v2.18.2 營地人物名字調亮
   }
   if (G.savedMap) drawPortal(g, w.retPortal.x, w.retPortal.y, '#70b0ff', `${TOWN_TEXT.back}：第 ${G.savedMap.world.tier} 夜`);
   txt(g, w.name, 15 * TS, 2 * TS + 4, 16, '#e8d8a0', 'center');
@@ -584,7 +585,7 @@ function drawLootLabels(g, cx, cy) {
   // v2.4：標籤的位置改成「掉下來的時候排一次，之後固定不動」。
   //   以前每一格畫面都用螢幕座標重排一次：角色一走動，畫面邊緣有物品進出、或鏡頭的小數點進位不同，
   //   「誰跟誰重疊」的判斷就會變來變去，標籤就上下跳。現在用地圖座標排、排好就記住（l.wr），走路時整組一起平移。
-  const H = 16, GAP = 2;
+  const H = IS_TOUCH ? 22 : 16, GAP = 2, FS = IS_TOUCH ? 15 : 11;   // v2.18.2 手機：字放大、標籤加高，比較好點
   const shown = l => !l.gone && !(l.item && l.item.rarity === 'normal' && !G.showNormal) && !lootHidden(l);
   const fkey = G.showNormal + '|' + lootFilterKey();
   if (G.lootShowNormal !== fkey) { G.lootShowNormal = fkey; for (const l of G.loot) l.wr = null; }   // 切換「顯示白裝」時才全部重排
@@ -593,9 +594,9 @@ function drawLootLabels(g, cx, cy) {
   const overlaps = r => rects.some(o => o.x < r.x + r.w + GAP && o.x + o.w + GAP > r.x && o.y < r.y + r.h + GAP && o.y + o.h + GAP > r.y);
   // 新掉出來的才需要找位置：重要的先排；已經排好的不會被擠走
   const fresh = G.loot.filter(l => shown(l) && !l.wr).sort((a, b) => LOOT_RANK(a) - LOOT_RANK(b) || a.y - b.y || a.x - b.x);
-  g.font = `11px ${FONT}`;
+  g.font = `${FS}px ${FONT}`;
   for (const l of fresh) {
-    const tw = Math.ceil(g.measureText(l.label).width) + 12;
+    const tw = Math.ceil(g.measureText(l.label).width) + (IS_TOUCH ? 18 : 12);
     const base = { x: Math.round(l.x - tw / 2), y: Math.round(l.y - 18 - H / 2), w: tw, h: H };
     let r = base;
     // 依序試：原位、上 1 格、下 1 格、上 2 格、下 2 格……再不行就往左右錯開
@@ -626,14 +627,14 @@ function drawLootLabels(g, cx, cy) {
     g.fillStyle = sp && sp.bg ? sp.bg : hover ? 'rgba(48,40,30,0.96)' : 'rgba(6,5,8,0.82)'; roundRect(g, r.x, r.y, r.w, r.h, 3); g.fill();
     g.strokeStyle = l.color; g.globalAlpha = normal ? 0.25 : hover || sp ? 1 : 0.75; g.lineWidth = sp ? 2 : 1; roundRect(g, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 3); g.stroke(); g.globalAlpha = 1;
     if (G.nearAct && G.nearAct.ref === l) { const p = 0.6 + 0.4 * Math.sin(G.time * 8); g.strokeStyle = `rgba(255,220,120,${p})`; g.lineWidth = 2; roundRect(g, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 4); g.stroke(); }   // v2.7.4 按 F 會撿這個
-    txt(g, l.label, r.x + r.w / 2, r.y + H / 2 + 0.5, 11, l.color, 'center', false);
+    txt(g, l.label, r.x + r.w / 2, r.y + H / 2 + 0.5, FS, l.color, 'center', false);
   }
 }
 
 // ---------- 怪物資訊列（依圖鑑解鎖程度顯示） ----------
-function drawTargetBar(g, m, y) {
+function drawTargetBar(g, m, y, slim) {
   const L = loreLevel(m);
-  const w = 340, x = VW / 2 - w / 2;
+  const w = slim ? 220 : 340, x = VW / 2 - w / 2;
   const col = m.boss ? '#e8803a' : m.rarity === 'rare' ? '#ffff77' : m.rarity === 'magic' ? '#9aa0ff' : '#e8e0d0';
   const lines = [];
   // 第一階：生命數值與異常狀態
@@ -655,7 +656,8 @@ function drawTargetBar(g, m, y) {
     lines.push([[`護甲 ${Math.round(m.armour)}`, '#c8c0b0'], [atk, '#c8c0b0']]);
     lines.push([[m.def.note, '#a89c88']]);
   }
-  const H = 34 + lines.length * 16 + 12;
+  if (slim) lines.length = 0;
+  const H = slim ? 32 : 34 + lines.length * 16 + 12;
   g.fillStyle = 'rgba(0,0,0,0.72)'; g.fillRect(x - 8, y - 4, w + 16, H);
   g.strokeStyle = 'rgba(140,120,80,0.6)'; g.lineWidth = 1; g.strokeRect(x - 8.5, y - 4.5, w + 17, H + 1);
   txt(g, `${m.name}${m.rarity === 'rare' ? '（稀有精英）' : m.rarity === 'magic' ? '（魔法精英）' : ''}　Lv ${m.mlvl}`, VW / 2, y + 6, 12, col, 'center');
@@ -671,7 +673,8 @@ function drawTargetBar(g, m, y) {
     ln.forEach(([t, c], i) => { txt(g, t, lx + widths[i] / 2, ly, 11, c, 'center'); lx += widths[i]; });
     ly += 16;
   }
-  const hint = L.next ? `圖鑑 ${L.n}/${L.next}：再${m.boss ? '擊敗' : '殺'} ${L.next - L.n} ${m.boss ? '次' : '隻'}解鎖「${LORE_TEXT[L.lv]}」` : '圖鑑已全部解鎖';
+  if (slim) return;
+  const hint = L.next ?`圖鑑 ${L.n}/${L.next}：再${m.boss ? '擊敗' : '殺'} ${L.next - L.n} ${m.boss ? '次' : '隻'}解鎖「${LORE_TEXT[L.lv]}」` : '圖鑑已全部解鎖';
   txt(g, hint, VW / 2, ly, 10, '#8a7f6a', 'center');
 }
 
@@ -716,8 +719,8 @@ function drawHUD(g) {
   // 生命與魔力球
   const [lx, ly, lr] = HUD.orbL, [rx, ry, rr] = HUD.orbR;
   { const lf = pl.life / S.maxLife; pl.lifeTrail = Math.max(lf, (pl.lifeTrail == null ? lf : pl.lifeTrail) - 0.008); }
-  drawOrb(g, lx, ly, lr, pl.life / S.maxLife, "#b82020", "#2a0808", `${Math.ceil(pl.life)}|${S.maxLife}${S.maxES > 0 ? '|護盾 ' + Math.ceil(pl.es) + '/' + S.maxES : ''}`, S.maxES > 0 ? pl.es / S.maxES : null, pl.lifeTrail);
-  if (S.maxES > 0) txt(g, `護盾 ${Math.ceil(pl.es)}`, lx, ly - lr - 12, 10, '#9fd8ff', 'center');
+  drawOrb(g, lx, ly, lr, pl.life / S.maxLife, "#b82020", "#2a0808", `${Math.max(0, Math.ceil(pl.life))}|${S.maxLife}${S.maxES > 0 ? '|護盾 ' + Math.max(0, Math.ceil(pl.es)) + '/' + S.maxES : ''}`, S.maxES > 0 ? pl.es / S.maxES : null, pl.lifeTrail);
+  if (S.maxES > 0) txt(g, `護盾 ${Math.max(0, Math.ceil(pl.es))}`, lx, ly - lr - 12, 10, '#9fd8ff', 'center');
   drawOrb(g, rx, ry, rr, S.maxMana ? pl.mana / (S.maxManaFull || S.maxMana) : 0,   /* v2.14.2 照總魔力算比例，保留的部分由光環畫上去 */ '#2a50c8', '#080c2a', S.flags.bloodMagic ? '血魔' : `${Math.floor(pl.mana)}|${S.maxMana}`);
   // 藥劑（4 格，按 1–4）
   for (let i = 0; i < 4; i++) {
@@ -730,10 +733,10 @@ function drawHUD(g) {
       for (let k = 1; k * f.use < f.max; k++) { const yy = y + fh - 3 - (fh - 6) * k * f.use / f.max; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(x + 3, yy, fw - 6, 1); }
       if (G.flaskBuffs && G.flaskBuffs[f.type]) { g.strokeStyle = '#fff4c0'; g.lineWidth = 1.5; roundRect(g, x - 1, y - 1, fw + 2, fh + 2, 5); g.stroke(); }
     }
-    txt(g, keyLabel('f' + (i + 1)), x + fw / 2, y + 7, 9, '#e8d8a8', 'center');
+    if (!IS_TOUCH) txt(g, keyLabel('f' + (i + 1)), x + fw / 2, y + 7, 9, '#e8d8a8', 'center');   // v2.18.2 手機直接點藥劑，不標按鍵
   }
   // 技能列（較小的格子，按鍵標在左上角）
-  const labels = CFG.swapMouse ? ['右', '左', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')] : ['左', '右', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')];
+  const labels = IS_TOUCH ? skillKeyNames() : CFG.swapMouse ? ['右', '左', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')] : ['左', '右', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')];
   for (let i = 0; i < 5; i++) {
     const [x, y, s] = HUD.skill(i), sid = P.skills[i];
     g.fillStyle = 'rgba(10,8,12,0.92)'; roundRect(g, x, y, s, s, 5); g.fill();
@@ -797,11 +800,12 @@ function drawHUD(g) {
   // 訊息：顯示在技能列上方正中間，最新的在最下面，7 秒後淡出
   // v2.3：訊息移到左下角（原本在正中下方會擋住戰鬥），靠左排、最多 4 則、6 秒淡出
   const live = CFG.msgLog ? G.msgs.filter(m => G.time - m.t < 6).slice(-4) : [];
+  const qb = G.qbBox, mx0 = qb && qb.bottom > VH - 170 && qb.right < VW / 2 ? Math.max(112, Math.round(qb.right) + 8) : 112;   // v2.18.2 任務框拉長到下面時，訊息改排在它右邊，不蓋住任務
   live.forEach((m, i) => {
     const y = VH - 100 - (live.length - 1 - i) * 17, age = G.time - m.t;
     g.globalAlpha = Math.min(1, 6 - age) * (i === live.length - 1 ? 1 : 0.8);
     g.font = `11px ${FONT}`; let s = m.txt; while (s.length > 8 && g.measureText(s).width > 330) s = s.slice(0, -2); if (s !== m.txt) s += '…';
-    const tw = g.measureText(s).width + 14, x = 112 + Math.max(0, 1 - age / 0.18) * -14;
+    const tw = g.measureText(s).width + 14, x = mx0 + Math.max(0, 1 - age / 0.18) * -14;
     g.fillStyle = 'rgba(8,6,10,0.55)'; roundRect(g, x, y - 8, tw, 16, 3); g.fill();
     g.fillStyle = m.color; g.fillRect(x, y - 8, 2, 16);
     txt(g, s, x + 8, y, 11, m.color, 'left');
@@ -840,7 +844,8 @@ function drawHUD(g) {
   let tg = null;
   for (const m of G.mons) if (!m.dead && Math.hypot(m.x - input.wx, m.y - 6 - input.wy) < m.r + 14) { tg = m; break; }
   if (!tg && G.target && !G.target.dead && G.targetT > 0) tg = G.target;
-  if (tg && CFG.targetBar) drawTargetBar(g, tg, b && !b.dead ? 50 : 12);
+  // v2.18.2 首領血條在的時候：指著首領本身就不再畫一條；指著別的怪只畫精簡版（名字＋血條），不壓到下面的轉場大字
+  if (tg && CFG.targetBar && !(b && !b.dead && (tg === b || tg.boss))) drawTargetBar(g, tg, b && !b.dead ? 50 : 12, !!(b && !b.dead));
   // 戰吼增益
   if (pl.buff) txt(g, `戰意 ${pl.buff.t.toFixed(1)} 秒`, VW / 2 + 140, VH - 70, 11, '#ff9a80', 'left');
   if (pl.souls) txt(g, `魂 ×${pl.souls}（傷害 +${pl.souls * 4}%）`, VW / 2 - 140, VH - 70, 11, '#c8a0ff', 'right');   // v2.5.5 靈魂收割

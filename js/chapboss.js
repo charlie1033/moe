@@ -3,7 +3,10 @@
 //  玩家看到：一隻放大、換色、名字金色、腳下有金色光圈的強化精英（黃怪再多 2 個精英能力、生命約 8 倍、傷害 ×1.2、等級 +2）
 //    ・第一次看到牠：大橫幅播牠的台詞，畫面上方出現首領血條，小地圖上是紅色骷髏
 //    ・大招：每 7～9 秒在你腳下和旁邊放 3 個預警圈（1.3 秒後炸開，躲開就沒事）；元素跟著場景（熔岩＝火、冰＝冰……）
-//    ・打倒：每個角色只有第一次打倒會掉 reward（之後照一般黃怪掉落）；有 story 的話算完成那個劇情事件
+//    ・台詞本身有括號（「」或（））就原樣顯示，完全沒有括號才包「」（橫幅和訊息列都一樣）
+//    ・打倒：每個角色只有第一次打倒會掉 reward（之後照一般黃怪掉落）
+//    ・有 story：牠還活著（而且這個角色還沒打倒過牠）時，那個劇情點是鎖住的（互動鈕寫「先打倒『名字』」、不發光，見 chapevents.js ChapEv.locked）；
+//      打倒後劇情點亮起來讓玩家自己撿。這張圖上沒有那個劇情點時，打倒直接算完成
 //    ・每次進那一區牠都會在（可以重打），只有保證獎勵限第一次
 //  資料：P.chapBoss[首領id] = true；地圖 w.chap.boss = { x, y, dead, lx, ly }（純資料，沒打完的夢會還原：讀回來後把同種的黃怪換回首領）
 //  接點：Hook 'stage'、'update'、'kill'、'drawWorld'、'drawOver'
@@ -24,13 +27,16 @@ const ChapBoss = (() => {
       if (md.speed) m.speed *= md.speed; if (md.aspd) m.aspd *= md.aspd; if (md.dmg) dmg *= md.dmg; if (md.life) life *= md.life;
       if (md.regen) m.regen = md.regen; if (md.vamp) m.vamp = true; if (md.addElem) m.addElem = md.addElem;
     }
-    m.maxLife = Math.round(m.maxLife * 2.2 * life); m.life = Math.max(1, m.maxLife * (lf || 1)); m.dmg = [m.dmg[0] * dmg, m.dmg[1] * dmg];
+    m.maxLife = Math.round(m.maxLife * ((w.tier || 9) <= 2 ? 1.5 : 2.2) * life);   // v2.18.2 第 1～2 夜生命倍率 2.2 → 1.5（新手）
+    m.life = Math.max(1, m.maxLife * (lf || 1)); m.dmg = [m.dmg[0] * dmg, m.dmg[1] * dmg];
     const sc = clamp(bd.scale || 1.6, 1.2, 2.5); m.scale = Math.max(m.scale + 1, Math.round(m.scale * sc)); m.r *= Math.min(1.8, sc);
     const tn = tint(m.def.sprite, bd.color); if (tn) m.tint = tn;
     m.name = bd.name || m.name; m.chapBoss = bd.id || 'chboss'; m.cbT = 4;
     G.mons.push(m); return m;
   }
   const live = () => G.mons.find(m => m.chapBoss && !m.dead);
+  // 台詞：本身已經有任何括號（「」『』（）()）就原樣顯示，完全沒有括號才包「」
+  const quote = s => /[「」『』（）()]/.test(s) ? s : `「${s}」`;
   Hook.on('stage', w => {
     const c = w && w.chap; if (!c || !c.boss || w.bossRoom || c.bossSpawned) return;
     const bd = def(w); if (!bd) return; c.bossSpawned = true;
@@ -50,8 +56,8 @@ const ChapBoss = (() => {
     const d = dist(b, pl);
     if (!b.awake && d < 380 && los(b.x, b.y, pl.x, pl.y)) {
       b.awake = true; b.aggro = true; G.bossBar = b; Sfx.play('bossroar'); G.shake = Math.max(G.shake, 5);
-      UI.banner(b.name, bd.line ? `「${bd.line}」` : '區域首領', bd.color || '#ffd36a');
-      if (bd.line) UI.msg(`${b.name}：「${bd.line}」`, '#ffd36a');
+      UI.banner(b.name, bd.line ? quote(bd.line) : '區域首領', bd.color || '#ffd36a');
+      if (bd.line) UI.msg(`${b.name}：${quote(bd.line)}`, '#ffd36a');
     }
     if (b.awake && d < 700 && (!G.bossBar || G.bossBar.dead)) G.bossBar = b;
     // 大招：3 個預警圈
@@ -71,7 +77,7 @@ const ChapBoss = (() => {
     for (const q of pend) if (G.time >= q.at || q.b.dead) {
       q.done = true; if (q.b.dead || G.world !== q.w0) continue;
       G.fx.push({ k: 'ring', x: q.x, y: q.y, r: 70, t: 0, dur: 0.35, color: q.col, fill: q.col + '44' }); burst(q.x, q.y, q.col, 18, 220); G.shake = Math.max(G.shake, 4);
-      if (Math.hypot(pl.x - q.x, pl.y - q.y) < 70 + pl.r) damagePlayer([[q.hit, q.elem]], { spell: true });
+      if (Math.hypot(pl.x - q.x, pl.y - q.y) < 70 + pl.r) damagePlayer([[q.hit, q.elem]], { spell: true, src: q.b, how: '大招' });   // v2.18.2 src/how：死因與新手保護（deathhelp.js、newbie.js）
     }
     for (let i = pend.length - 1; i >= 0; i--) if (pend[i].done) pend.splice(i, 1);
   });
@@ -83,7 +89,12 @@ const ChapBoss = (() => {
     const first = P && !P.chapBoss[m.chapBoss]; if (P) P.chapBoss[m.chapBoss] = true;
     if (first) { ChapEv.reward(bd.reward, m.x, m.y); UI.banner(`${m.name}倒下了`, bd.reward ? '牠留下了東西' : '區域首領', '#ffd36a'); Sfx.play('unique'); }
     else UI.msg(`${m.name}倒下了`, '#ffd36a');
-    if (bd.story && P && !P.chapEv[bd.story]) ChapEv.completeById(bd.story, m.x, m.y);
+    // 綁劇情：這張圖上有那個劇情點 → 解鎖（亮起來，讓玩家自己去撿）；沒有劇情點才直接完成
+    if (bd.story && P && !P.chapEv[bd.story]) {
+      const ev = c && c.evs.find(e => e.id === bd.story && !e.done);
+      if (ev) { burst(ev.x, ev.y - 10, '#ffd36a', 30, 180); UI.msg(`${m.name}倒下了——牠守著的東西亮起來了，過去看看吧`, '#ffd36a'); }
+      else ChapEv.completeById(bd.story, m.x, m.y);
+    }
     saveGame();
   });
   // 腳下金色光圈、金色名字（蓋在黃色名字上面）

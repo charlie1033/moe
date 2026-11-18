@@ -263,9 +263,11 @@ function nextStage() {
   saveGame();
 }
 // 出口的門：按 F
+// v2.18.2 離開一區前的提醒：只算黃裝、傳奇、套裝（首領之門 bossroom.js 也用這個）
+const valuableLeft = () => G.loot.filter(l => !l.gone && l.item && (l.item.set || l.item.rarity === 'rare' || l.item.rarity === 'unique')).length;
 Interact.add('gate', (pl, w) => w.gate ? [{ ref: w.gate, label: `前往第 ${w.stage.i + 1} 區` }] : null, () => {
-    const left = G.loot.filter(l => !l.gone && l.item && (l.item.rarity === 'rare' || l.item.rarity === 'unique')).length;
-    if (left) return gameAsk(`這一區地上還有 ${left} 件黃裝／傳奇沒撿。\n進下一區之後就撿不回來了，確定要走嗎？`, nextStage);
+    const left = valuableLeft();
+    if (left) return gameAsk(`這一區地上還有 ${left} 件黃裝／傳奇／套裝沒撿。\n進下一區之後就撿不回來了，確定要走嗎？`, nextStage);
     nextStage();
 });
 function drawStageExtras(g) {

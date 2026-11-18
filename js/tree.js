@@ -488,7 +488,7 @@ const TreeView = {
     if (n.excl) h += `<div class="tip-req ${n.excl.some(x => P.tree.includes(x)) ? 'c-bad' : ''}">與「${n.excl.map(x => TREE.nodes[x].name).join('」「')}」互斥，只能選一個</div>`;   // v2.7
     if (n.lvl) h += `<div class="tip-req ${P.lvl < n.lvl ? 'c-bad' : ''}">需要等級 ${n.lvl}${n.deep ? '（質變基石：會改變整個角色的玩法）' : ''}</div>`;
     const alloc = P.tree.includes(n.id);
-    h += `<div class="tip-hint">${alloc ? (canRefund(P, n.id) ? (respecFree(P) ? `右鍵：取消配點（${FREE_RESPEC_LVL} 級前免費）` : `右鍵：取消配點（花 1 點重置點數，剩 ${P.respec || 0}）`) : '已配點') : canAllocate(P, n.id) ? '左鍵：配點' : '需要先點亮相鄰的天賦'}</div>`;
+    h += `<div class="tip-hint">${alloc ? (canRefund(P, n.id) ? (respecFree(P) ? `${byCtl('右鍵', '再點一下')}：取消配點（${FREE_RESPEC_LVL} 級前免費）` : `${byCtl('右鍵', '再點一下')}：取消配點（花 1 點重置點數，剩 ${P.respec || 0}）`) : '已配點') : canAllocate(P, n.id) ? byCtl('左鍵：配點', '再點一下：配點') : '需要先點亮相鄰的天賦'}</div>`;
     return h;
   },
   tryAlloc(id) {

@@ -33,7 +33,7 @@ if (typeof SKILL_GLYPHS !== 'undefined') for (const k of ['axethrow', 'swallow',
 function skillIsOwnClass(P, sid) { const sk = SKILLS[sid]; return (CLASS_GEMS[P.cls] || []).includes(sid) || sk.cls === P.cls || (SKILL_ATTR[sid] || [])[0] === CLASSES[P.cls].main; }
 // v2.5.5 技能寶石掉落：前期（怪物 40 級以前）自己職業的技能 12 倍權重、別人的 1；後期 4：2；已經有的很少掉
 randomSkillGem = function (mlvl) {
-  const P = G.P, early = mlvl < 40, list = Object.keys(SKILLS).filter(s => SKILLS[s].lvl <= mlvl + 3);
+  const P = G.P, early = mlvl < 40, list = Object.keys(SKILLS).filter(s => SKILLS[s].lvl <= mlvl + 3 && !SKILLS[s].basic);   // v2.18.2 普通攻擊（newbie.js）不會掉成寶石
   return wpick(list, s => hasSkillGem(P, s) ? 0.4 : skillIsOwnClass(P, s) ? (early ? 12 : 4) : (early ? 1 : 2));
 };
 

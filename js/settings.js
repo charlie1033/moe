@@ -67,19 +67,28 @@ const CTL_MENU = n => `點右上角 ☰ → <b>${n}</b>`;
 const CTL_TOUCH = {
   tree: CTL_MENU('天賦'), inv: CTL_MENU('背包'), skills: CTL_MENU('技能'), char: CTL_MENU('角色'), craft: CTL_MENU('強化'), journal: CTL_MENU('日誌'), help: CTL_MENU('說明'), portal: CTL_MENU('回城'),
   interact: '點右邊跳出來的<b>互動鈕</b>', dodge: '點<b>「閃」</b>鈕', f1: '點左下角<b>第 1 格藥劑</b>',
-  move: '在<b>左半邊畫面</b>按住拖曳就能', lmb: '按<b>右下的大圓鈕</b>', rmb: '<b>大圓鈕旁邊的小圓鈕</b>', aimNote: '（會自動瞄準最近的怪）',
+  move: '在<b>左半邊畫面</b>按住拖曳就能', lmb: '按<b>右下的大圓鈕</b>', rmb: '<b>大圓鈕旁邊的小圓鈕</b>', aimNote: '（會自動瞄準畫面裡的怪，首領、精英優先；點一下怪可以鎖定）',
   pickup: '<b>點地上的名稱</b>撿起來', equip: '點一下裝備，再按<b>「裝備」</b>鈕穿上',
+  dodgeKey: '閃避鈕', lmbSkill: '大圓鈕的技能', rmbSkill: '大圓鈕旁邊小圓鈕的技能', talk: '點右邊的<b>「對話」</b>鈕',
 };
 const CTL_PC = {
   move: () => `用 <b>${keyLabel('up')} ${keyLabel('left')} ${keyLabel('down')} ${keyLabel('right')}</b> `, lmb: '按<b>滑鼠左鍵</b>', rmb: '<b>右鍵</b>', aimNote: '（朝滑鼠的方向）',
   pickup: () => `按 <b>${keyLabel('interact')}</b> 撿（會撿有金色外框的那個）`, equip: '在裝備上按<b>右鍵</b>穿上（也可以拖到上面的裝備格）',
+  dodgeKey: () => keyLabel('dodge') === '空白' ? '空白鍵' : `${keyLabel('dodge')} 鍵`, lmbSkill: '左鍵技能', rmbSkill: '右鍵技能', talk: () => `按 <b>${keyLabel('interact')}</b>`,
 };
 function ctl(id) {
   const t = typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? CTL_TOUCH[id] : null; if (t) return t;
   const p = CTL_PC[id]; if (p) return typeof p === 'function' ? p() : p;
   return `按 <b>${keyLabel(id)}</b>`;
 }
-const ctlText = (s, plain) => { const r = String(s == null ? '' : s).replace(/\{(\w+)\}/g, (m, id) => ctl(id)); return plain ? r.replace(/<[^>]+>/g, '') : r; };
+// v2.18.2 進階資訊（詞綴階級 T4、夢之門的掉落基底）：設定頁「顯示進階資訊」；沒設定過＝角色最高打到第 3 夜才顯示（CFG.advInfo）
+const advInfo = () => CFG.advInfo != null ? !!CFG.advInfo : !!(typeof G !== 'undefined' && G.P && G.P.maxTier >= 3);
+// v2.18.2 觸控模式的其他說法：byCtl(電腦版文字, 手機版文字) 挑一個；ctlTag() 是人物頭上的「[F] 」（手機版是空字串，靠右邊的互動鈕）
+const isTouchCtl = () => typeof IS_TOUCH !== 'undefined' && IS_TOUCH;
+const byCtl = (pc, touch) => isTouchCtl() ? touch : pc;
+const skillKeyNames = () => isTouchCtl() ? ['主', '2', '3', '4', '5'] : ['左鍵', '右鍵', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')];   // 技能欄 5 格的叫法（手機：主＝右下的大圓鈕）
+const ctlTag = (id = 'interact') =>isTouchCtl() ? '' : `[${keyLabel(id)}] `;
+const ctlText = (s, plain) =>{ const r = String(s == null ? '' : s).replace(/\{(\w+)\}/g, (m, id) => ctl(id)); return plain ? r.replace(/<[^>]+>/g, '') : r; };
 
 // —— 套用設定 ——
 function applyCfg() {
@@ -115,7 +124,7 @@ const Pause = {
         <button data-p="help" class="pbig">操作說明</button>
         <button data-p="save" class="pbig">存檔</button>
         <button data-p="quit" class="pbig">存檔並回到選角畫面</button>
-        <div class="phint">按 Esc 繼續遊戲${G.lastSave ? `　·　上次存檔 ${new Date(G.lastSave).toLocaleTimeString()}` : ''}</div></div>`;
+        <div class="phint">${byCtl('按 Esc 繼續遊戲', '點「繼續遊戲」回到夢裡')}${G.lastSave ? `　·　上次存檔 ${new Date(G.lastSave).toLocaleTimeString()}` : ''}</div></div>`;
     } else p.innerHTML = this.settingsHTML();
     this.bind();
   },
@@ -150,6 +159,7 @@ const Pause = {
       body += row('怪物資訊列', chk('targetBar'), '畫面上方顯示正在打的怪物');
       body += row('訊息', chk('msgLog'), '左下角的撿到東西、任務等訊息');
       body += row('自動撿取', chk('autoPick'), '珠寶、通貨走過去就撿');
+      body += row('顯示進階資訊', `<label class="pswitch"><input type="checkbox" data-c="advInfo" ${advInfo() ? 'checked' : ''}><span></span></label>`, '裝備詞綴的階級（T1～T8）、夢之門的「掉落基底」。還沒打到第 3 夜時預設關掉，之後自動打開');
     } else if (this.tab === 'loot') {
       body += row('白裝（普通）', chk('showNormal'), '也可以按 ' + keyLabel('labels') + ' 切換');
       body += row('藍裝（魔法）', chk('lootMagic'));

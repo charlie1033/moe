@@ -10,12 +10,28 @@
 //  ・日誌（J）多一個分頁「看守者」：每隻看守者的第一次選擇、各條路走過幾次、殘片幾片
 //  接點：Hook 'start'、'update'、'drawWorld'；Interact 'wcamp'、'wshard'；JournalTabs 'wardens'
 // =============================================================
+//  v2.18.2
+//  ・選完之後的那一章取代原本的第二章（WARDEN_TEXT.merge，例如茵之二、卡爾之二）：選的那一刻第二章還沒看過，就記 P.wardens.mg[看守者]=1，
+//    第二章不再冒「！」，它的禮物移到這一章，keep 的頁接在後面；這一章看完把第二章記成看過（mg=2）。已經看過第二章的舊存檔照舊
+//  ・「和解」章節裡「你帶回來的信物」只在真的打贏和解那條路時才說（P.wardens.tok[看守者]=1，打倒時記），沒有就用 chap.nameNo
+//  ・深層夢境（第 11 夜以後）進巢穴、接完請託後，大橫幅說一句 WARDEN_TEXT.deep（第一次選放走過的用第二句）；記在 G.world.wd.deepSaid
+const wHasTok = (P, id) => !!(P && P.wardens && P.wardens.tok && P.wardens.tok[id]);
+const wMerging = (P, id) => !!(P && P.wardens && P.wardens.first[id] && P.wardens.mg && P.wardens.mg[id]);
+function wChapText(id) {
+  const T = WARDEN_TEXT[id], P = G.P, c = (P && P.wardens && P.wardens.first[id]) || 'kill';
+  return (c === 'name' && T.chap.nameNo && !wHasTok(P, id)) ? T.chap.nameNo : T.chap[c];
+}
 for (const id of WARDEN_IDS) {
   const T = WARDEN_TEXT[id], bn = BOSSES[id].name;
   STORY['wreq_' + id] = { title: `${T.who}的請託`, pages: T.req, journal: { title: `${T.who}的請託`, text: T.ask } };
-  const cid = 'w_' + id, cho = () => (G.P && G.P.wardens && G.P.wardens.first[id]) || 'kill';
-  const S = NPC_STORIES[T.npc]; if (!S) continue;
-  const ch = { id: cid, title: `${T.who}　${bn}之後`, when: P => !!(P.wardens && P.wardens.first[id]), get pages() { return [T.chap[cho()]].concat(T.gift ? [T.gift] : []); }, get text() { return T.chap[cho()].split('\n')[0]; } };
+  const cid = 'w_' + id, S = NPC_STORIES[T.npc]; if (!S) continue;
+  const M = T.merge, c2 = M && S.chapters.find(c => c.id === M.id);
+  if (c2) { const w0 = c2.when; c2.when = P => { wMergeTick(P); return !wMerging(P, id) && w0(P); }; }
+  const ch = { id: cid, title: `${T.who}　${bn}之後`, when: P => !!(P.wardens && P.wardens.first[id]),
+    get gift() { return c2 && wMerging(G.P, id) && G.P.wardens.mg[id] === 1 ? c2.gift : null; },
+    get pages() { const extra = c2 && wMerging(G.P, id) && STORY[M.id] ? (M.keep || []).map(k => STORY[M.id].pages[k]).filter(Boolean) : [];
+      return [wChapText(id)].concat(extra, T.gift ? [T.gift] : []); },
+    get text() { return wChapText(id).split('\n')[0]; } };
   S.chapters.push(ch);
   STORY[cid] = { title: ch.title, get pages() { return ch.pages; }, journal: { title: ch.title, get text() { return ch.text; } } };
 }
@@ -23,9 +39,19 @@ for (const id of WARDEN_IDS) {
 const W_BASE_LINES = {}; for (const id of WARDEN_IDS) { const n = WARDEN_TEXT[id].npc; if (NPC_LINES[n] && !W_BASE_LINES[n]) W_BASE_LINES[n] = NPC_LINES[n].slice(); }
 function wApplyLines(P) {
   for (const n in W_BASE_LINES) NPC_LINES[n] = W_BASE_LINES[n].slice();
-  for (const id of WARDEN_IDS) { const c = P.wardens && P.wardens.first[id], T = WARDEN_TEXT[id]; if (c && T.lines[c] && NPC_LINES[T.npc]) NPC_LINES[T.npc].push(...T.lines[c]); }
+  for (const id of WARDEN_IDS) { const c = P.wardens && P.wardens.first[id], T = WARDEN_TEXT[id]; if (!c || !NPC_LINES[T.npc]) continue;
+    const L = (c === 'name' && T.lines.nameNo && !wHasTok(P, id)) ? T.lines.nameNo : T.lines[c]; if (L) NPC_LINES[T.npc].push(...L); }
 }
-Hook.on('start', P => wApplyLines(P));
+Hook.on('start', P => {
+  const W = P.wardens; W.mg = W.mg || {};
+  if (!W.tok) { W.tok = {}; for (const id of WARDEN_IDS) if (W.runs[id] && W.runs[id].name && (P.bossKills[id] || 0) > 0) W.tok[id] = 1; }   // 舊存檔：選過和解又打倒過，當作拿過信物
+  wApplyLines(P);
+});
+// 打贏「和解」那條路：記下拿到信物
+Hook.on('kill', m => {
+  const P = G.P, w = G.world; if (!P || !m.boss || m.twin || !WARDEN_TEXT[m.boss] || !w || !w.wd || w.wd.id !== m.boss || w.wd.path !== 'name') return;
+  P.wardens.tok = P.wardens.tok || {}; if (!P.wardens.tok[m.boss]) { P.wardens.tok[m.boss] = 1; wApplyLines(P); }
+});
 // —— 殘片 ——
 const wShardHave = id => (G.stash && G.stash.wshard && G.stash.wshard[id]) || 0;
 function wShardAdd(id, n) { if (!G.stash) return; G.stash.wshard = G.stash.wshard || {}; G.stash.wshard[id] = Math.max(0, wShardHave(id) + n); }
@@ -36,6 +62,23 @@ function wGive(it) {
   else dropLoot(G.pl.x, G.pl.y, { item: it });
   Sfx.play('unique'); saveGame();
 }
+// —— 合併的章節：決定要不要取代第二章、看完把第二章記成看過 ——
+function wMergeTick(P) {
+  const W = P.wardens; if (!W) return; W.mg = W.mg || {};
+  for (const id of WARDEN_IDS) {
+    const M = WARDEN_TEXT[id].merge; if (!M || !W.first[id]) continue;
+    if (W.mg[id] == null) W.mg[id] = (!P.story.seen[M.id] && !P.story.seen['w_' + id]) ? 1 : 0;
+    if (W.mg[id] === 1 && P.story.seen['w_' + id]) { P.story.seen[M.id] = true; W.mg[id] = 2; }
+  }
+}
+Hook.on('update', () => { if (G.P && G.P.wardens) wMergeTick(G.P); });
+// —— 深層夢境：看守者出場的一句話（接完請託、開打時） ——
+Hook.on('update', () => {
+  const w = G.world, P = G.P, wd = w && w.wd; if (!wd || !P || !w.bossRoom || (w.tier || 0) < DEEP_TIER || wd.deepSaid || wd.stage !== 'fight' || UI.paused()) return;
+  const T = WARDEN_TEXT[wd.id]; wd.deepSaid = true; if (!T || !T.deep) return;
+  const line = P.wardens && P.wardens.first[wd.id] === 'free' && T.deep[1] ? T.deep[1] : T.deep[0];
+  UI.banner(BOSSES[wd.id].name, line, '#cbb8ff'); UI.msg(line, '#cbb8ff');
+});
 // —— 營地：放走之後多的角色 ——
 function wCampList(w) {
   const P = G.P; if (!w || w.kind !== 'town' || !P || !P.wardens) return [];
@@ -70,12 +113,12 @@ Hook.on('drawWorld', g => {
     if (k.ghost) g.globalAlpha = 0.6;
     drawSprite(g, k.sprite, c.x, c.y + 12, k.scale || 2, c.f, k.tint || null, false, bob, !!c.mv, 1);
     g.globalAlpha = 1;
-    txt(g, G.nearAct && G.nearAct.ref === c ? `[F] ${k.name}` : k.name, c.x, c.y + 26, 11, '#c8d8b0', 'center');
+    txt(g, G.nearAct && G.nearAct.ref === c ? `${ctlTag()}${k.name}` : k.name, c.x, c.y + 26, 11, '#c8d8b0', 'center');
   }
   // 歐莉的殘片冊
   const r = wShardRef(w);
   if (r) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); g.fillStyle = '#5a3a1a'; g.fillRect(r.x - 9, r.y - 4, 18, 12); g.fillStyle = `rgba(255,214,120,${0.5 + 0.4 * p})`; g.fillRect(r.x - 7, r.y - 3, 6, 9); g.fillRect(r.x + 1, r.y - 3, 6, 9);
-    txt(g, G.nearAct && G.nearAct.ref === r ? '[F] 殘片冊' : '殘片冊', r.x, r.y + 22, 11, '#ffd27a', 'center'); }
+    txt(g, G.nearAct && G.nearAct.ref === r ? ctlTag() + '殘片冊' : '殘片冊', r.x, r.y + 22, 11, '#ffd27a', 'center'); }
 });
 Hook.on('light', (cut, cx, cy) => { const r = wShardRef(G.world); if (r) cut(r.x - cx, r.y - cy, 50, 0.5); });
 Interact.add('wcamp', (pl, w) => wCampList(w).map(({ T, c }) => ({ ref: c, label: T.camp.name, r: 55 })), ref => {

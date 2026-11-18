@@ -49,6 +49,7 @@ hitMonster = function (m, pk, fromMinion, src, kb) {
   if (hasMod(m, 'reflect') && !fromMinion && dealt > 0 && G.time - (m.reflT || 0) > 0.3) {
     m.reflT = G.time; const v = Math.min(G.S.maxLife * 0.05, dealt * 0.15);
     G.pl.life -= v; G.texts.push({ x: G.pl.x, y: G.pl.y - 30, txt: '反射 ' + Math.round(v), color: '#ff9ad8', size: 11, t: 0, dur: 0.6 });
+    if (typeof DeathHelp !== 'undefined') DeathHelp.note(v, { src: m, how: 'reflect' });   // v2.18.2 死因
     if (G.pl.life <= 0) { G.pl.life = 0; playerDie(); }
   }
   return r;

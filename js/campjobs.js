@@ -47,7 +47,7 @@ Talk.add(id => {
   const P = G.P;
   if (P.karlGo) { UI.msg('卡爾：「我準備好了。您一進夢，我就跟上。」', '#e8d8a0'); return true; }
   gameAsk('迷途騎士．卡爾：\n「守門人大人，下一張夢讓我跟著吧。」\n「至少第一區，我替您擋在前面。」\n\n（下一張夢的第一區，卡爾會跟你一起打；換區他就回營地）', () => {
-    P.karlGo = true; saveGame(); UI.msg('卡爾：「遵命。這一次，我會跟上。」', '#e8d8a0');
+    P.karlGo = true; saveGame(); UI.msg('卡爾：「遵命。這一次，我要走在大人前面。」', '#e8d8a0');
   }, { yes: '一起走', no: '不用了' });
   return true;
 });
@@ -148,6 +148,6 @@ JournalTabs.add('fish', '莫釣到的話', () => {
 Talk.add(id => {
   if (id !== 'mo') return false;
   const F = fishState(G.P);
-  UI.msg(`老漁夫．莫：${F.ok ? '「旁邊那根竿子借你，往霧裡拋。」（走到莫右邊的釣魚點按 F）' : pick(NPC_LINES.mo)}`, '#e8d8a0');
+  UI.msg(`老漁夫．莫：${F.ok ? '「旁邊那根竿子借你，往霧裡拋。」（走到莫右邊的釣魚點' + ctlText('{interact}', true) + '）' : pick(NPC_LINES.mo)}`, '#e8d8a0');
   return true;
 });

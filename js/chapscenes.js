@@ -1,6 +1,7 @@
 // =============================================================
 //  章節地圖的布景（事件加 scene: '代號'）：在事件後面蓋一組程式畫的布景，主體會擋路（也擋投射物）
-//  13 種：hut 森林小屋（煙囪冒煙、窗光）、camp 營火營地（火會跳、火星）、tent 帳篷（裡面有燈）、wreck 擱淺的船＋木箱、
+//  13 種：hut 森林小屋（煙囪冒煙、窗光）、camp 營火營地（火會跳、火星）、tent 帳篷（裡面有燈）、
+//        wreck 擱淺的船（佔地放得下 8×4 格時用大版 wreckBig：側躺的船身、斷掉的桅杆、破帆、纜繩、木箱木桶；放不下才用 6×3 的小版）、
 //        cart 翻倒的馬車、kennel 冰封的狗屋、throne 崩塌的王座、shrine 小祭壇（蠟燭會晃）、well 枯井、
 //        lighthouse 小燈塔底座（燈會轉）、ruin 倒塌的石門、nest 巢穴（蛛網＋骨堆）、pier 小碼頭（可以走上去；水會變成木板）
 //  規則：事件那一格和它前面一格一定留空；布景放在事件「後面」四個方向裡空地最多的那一邊（同分優先放上面）；
@@ -46,7 +47,7 @@ const ChapScenes = (() => {
         for (let k = 0; k < 3; k++) d.l(24 + k * 4, 70 - k * 22, 136 - k * 4, 70 - k * 22, 'rgba(160,60,40,0.5)', 3);
         d.p([[62, 92], [80, 30], [98, 92]], '#2a1a10'); d.p([[98, 92], [80, 30], [108, 72]], '#d8bc88'); d.r(78, -18, 4, 10, '#5a3a20'); d.p([[82, -18], [94, -15], [82, -12]], '#a83a2a'); },
       anim(d, t) { d.e(80, 82, 12, 9, `rgba(255,200,110,${0.25 + 0.1 * Math.sin(t * 4)})`); } },
-    wreck: { w: 6, h: 3, m: ['######', '######', '.####.'], lights: [],
+    wreck: { w: 6, h: 3, m: ['######', '######', '.####.'], lights: [], big: 'wreckBig',
       paint(d, g) { d.e(96, 90, 96, 9, 'rgba(0,0,0,0.35)');
         const hull = [[0, 70], [18, 30], [70, 14], [150, 12], [186, 30], [192, 62], [170, 88], [30, 92]];
         d.p(hull, '#5a3a22'); g.save(); g.beginPath(); hull.forEach(([x, y], i) => i ? g.lineTo(d.X + x, d.Y + y) : g.moveTo(d.X + x, d.Y + y)); g.clip();
@@ -54,6 +55,49 @@ const ChapScenes = (() => {
         d.l(18, 30, 150, 12, '#2a1a0c', 5); d.p([[88, 40], [122, 32], [134, 58], [104, 66]], '#120a06'); for (let k = 0; k < 3; k++) d.l(96 + k * 10, 38 - k * 2, 104 + k * 10, 62 - k, '#7a5634', 2);
         d.l(140, 22, 186, -22, '#6a4628', 6); d.p([[156, -6], [190, -24], [184, 12]], '#c8b890'); d.p([[170, -4], [184, -12], [182, 6]], '#a89870');
         crate(d, 26, 62, 26); crate(d, 56, 70, 20); crate(d, 140, 66, 22); for (let k = 0; k < 6; k++) d.c(30 + k * 26, 82 + (k % 2) * 4, 2, '#4a7a4a'); } },
+    // 大版沉船（8×4 格＝256×128）：側躺在地上的船身（船殼木板、龍骨、破洞）、往右上倒的斷桅杆＋破帆、垂下來的纜繩、散落的木箱木桶
+    wreckBig: { w: 8, h: 4, m: ['.....##.', '.#######', '########', '.######.'], lights: [],
+      paint(d, g) {
+        const X = d.X, Y = d.Y, path = (pts) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(X + x, Y + y) : g.moveTo(X + x, Y + y)); g.closePath(); };
+        const rope = (x1, y1, cx, cy, x2, y2, c = '#b89a62', w = 1.5) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(X + x1, Y + y1); g.quadraticCurveTo(X + cx, Y + cy, X + x2, Y + y2); g.stroke(); };
+        d.e(128, 118, 128, 13, 'rgba(0,0,0,0.38)'); d.e(60, 122, 40, 5, 'rgba(40,70,60,0.35)');
+        // 桅杆（壓在船身後面）：從甲板斷口往右上倒，尖端插進地裡
+        d.l(150, 52, 246, 6, '#3a2414', 9); d.l(150, 52, 246, 6, '#6a4628', 6); d.l(152, 49, 244, 4, '#8a6238', 1.5);
+        d.r(196, 22, 22, 5, '#5a3a20'); d.l(207, 6, 207, 44, '#5a3a20', 4);   // 橫桁
+        // 破帆：掛在橫桁上，下面撕成好幾條
+        d.p([[192, 24], [226, 20], [234, 50], [228, 46], [224, 60], [216, 52], [210, 68], [204, 56], [196, 64], [194, 44]], '#cfc0a0');
+        d.p([[200, 26], [224, 22], [228, 40], [206, 44]], '#e0d4b8'); d.p([[214, 52], [210, 68], [204, 56]], '#b0a080');
+        for (const [x, y] of [[206, 34], [220, 30], [212, 46]]) d.c(x, y, 2.5, '#5a4a38');   // 帆上的破洞
+        // 船身（側躺：船底朝左下、甲板朝右上）
+        const hull = [[4, 92], [18, 58], [52, 36], [108, 26], [168, 28], [204, 44], [222, 70], [214, 100], [186, 120], [60, 124], [20, 114]];
+        path(hull); g.fillStyle = '#5a3a22'; g.fill();
+        g.save(); path(hull); g.clip();
+        for (let k = 0; k < 9; k++) { d.r(0, 30 + k * 11, 230, 2, '#3a2414'); d.r(0, 33 + k * 11, 230, 1, 'rgba(255,220,170,0.08)'); }   // 船殼木板
+        for (let k = 0; k < 8; k++) d.r(20 + k * 26, 24, 2, 104, 'rgba(30,18,8,0.45)');   // 肋材
+        d.p([[0, 96], [60, 112], [200, 108], [230, 96], [230, 130], [0, 130]], 'rgba(40,70,50,0.45)');   // 船底的青苔
+        d.p([[150, 20], [230, 50], [230, 30], [170, 10]], '#7a5634'); for (let k = 0; k < 5; k++) d.l(150 + k * 14, 22 + k * 4, 186 + k * 9, 14 + k * 8, '#5a3a20', 1.5);   // 露出來的甲板
+        g.restore();
+        d.l(18, 58, 52, 36, '#2a1a0c', 4); d.l(52, 36, 108, 26, '#2a1a0c', 4); d.l(108, 26, 168, 28, '#2a1a0c', 4); d.l(168, 28, 204, 44, '#2a1a0c', 4);   // 船舷（最上面那條邊）
+        d.l(20, 114, 60, 124, '#2a1a0c', 5); d.l(60, 124, 186, 120, '#2a1a0c', 5);   // 龍骨
+        // 破洞（看進去是黑的，邊緣是斷掉的木板）
+        d.p([[92, 58], [130, 50], [142, 76], [118, 92], [96, 84]], '#120a06');
+        for (let k = 0; k < 4; k++) d.l(98 + k * 11, 56 - k * 2, 104 + k * 10, 86 - k * 2, '#7a5634', 2.5);
+        d.p([[130, 50], [146, 44], [142, 60]], '#6a4628'); d.p([[118, 92], [128, 102], [110, 98]], '#6a4628');
+        // 舷窗、船名牌、藤壺
+        for (const x of [40, 64, 160, 184]) { d.c(x, 62 + (x > 100 ? -4 : 2), 6, '#2a1a0c'); d.c(x, 62 + (x > 100 ? -4 : 2), 4, '#1a2a30'); }
+        d.r(30, 82, 40, 10, '#3a2414'); d.r(32, 84, 36, 6, '#8a7040');
+        for (let k = 0; k < 14; k++) d.c(24 + k * 13, 108 + (k % 3) * 3, 1.8 + (k % 2), k % 2 ? '#c8c0b0' : '#9a9488');
+        // 船舵（斷了一半，靠在船尾）
+        d.p([[2, 90], [-8, 104], [0, 116], [12, 106]], '#4a2e18'); d.l(4, 92, 10, 108, '#2a1a0c', 1.5);
+        // 纜繩：從桅杆垂到地上、從船舷拉到木樁
+        rope(170, 40, 182, 90, 196, 118); rope(230, 14, 244, 70, 250, 104); rope(108, 28, 120, 6, 150, 50, '#a08850', 1.2);
+        d.r(248, 100, 5, 18, '#4a3420'); d.c(250, 100, 3, '#6a4a2a');
+        // 散落的木箱、木桶、繩圈
+        crate(d, 222, 92, 22); crate(d, 200, 104, 16);
+        d.e(36, 128, 9, 4, '#3a2414'); d.r(28, 112, 16, 16, '#7a5030'); d.r(28, 115, 16, 2, '#4a4a52'); d.r(28, 123, 16, 2, '#4a4a52'); d.e(36, 112, 8, 3, '#8a6038');
+        g.strokeStyle = '#b89a62'; g.lineWidth = 2; for (const r of [7, 5, 3]) { g.beginPath(); g.ellipse(X + 168, Y + 126, r + 3, r * 0.5 + 1, 0, 0, Math.PI * 2); g.stroke(); }
+        for (let k = 0; k < 7; k++) d.c(10 + k * 34, 126 - (k % 2) * 3, 2, '#4a7a4a');   // 海草
+      } },
     cart: { w: 5, h: 3, m: ['#####', '#####', '.###.'], lights: [],
       paint(d) { d.e(80, 90, 80, 8, 'rgba(0,0,0,0.35)'); d.p([[10, 30], [130, 10], [146, 62], [22, 82]], '#7a5030'); d.p([[22, 82], [146, 62], [148, 70], [24, 90]], '#5a3a20');
         for (let k = 1; k < 5; k++) d.l(10 + k * 3, 30 + k * 13, 130 + k * 4, 10 + k * 13, '#5a3a20', 2);
@@ -114,24 +158,32 @@ const ChapScenes = (() => {
       anim(d, t) { d.c(5, 94, 4, `rgba(255,210,120,${0.6 + 0.3 * Math.sin(t * 6)})`); } },
   };
   // 放布景：找事件四個方向裡空地最多的一邊（rect＝格子；front＝事件前面那一格）
+  // 有大版的（s.big）：大版擋路的格子全部放得下、整塊 90% 是空地才用大版，不然用原本的
   function place(w, ev, id) {
     const s = S[id]; if (!s) return;
+    if (s.big && S[s.big] && fit(w, ev, s.big, 0.9, true)) return;
+    fit(w, ev, id, 0.5, false);
+  }
+  function fit(w, ev, id, need, strict) {
+    const s = S[id];
     const W = w.W, g = w.grid, ex = ev.tx, ey = ev.ty;
     const free = (x, y) => x > 0 && y > 0 && x < W - 1 && y < w.H - 1 && (g[y * W + x] || (s.pier && w.deco[y * W + x] === 2)) && !(w.deco[y * W + x] && w.deco[y * W + x] !== 2 && w.deco[y * W + x] !== 15);
     const special = (x, y) => w.chap.evs.some(e => e.tx === x && e.ty === y) || (w.boss && x >= w.boss.x && x < w.boss.x + w.boss.w && y >= w.boss.y && y < w.boss.y + w.boss.h) || (x === Math.floor(w.start.x + 4) && y === Math.floor(w.start.y + 4));
     const opts = [[ex - (s.w >> 1), ey - s.h, ex, ey + 1], [ex - s.w, ey - (s.h >> 1), ex + 1, ey], [ex + 1, ey - (s.h >> 1), ex - 1, ey], [ex - (s.w >> 1), ey + 1, ex, ey - 1]];
     let best = null;
     for (const [sx, sy, fx, fy] of opts) {
-      if (!free(fx, fy)) continue; let n = 0;
-      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) if (free(sx + x, sy + y) && !special(sx + x, sy + y)) n++;
+      if (!free(fx, fy)) continue; let n = 0, miss = 0;
+      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) if (free(sx + x, sy + y) && !special(sx + x, sy + y)) n++; else if (s.m[y][x] === '#') miss++;
+      if (strict && miss) continue;
       if (!best || n > best.n) best = { sx, sy, n };
     }
-    if (!best || best.n < s.w * s.h * 0.5) return;
+    if (!best || best.n < s.w * s.h * need) return false;
     for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
       const X = best.sx + x, Y = best.sy + y, i = Y * W + X; if (!free(X, Y) || special(X, Y)) continue;
       if (s.m[y][x] === '#') { g[i] = 0; w.deco[i] = SCENE_DECO; } else if (s.pier && w.deco[i] === 2) { g[i] = 1; w.deco[i] = 15; }
     }
     w.chap.scenes.push({ id, sx: best.sx, sy: best.sy });
+    return true;
   }
   const helper = (g, X, Y) => { const d = H(g), o = { X, Y }; for (const k in d) { const f = d[k]; o[k] = k === 'p' ? (pts, c) => f(pts.map(([x, y]) => [x + X, y + Y]), c) : k === 'l' ? (a, b, c2, e, col, lw) => f(a + X, b + Y, c2 + X, e + Y, col, lw) : (x, y, ...r) => f(x + X, y + Y, ...r); } return o; };
   function paintAll(w) {

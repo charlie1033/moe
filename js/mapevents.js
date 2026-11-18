@@ -148,13 +148,7 @@ drawStageExtras = function (g) {
   }
 };
 // 神殿剩幾秒：畫面上方
-setInterval(() => {
-  let el = document.getElementById('shrineHud');
-  const t = (typeof G !== 'undefined' && G.shrine && G.P) ? `${SHRINES[G.shrine.type].name}：${SHRINES[G.shrine.type].text}（${Math.ceil(G.shrine.t)} 秒）` : '';
-  if (!el) { if (!t) return; el = document.createElement('div'); el.id = 'shrineHud'; document.body.appendChild(el); }
-  el.textContent = t; el.style.display = t ? '' : 'none'; if (t) el.style.color = SHRINES[G.shrine.type].color;
-}, 250);
-(() => { const st = document.createElement('style'); st.textContent = `#shrineHud { position:fixed; left:50%; top:72px; transform:translateX(-50%); font-size:13px; text-shadow:0 0 3px #000,0 0 2px #000; pointer-events:none; z-index:5; }`; document.head.appendChild(st); })();
+StatusLines.add(() => (G.shrine && G.P) ? { t: `${SHRINES[G.shrine.type].name}：${SHRINES[G.shrine.type].text}（${Math.ceil(G.shrine.t)} 秒）`, c: SHRINES[G.shrine.type].color } : null);   // v2.18.2 小地圖下方的狀態列
 // 回營地時神殿效果結束
 const _goTownEV = goTown;
 goTown = function (...a) { if (G.shrine) { G.shrine = null; } return _goTownEV(...a); };

@@ -45,7 +45,7 @@ UI.rightInv = function (i, e) {
     if (e && e.shiftKey) return combineJewel(it.key);
     this.curSel = null;
     this.jewelPick = this.jewelPick === it.key ? null : it.key;
-    if (this.jewelPick) this.msg(`已選取 ${jewelName(it.key)}：點要鑲嵌的裝備（身上的或背包裡的），右鍵取消`, '#e8c890');
+    if (this.jewelPick) this.msg(`已選取 ${jewelName(it.key)}：點要鑲嵌的裝備（身上的或背包裡的），${byCtl('右鍵取消', '再點一次珠寶取消')}`, '#e8c890');
     this.hideTip(); return this.refreshInv();
   }
   return _rightInvJw(i, e);
@@ -75,7 +75,7 @@ UI.refreshInv = function () {
 // 說明框
 const _stackTipJw = stackTipHTML;
 stackTipHTML = function (it, hint) {
-  if (it.stack === 'jewel' && !(UI.open && UI.open.stash)) hint = '右鍵（或左鍵）：選起來，再點要鑲嵌的裝備　Shift＋右鍵：3 顆合成高一階';
+  if (it.stack === 'jewel' && !(UI.open && UI.open.stash)) hint = byCtl('右鍵（或左鍵）：選起來，再點要鑲嵌的裝備　Shift＋右鍵：3 顆合成高一階', '再點一下選起來，然後點要鑲嵌的裝備');
   return _stackTipJw(it, hint);
 };
 STACK_TYPES.jewel.desc = k => jewelText(k) + '（鑲上去就拿不下來；3 顆同階可以合成高一階）';

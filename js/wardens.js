@@ -71,10 +71,10 @@ function wHud(wd) {
 }
 // —— ① 進巢穴：請託 ——
 function wAsk(wd) {
-  const T = WARDEN_TEXT[wd.id], P = G.P, bn = BOSSES[wd.id].name, have = wShardHave(wd.id), f = P.wardens.first[wd.id];
+  const T = WARDEN_TEXT[wd.id], P = G.P, bn = BOSSES[wd.id].name, have = wShardHave(wd.id), f = P.wardens.first[wd.id], pr = T.pr || '牠';
   wd.stage = 'asking';
-  const txt = `${T.who}的請託\n${T.ask}\n\n請託試煉（選修，失敗不會扣任何東西）：\n・銅：這一場不死通過 → 1 片殘片\n・金：${T.gold.text} → 再 3 片（要選「和解」打完全程才算）\n\n「${bn}的殘片」10 片可以跟歐莉換一件牠的專屬傳奇（目前 ${have} 片）。` +
-    (f ? `\n\n上一次你第一次面對牠時選了「${WCHOICE_NAME[f]}」。這次可以選別的、拿別的獎勵。` : '\n\n牠的生命打到一半時，你要做一個選擇。');
+  const txt = `${T.who}的請託\n${T.ask}\n\n請託試煉（選修，失敗不會扣任何東西）：\n・銅：這一場不死通過 → 1 片殘片\n・金：${T.gold.text} → 再 3 片（要選「和解」打完全程才算）\n\n「${bn}的殘片」10 片可以跟歐莉換一件${pr}的專屬傳奇（目前 ${have} 片）。` +
+    (f ? `\n\n你第一次面對${pr}時選了「${WCHOICE_NAME[f]}」。這次可以選別的、拿別的獎勵。` : `\n\n${pr}的生命打到一半時，你要從「和解」「了結」「放走」裡選一個。`);
   gameAsk(txt, () => { wd.trial = true; wd.stage = 'fight'; UI.msg('接下了請託：試煉開始', '#ffe6a0'); }, { yes: '接下請託', no: '不用了', onNo: () => { wd.stage = 'fight'; } });
 }
 // —— ② 半血轉場 ——
@@ -84,16 +84,16 @@ function wTrans(b, wd) {
   G.teles = []; G.projs = G.projs.filter(p => p.team === 'ally'); if (w.haz) { w.haz.pend = []; w.haz.t = 4; }
   b.scale = (b.scale || 3) * 1.15; b.flash = 0.3; G.shake = 10; Sfx.play('bossroar'); burst(b.x, b.y, '#ffd27a', 50, 260);
   G.fx.push({ k: 'ring', x: b.x, y: b.y, r: 160, t: 0, dur: 0.6, color: '#ffe6a0', fill: 'rgba(255,220,140,0.15)' });
-  UI.banner(wName(T.half), T.halfSub, '#ff9a6a');
-  G.texts.push({ x: b.x, y: b.y - 90, txt: wName(T.half).slice(0, 18), color: '#ffe6a0', size: 16, t: 0, dur: 2.5 });
+  UI.banner(wName(T.half), T.halfSub, '#ff9a6a');   // v2.18.2 轉場台詞只在畫面中間偏上大字出現一次（拿掉頭上那行重複的字）
 }
 // —— ③ 三選一 ——
 function wOpenChoice(b, wd) {
   const T = WARDEN_TEXT[wd.id], P = G.P, f = P.wardens.first[wd.id];
   wd.stage = 'choice'; wPause(true);
-  const keys = ['name', 'kill', 'free'], lab = { name: T.ch.name, kill: WARDEN_KILL, free: T.ch.free };
-  const sub = (f ? `你第一次面對牠時選了「${WCHOICE_NAME[f]}」（營地和人物的變化以那次為準）。這次可以選別的、拿別的獎勵。` : '這是你第一次面對牠：這次的選擇會永久記下來，營地和人物會因此改變。之後重打還可以選別的。');
-  wChoose(`${b.name}停下來了`, sub, keys.map(k => ({ label: lab[k][0], desc: lab[k][1] })), i => {
+  const keys = ['name', 'kill', 'free'], lab = { name: T.ch.name, kill: wKillOpt(wd.id), free: T.ch.free }, pr = T.pr || '牠';
+  const tag = k => lab[k][0].includes(WCHOICE_NAME[k]) ? lab[k][0] : `${lab[k][0]}（${WCHOICE_NAME[k]}）`;   // v2.18.2 按鈕後面標出是哪一條路（請託寫的「和解」對得上）
+  const sub = (f ? `你第一次面對${pr}時選了「${WCHOICE_NAME[f]}」（營地和人物的變化以那次為準）。這次可以選別的、拿別的獎勵。` : `這是你第一次面對${pr}：第一次的選擇會寫進冊子，營地和人物也會跟著變。之後重打，可以選別的。`);
+  wChoose(`${b.name}停下來了`, sub, keys.map(k => ({ label: tag(k), desc: lab[k][1] })), i => {
     const c = keys[i];
     wChoose(lab[c][0], T.out[c], [{ label: '繼續' }], () => { wPause(false); wPick(c, wd); });
   });
@@ -126,7 +126,7 @@ function wPhase2(b, wd) {
   const key = 'w2_' + wd.id;
   b.def = Object.assign({}, b.def, { ai: BOSS_ABILITIES[key] ? key : (b.def.ai || b.boss), cdMult: (b.def.cdMult || 1) * 0.75 });
   b.dmg = b.dmg.map(v => v * 1.25); b.speed *= (WARDEN_P2[wd.id] && WARDEN_P2[wd.id].spd || 1) * 1.15;
-  G.shake = 8; Sfx.play('bossroar'); UI.banner(`${b.name}：最後的力氣`, WARDEN_TEXT[wd.id].halfSub, '#ff7050');
+  G.shake = 8; Sfx.play('bossroar'); UI.banner(`${b.name}：最後的力氣`, '換打法了・看預警圈躲開', '#ff7050');   // v2.18.2 不再重複轉場那句
 }
 // —— 每格 ——
 Hook.on('update', dt => {

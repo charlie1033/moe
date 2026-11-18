@@ -132,9 +132,4 @@ Hook.on('light', (cut, cx, cy) => {
   for (const ev of w.events) if (ev.kind === 'tide' && !ev.cleared) cut(ev.x - cx, ev.y - cy, ev.active ? Math.max(120, ev.R + 40) : 90, ev.active ? 0.75 : 0.5);
 });
 // 上方的倒數字
-function tideHud(t) {
-  let el = document.getElementById('tideHud');
-  if (!el) { if (!t) return; el = document.createElement('div'); el.id = 'tideHud'; document.body.appendChild(el); }
-  if (el.textContent !== t) el.textContent = t; el.style.display = t ? '' : 'none';
-}
-(() => { const st = document.createElement('style'); st.textContent = `#tideHud { position:fixed; left:50%; top:96px; transform:translateX(-50%); font-size:16px; font-weight:bold; color:#9ae8ff; text-shadow:0 0 4px #000,0 0 2px #000; pointer-events:none; z-index:5; }`; document.head.appendChild(st); })();
+function tideHud(t) { StatusLines.set('tide', t, '#9ae8ff'); }   // v2.18.2 排在小地圖下方的狀態列（core.js）

@@ -45,7 +45,7 @@ updateMonster = function (m, dt) {
     if (m.ss === 'aim') { m.facing = Math.cos(m.ang) >= 0 ? 1 : -1; if (m.st <= 0) { m.ss = 'dash'; m.st = 0.42; m.hit = false; } return; }
     if (m.ss === 'dash') {
       const sp = 560 * slow; moveEnt(m, Math.cos(m.ang) * sp * dt, Math.sin(m.ang) * sp * dt);
-      if (!m.hit && dist(m, pl) < m.r + pl.r + 8) { m.hit = true; monsterStrike(m, pl, m.mlvl < 30 ? 1.2 : 1.5); G.shake = Math.max(G.shake, 4); if (typeof knockPlayer === 'function') knockPlayer(m.ang, 200); }
+      if (!m.hit && dist(m, pl) < m.r + pl.r + 8) { m.hit = true; monsterStrike(m, pl, m.mlvl < 30 ? 1.2 : 1.5, null, { how: '衝撞' }); G.shake = Math.max(G.shake, 4); if (typeof knockPlayer === 'function') knockPlayer(m.ang, 200); }
       if (m.st <= 0) { m.ss = 'tired'; m.st = 0.6; }
       return;
     }
@@ -58,7 +58,7 @@ updateMonster = function (m, dt) {
         if (typeof isWall === 'function' && isWall(m.x, m.y)) { m.x = m.fx0; m.y = m.fy0; }
         G.fx.push({ k: 'ring', x: m.x, y: m.y, r: 62, t: 0, dur: 0.3, color: '#ffb070', fill: 'rgba(255,170,100,0.18)' });
         G.shake = Math.max(G.shake, 3);
-        if (dist(pl, m) < 62 + pl.r) monsterStrike(m, pl, m.mlvl < 30 ? 1.1 : 1.3);
+        if (dist(pl, m) < 62 + pl.r) monsterStrike(m, pl, m.mlvl < 30 ? 1.1 : 1.3, null, { how: '跳砸' });
         for (const mn of G.mins) if (dist(mn, m) < 62 + mn.r) monsterStrike(m, mn, 1.3);
       }
       return;
@@ -174,7 +174,7 @@ function monMove2(m, dt, slow) {
       if (m.st <= 0) {
         m.ss = 'tired'; m.st = 0.5; m.hidden = false; m.sink = 0;
         G.fx.push({ k: 'ring', x: m.x, y: m.y, r: 52, t: 0, dur: 0.3, color: '#c89060', fill: 'rgba(200,144,96,0.2)' }); burst(m.x, m.y, '#8a6a44', 18, 180); G.shake = Math.max(G.shake, 3);
-        if (dist(pl, m) < 52 + pl.r) monsterStrike(m, pl, m.mlvl < 30 ? 1.2 : 1.4);
+        if (dist(pl, m) < 52 + pl.r) monsterStrike(m, pl, m.mlvl < 30 ? 1.2 : 1.4, null, { how: '鑽地突襲' });
       }
       return true;
     }

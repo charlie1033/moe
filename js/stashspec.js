@@ -59,7 +59,7 @@ Object.assign(UI, {
       h += `</table><div class="phint">1～8＝珠寶等級（${JEWEL_GRADES.join('、')}）。3 顆同級可以在珠寶工坊合成高一級。</div>`;
     }
     const total = Object.values(sp).reduce((a, b) => a + b, 0), kinds = Object.values(sp).filter(x => x > 0).length;
-    return `<div class="spsum">共 ${kinds} 種、${total} 個　<span class="thint">左鍵拿一疊　Shift＋左鍵全部拿　右鍵拿 1 個</span></div>` + h;
+    return `<div class="spsum">共 ${kinds} 種、${total} 個　<span class="thint">${byCtl('左鍵拿一疊　Shift＋左鍵全部拿　右鍵拿 1 個', '點一下拿一疊')}</span></div>` + h;
   },
   specWithdraw(type, k, mode) {
     const sp = G.stash.spec[type], have = sp[k] || 0; if (!have) return;
@@ -97,7 +97,7 @@ UI.refreshStash = function () {
       const T = STACK_TYPES[type], n = G.stash.spec[type][k] || 0;
       this.showTip(`<div class="tip-name" style="color:${T.color(k)}"><img class="skico" src="${T.icon(k)}">${T.name(k)}</div>
         <div class="tip-sub">${T.kind}　·　倉庫 ${n}　·　背包 ${stackCount(G.P.inv, type, k)}</div><div class="tip-mod" style="color:#d8ccb4">${T.desc(k)}</div>
-        ${n ? '<div class="tip-hint">左鍵：拿一疊　Shift＋左鍵：全部拿　右鍵：拿 1 個</div>' : '<div class="tip-hint" style="color:#8a7a60">倉庫裡還沒有</div>'}`, e.clientX, e.clientY);
+        ${n ? `<div class="tip-hint">${byCtl('左鍵：拿一疊　Shift＋左鍵：全部拿　右鍵：拿 1 個', '再點一下：拿一疊')}</div>` : '<div class="tip-hint" style="color:#8a7a60">倉庫裡還沒有</div>'}`, e.clientX, e.clientY);
     };
     d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();
   });

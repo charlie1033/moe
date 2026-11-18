@@ -60,7 +60,7 @@ Hook.on('start', P => {
   if (!P || !P.supRefund) return;
   const R = P.supRefund; delete P.supRefund;
   for (const k in R) if (SUPPORTS[k]) P.supports[k] = (P.supports[k] || 0) + R[k];
-  UI.msg('輔助寶石改版了：一樣的寶石已經合併，多出來的放回背包（按 K 看）', '#3fd8b8');
+  UI.msg(ctlText('輔助寶石改版了：一樣的寶石已經合併，多出來的放回背包（{skills}看）', true), '#3fd8b8');
 });
 
 // ---------- 孤注：技能欄上沒有別的打傷害的技能 ----------

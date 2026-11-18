@@ -32,6 +32,7 @@ const MOE_DEV = {
 
 
   hero(cls = 'warrior', lvl = 30, maxTier = 13) {
+    this.realDP = this.realDP || window.damagePlayer;
     this.clean();
     const P = newCharacter(cls, this.NAME); P.lvl = lvl; P.maxTier = maxTier; P.story = { seen: { intro: true, ending: true } };
     startGame(P); this.quiet(); window.damagePlayer = () => { }; return G.P;
@@ -140,9 +141,9 @@ const MOE_DEV = {
       T.ok(ms.length < 120, '第一夜怪太多：' + ms.length); T.ok(rg / ms.length < 0.2, '第一夜遠程怪太多：' + rg + '/' + ms.length);
     },
     '召喚師：開局有骨矛、召喚物生命變厚': T => {
-      const P = T.hero('summoner', 3, 1); T.ok(P.skills[0] === 'bonespear' && hasSkillGem(P, 'bonespear'), '召喚師開局沒有骨矛');
-      enterMap(1); T.quiet(); const m = G.mons.find(x => !x.boss); input.wx = m.x; input.wy = m.y; G.pl.mana = 999; useSkill(0); T.ok(G.projs.some(p => p.team === 'ally'), '骨矛沒有射出去');
-      G.pl.cd = {}; G.pl.act = 0; useSkill(1); T.run(1); T.ok(G.mins.length && G.mins[0].maxLife >= 90, '骷髏生命沒有變厚');
+      const P = T.hero('summoner', 3, 1); T.ok(P.skills[0] === 'wandbolt' && P.skills[1] === 'bonespear' && hasSkillGem(P, 'bonespear'), '召喚師開局沒有骨矛');
+      enterMap(1); T.quiet(); const m = G.mons.find(x => !x.boss); input.wx = m.x; input.wy = m.y; G.pl.mana = 999; useSkill(1); T.ok(G.projs.some(p => p.team === 'ally'), '骨矛沒有射出去');
+      G.pl.cd = {}; G.pl.act = 0; useSkill(2); T.run(1); T.ok(G.mins.length && G.mins[0].maxLife >= 90, '骷髏生命沒有變厚');
     },
     '地形碰撞：投射物飛過岩漿、荊棘不能隔牆': T => {
       T.hero('mage', 20, 6); enterMap(2); const w = G.world; let lava = -1, wall = -1;
@@ -155,7 +156,7 @@ const MOE_DEV = {
     '技能型傳奇：八件都掉得出來、效果會動': T => {
       T.ok(SKILL_UNIQUES.every(u => UNIQUE_BY_ID[u.id] && BASE_BY_ID[u.base]), '技能型傳奇的基底不存在');
       const P = T.hero('summoner', 30, 6); const it = makeUnique('u_fuse', 30); P.equip.ring1 = it; onBuildChanged(); T.ok(G.S.flags.skelBomb, '骸骨引信沒有效果');
-      enterMap(2); T.quiet(); G.pl.cd = {}; G.pl.act = 0; G.pl.mana = 999; useSkill(1); T.run(0.3); const mn = G.mins.find(x => x.mtype === 'skel'); T.ok(mn, '沒召出骷髏');
+      enterMap(2); T.quiet(); G.pl.cd = {}; G.pl.act = 0; G.pl.mana = 999; useSkill(2); T.run(0.3); const mn = G.mins.find(x => x.mtype === 'skel'); T.ok(mn, '沒召出骷髏');
       const m = makeMonster(G.world.theme.monsters[0], mn.x + 12, mn.y, 5, 'normal', G.world.theme); G.mons = [m]; T.run(0.2); T.ok(!G.mins.includes(mn), '骷髏沒有自爆');
     },
     '第二批技能傳奇、倉庫寶石共用': T => {
@@ -274,7 +275,8 @@ const MOE_DEV = {
       T.hero('druid', 20, 3); const P = G.P, pl = G.pl;
       T.ok(['druid', 'ranger', 'summoner', 'samurai'].every((c, i) => CLASS_GEMS[c].includes(['chargeshot', 'sleepwalk', 'lullaby', 'inscribe'][i])), '新技能沒有加進職業');
       P.skills[0] = 'chargeshot'; P.links[0] = []; onBuildChanged(); enterMap(3); T.quiet(); G.projs = [];
-      input.wx = pl.x + 200; input.wy = pl.y; pl.mana = 99; pl.cd = {}; pl.act = 0; input.l = true; T.run(1.7); input.l = false; T.run(0.05);
+      input.wx = pl.x + 200; input.wy = pl.y; pl.mana = 99; pl.cd = {}; pl.act = 0;
+      if (Touch.on) { input.joy = null; T.run(1.7); pl.mana = 99; useSkill(0); T.run(0.05); } else { input.l = true; T.run(1.7); input.l = false; T.run(0.05); }   // 手機：站著自動蓄滿、點一下射出
       const p = G.projs.find(x => x.team === 'ally'); T.ok(p && p.pierce >= 99, '蓄滿沒有全穿透');
       P.skills[2] = 'lullaby'; P.skillGems = P.skillGems || {}; P.skillGems.lullaby = true; onBuildChanged(); spawnPack(pl.x + 150, pl.y, G.world); input.wx = pl.x + 150; input.wy = pl.y; const _su = skillUsable; skillUsable = () => null; pl.cd = {}; pl.act = 0; pl.mana = 99; try { useSkill(2); } finally { skillUsable = _su; }
       T.ok(G.mons.some(m => m.sleep > 0), '搖籃曲沒有讓怪睡著');
@@ -454,6 +456,110 @@ const MOE_DEV = {
       T.ok(c && c.key === '10-2' && c.dCells.length > 0 && !w.grid[c.dCells[0]], '10-2 一開始要封住');
       ChapterMaps.openD(w, true);
       T.ok(w.grid[c.dCells[0]] === 1, '打開後要變成路');
+    },
+    '狀態列：統一排在小地圖下方、不重疊': T => {
+      T.hero('warrior', 20, 5); enterMap(3);
+      mechHud('trialHud', 96, '#fff', '測試一'); StatusLines.set('x', '測試二', '#fff');
+      const L = StatusLines.lines().map(l => l.t); T.ok(L.includes('測試一') && L.includes('測試二'), '狀態列沒有收到');
+      StatusLines.draw(); const el = document.getElementById('statusStack');
+      if (el && el.style.display !== 'none') { const r = [...el.children].map(d => d.getBoundingClientRect()); T.ok(r.every((a, i) => !i || a.top >= r[i - 1].bottom - 0.5), '狀態列疊在一起'); }
+      T.ok(!document.getElementById('trialHud'), '舊的置中狀態字還在');
+      mechHud('trialHud', 96, '#fff', ''); StatusLines.set('x', ''); T.ok(!StatusLines.fixed.trialHud && !StatusLines.fixed.x, '狀態列拿不掉');
+    },
+    '新手引導：照實際狀況出現、不擋面板': T => {
+      T.hero('druid', 1, 1); const P = G.P; P.tut = 0; P.tutD = {}; CFG.tutorial = true; Tut.begin(P); Tut.T = null;
+      Tut.tick(0.1); T.ok(Tut.T && Tut.T.id === 'move', '第一步不是移動');
+      enterMap(1); P.tutD = { move: 1, attack: 1, pickup: 1 }; Tut.T = null; P.inv = P.inv.map(it => it && (isStack(it) || isFlask(it)) ? it : null);
+      Tut.tick(0.1); T.ok(!Tut.T || Tut.T.id !== 'equip', '背包沒有能穿的東西還在教裝備');
+      T.ok(!TUT_STEPS.find(s => s.id === 'tree').when(P.tutD), '沒有天賦點數就教天賦');
+      UI.toggle('char', true); Tut.render(); T.ok(document.getElementById('tutBox').style.display === 'none', '開著面板還擋在畫面上'); UI.toggle('char', false);
+      T.ok(getComputedStyle(document.getElementById('tutBox')).pointerEvents === 'none', '引導框會攔點擊');
+      P.tut = 99;
+    },
+    '操作說法、進階資訊開關、終局盤選單': T => {
+      T.ok(byCtl('a', 'b') === (IS_TOUCH ? 'b' : 'a'), 'byCtl 挑錯');
+      T.ok(IS_TOUCH ? ctlTag() === '' : /^\[.+\] $/.test(ctlTag()), 'ctlTag 不對');
+      T.ok(skillKeyNames().length === 5, '技能欄叫法不是 5 個');
+      T.hero('warrior', 20, 1); const keep = CFG.advInfo; delete CFG.advInfo;
+      const it = makeItem(pickBase(10).id, 'rare', 10);
+      T.ok(!/[前後]綴 T\d/.test(itemTipHTML(it)), '前 3 夜還顯示詞綴階級');
+      G.P.maxTier = 3; T.ok(/[前後]綴 T\d/.test(itemTipHTML(it)), '第 3 夜後沒有詞綴階級');
+      G.P.maxTier = 1; T.ok(UI.MENU.find(m => m.id === 'atlas').hide(G.P), '還沒到深層就出現終局盤');
+      if (keep != null) CFG.advInfo = keep;
+    },
+    '技能頁：點寶石再點空孔就放進去': T => {
+      T.hero('druid', 20, 3); const P = G.P; const id = Object.keys(SUPPORTS).find(s => supportFits(s, P.skills[0])); P.supports[id] = (P.supports[id] || 0) + 1; P.links[0] = P.links[0].map(() => null);
+      UI.toggle('skills', true); UI.refreshSkills(); UI.gemPick = 'sup:' + id;
+      const el = document.querySelector('#skillSlots [data-drop="sup:0:0"]'); T.ok(el && !el.dataset.gem, '找不到空的輔助孔');
+      if (el) el.click(); T.ok(P.links[0][0] === id, '點空孔沒有放進去'); T.ok(!UI.gemPick, '放完還選著');
+      UI.toggle('skills', false);
+    },
+    '普通攻擊：開局左鍵、不耗魔、舊存檔補上、前 10 級魔力回復': T => {
+      for (const c of ['warrior','samurai','ranger','druid','mage','summoner']) { const P = T.hero(c, 1, 1); const sid = BASIC_ATK[c]; T.ok(P.skills[0] === sid && G.slotCalc[0].cost === 0 && !skillUsable(G.S, sid), c + ' 開局左鍵不是不耗魔的普通攻擊'); }
+      enterMap(1); T.quiet(); G.pl.mana = 0; G.pl.act = 0; G.pl.cd = {}; const n = G.projs.length; input.wx = G.pl.x + 100; input.wy = G.pl.y; useSkill(0); T.ok(G.projs.length > n, '魔力 0 時普通攻擊放不出來');
+      const P = newCharacter('druid', T.NAME); P.skills = ['split', 'rapid', null, null, null]; delete P.basicAtk; P.story = { seen: { intro: true, ending: true } }; startGame(P); T.quiet(); T.ok(G.P.skills[2] === 'bshot', '舊存檔沒補上普通射擊');
+      T.ok(G.S.manaRegenPS >= G.S.maxMana * 0.05 + 1.9, '前 10 級魔力回復沒有 +2'); T.ok(!Array.from({ length: 300 }, () => randomSkillGem(5)).some(s => SKILLS[s].basic), '普通攻擊掉成寶石了');
+    },
+    '新手保護：第 1～2 夜首領一下最多 45%、第 3 夜沒有': T => {
+      T.hero('druid', 5, 2); damagePlayer = T.realDP; enterMap(1); T.quiet(); const b = makeBoss('boneking', G.pl.x + 60, G.pl.y, 5); G.mons.push(b); const l0 = G.pl.life; G.pl.es = 0;
+      damagePlayer([[9999, 'phys']], { src: b, spell: true }); T.ok(!G.dead && l0 - G.pl.life > 1 && l0 - G.pl.life <= G.S.maxLife * 0.45 + 1, '第 1 夜看守者一下超過 45%'); T.ok(G._lastHit && G._lastHit.who === b.name, '沒記下是誰打的');
+      enterMap(3); T.quiet(); G.pl.life = G.S.maxLife; const b3 = makeBoss('boneking', G.pl.x + 60, G.pl.y, 5); damagePlayer([[G.S.maxLife * 3, 'phys']], { src: b3, spell: true }); T.ok(G.dead, '第 3 夜不應該有傷害上限'); UI.hideDeath();
+    },
+    '死在巢穴：死因、回到首領之門前': T => {
+      T.hero('druid', 5, 1); damagePlayer = T.realDP; enterMap(1); T.quiet(); while (G.world.stage.i < G.world.stage.n) nextStage(); const z = G.world; BossRoom.skip(); T.quiet();
+      const b = G.mons.find(m => m.boss); T.ok(b.maxLife < BOSSES.boneking.life * 3, '第 1 夜看守者生命沒有降低');
+      for (let i = 0; i < 5 && !G.dead; i++) damagePlayer([[9999, 'phys']], { src: b, how: 'slam', spell: true });
+      T.ok(G.dead && G.savedMap && G.savedMap.world === z, '巢穴裡倒下沒有留首領之門的回來點'); T.ok(/腐骨之王.*重砸/.test(DeathHelp.cause().text), '死因沒寫看守者和招式');
+      document.getElementById('deathGate').click(); T.quiet(); T.ok(G.world === z && !G.dead && z.bossGate.open, '回到首領之門前失敗');
+    },
+    '自動瞄準：只打畫面內、精英優先、點怪鎖定': T => {
+      T.hero('druid', 5, 1); enterMap(1); T.quiet(); G.mons = []; render(); const th = G.world.theme, pl = G.pl, mk = (r, dx) => { const m = makeMonster(th.monsters[0], pl.x + dx, pl.y, 2, r, th); G.mons.push(m); return m; };
+      const n = mk('normal', 40), e = mk('rare', 200), far = mk('rare', 3000); render(); T.ok(AutoAim.pick() === e, '自動瞄準沒有先打精英'); G.mons = [far]; T.ok(!AutoAim.pick(), '打到畫面外');
+      G.mons = [n, e]; render(); AutoAim.tap(n.x - G.cam.x, n.y - 10 - G.cam.y, true); T.ok(AutoAim.pick() === n, '點怪沒有鎖定'); n.dead = true; T.ok(AutoAim.pick() === e && !AutoAim.lock, '鎖定的怪死了沒有解除');
+    },
+    '裝備需求算自己的屬性、離開前提醒只算黃傳套、第 1 夜怪量': T => {
+      T.hero('warrior', 30, 3); const b = BASES.find(x => x.req && x.req.str > G.S.str + 2 && x.req.str - G.S.str < 40 && (!x.req.dex || x.req.dex <= G.S.dex) && (!x.req.int || x.req.int <= G.S.int) && (!x.req.lvl || x.req.lvl <= 30));
+      if (b) { const it = makeItem(b.id, 'magic', 30); it.mods = [{ stat: 'str', v: b.req.str - G.S.str }]; T.ok(!canEquip(it), '裝備自己加的力量沒算進去'); it.mods = []; T.ok(canEquip(it), '力量不夠卻能穿'); }
+      G.loot = []; dropLoot(G.pl.x, G.pl.y, { item: makeItem(pickBase(5).id, 'normal', 5) }); T.ok(valuableLeft() === 0, '白裝也被算進提醒');
+      T.hero('druid', 1, 1); let n = 0, r = 0; for (let i = 0; i < 3; i++) { enterMap(1); n += G.mons.filter(m => !m.dead).length; r += G.mons.filter(m => m.rarity === 'rare').length; } T.ok(n / 3 < 70, '第 1 夜第 1 區怪太多 ' + n / 3); T.ok(r === 0, '第 1 夜第 1 區出現稀有精英');
+      T.ok(mapLevel(1) === 2 && mapLevel(2) === 5 && mapLevel(10) === 60, '地圖等級曲線不對');
+    },
+    '區域首領鎖劇情點（7-2 老鱷魚）': T => {
+      T.hero('warrior', 40, 10); enterMap(7); while (G.world.stage.i < 2) nextStage(); const w = G.world, ev = w.chap.evs.find(e => e.id === 'ch7_lastpage'), b = ChapBoss.live();
+      T.ok(ev && b && ChapEv.locked(w, ev), '首領活著時劇情點沒有鎖');
+      T.near(ev, 0); Interact.resolve(); T.ok(G.nearAct && /^先打倒『/.test(G.nearAct.label), '互動鈕沒寫先打倒');
+      ChapEv.use(ev); T.ok(!G.P.chapEv.ch7_lastpage, '鎖住時還能撿');
+      killMonster(b); T.ok(!G.P.chapEv.ch7_lastpage && !ChapEv.locked(w, ev), '首領倒下後沒解鎖或直接完成了');
+      ChapEv.use(ev); T.ok(G.P.chapEv.ch7_lastpage, '解鎖後撿不起來');
+    },
+    '章節地圖：打開通道不整張重畫': T => {
+      T.hero('warrior', 40, 10); enterMap(10); while (G.world.stage.i < 2) nextStage(); const w = G.world, cv = w.canvas;
+      T.ok(_dPatch.get(w), '沒有先畫好打開後的小圖');
+      const t0 = performance.now(); ChapterMaps.openD(w, true); const ms = performance.now() - t0;
+      T.ok(w.canvas === cv && w.chap.dCells.every(i => w.grid[i]) && ms < 15, '打開通道還是整張重畫（' + ms.toFixed(1) + ' 毫秒）');
+    },
+    '章節地圖：劇情點旁邊沒有怪': T => {
+      for (const [t, s] of [[6, 2], [10, 2], [7, 2]]) { T.hero('warrior', 40, 10); enterMap(t); while (G.world.stage.i < s) nextStage(); const c = G.world.chap;
+        const n = G.mons.filter(m => !m.dead && !m.chapBoss && !m.chapAmb && c.evs.some(e => Math.hypot(e.x - m.x, e.y - m.y) < 4.5 * TS)).length;
+        T.ok(n === 0, `${t}-${s} 劇情點旁邊還有 ${n} 隻怪`); }
+    },
+    '沉船大版、日誌第幾區、進化圖鑑排序、輔助寶石連動': T => {
+      T.hero('ranger', 30, 6); enterMap(6); while (G.world.stage.i < 2) nextStage(); T.ok(G.world.chap.scenes.some(s => s.id === 'wreckBig'), '6-2 沉船沒有用大版');
+      const j = JournalTabs.list.find(x => x.id === 'chapstory').html(); T.ok(/在第 1 夜第 \d/.test(j), '日誌沒寫第幾區');
+      const h = EvoCodex.html(); T.ok(h.indexOf('飛刀') >= 0 && h.indexOf('飛刀') < h.indexOf('evoother') && /其他職業（\d+）/.test(h) && /傳奇.+有機會掉/.test(h), '進化圖鑑排序或掉落提示不對');
+      T.ok(/可觸發：凝血（流血＋冰緩）/.test(SUPPORTS.rend.desc) && !/可觸發/.test(SUPPORTS.power.desc), '輔助寶石沒寫可觸發的連動');
+    },
+    '劇情對齊：營地播主線、選完取代第二章、深層台詞': T => {
+      const P = T.hero('warrior', 50, 9); P.story.seen = { intro: true, firstDream: true };
+      enterMap(4); T.ok(!P.story.seen.tier4, '一進第 4 夜就播了舊劇情');
+      P.hub = 'cell'; goTown(); T.quiet(); update(1 / 30); T.ok(P.story.seen.tier4, '回營地沒播歐莉的紙條'); T.quiet();
+      P.story.seen.yin1 = true; P.bossKills.b_swamp = 1; P.wardens.first.b_swamp = 'name'; P.wardens.tok = {};
+      T.ok((nextNpcChapter('yin', P) || {}).id === 'w_b_swamp', '選完之後茵之二沒有被取代');
+      T.ok(!STORY.w_b_swamp.pages[0].includes('圍裙'), '沒拿到信物卻說了圍裙');
+      T.ok(WARDEN_IDS.every(id => WARDEN_TEXT[id].deep && WARDEN_TEXT[id].deep.length === 2), '深層台詞不齊');
+      T.ok(wKillOpt('witch')[1].includes('她') && wKillOpt('beast')[1].includes('牠'), '了結說明的稱呼不對');
+      T.ok(CHAPTER_MAPS['10-3'].bosses.B.story === 'ch10_sit' && !(CHAPTER_MAPS['10-1'].bosses || {}).B, '放棄的那個我位置不對');
+      P.wardens.first = {};
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');

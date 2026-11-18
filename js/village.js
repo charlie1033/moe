@@ -8,7 +8,7 @@ HUBS.push({ id: 'village', act: 6, name: '夢境終點的村莊', tiers: [], flo
     { id: 'v_shop', panel: 'shop', name: '商人．歐莉', sprite: 'npc_olly', at: [11, 12] },
     { id: 'v_stash', panel: 'stash', name: '村莊倉庫', sprite: 'chest', at: [33, 12] },
     { id: 'v_sera', panel: 'gemshop', name: '引路人．塞拉', sprite: 'npc_sera', at: [14, 7] },
-    { id: 'v_smith', panel: 'craft', name: '鐵匠．古倫', sprite: 'flv_dwarf', at: [30, 7] },
+    { id: 'v_smith', panel: 'craft', name: '鐵匠．托姆', sprite: 'flv_dwarf', at: [30, 7] },
     { id: 'v_glen', panel: 'journal', name: '老獄卒．格倫', sprite: 'npc_glen', at: [33, 20], ghost: true },
   ] });
 HUB_BY_ID.village = HUBS[HUBS.length - 1];
@@ -21,7 +21,7 @@ Object.assign(NPC_LINES, {
 });
 if (STORY && !STORY.act6) STORY.act6 = { title: '終局　夢境終點的村莊', pages: [
   '燈塔後面，有一條沒有人走過的路。路的盡頭，是一座小小的村莊。',
-  '村子裡住著你在夢裡遇過的人：歐莉、古倫、小石……他們都說，是跟著你的腳步來的。\n\n「醒來之前，先在這裡歇一下吧。」',
+  '村子裡住著你在夢裡遇過的人：牢房的書記歐莉、冰窟鑿冰的矮人托姆（他在這裡當起了鐵匠）、在雪地裡堆雪人的孩子小石……\n\n他們都說，是跟著你的腳步來的。「醒來之前，先在這裡歇一下吧。」',
   '（終局：從村莊的夢之門進入深層夢境。越深的夢，掉落越好、事件越多。）'] };
 // 村莊的路人
 CAMP_FOLK.village = [

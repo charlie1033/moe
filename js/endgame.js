@@ -121,11 +121,6 @@ UI.renderMapDevice = function () {
   });
   const rb = list.querySelector('[data-rush]'); if (rb) rb.onclick = () => enterBossRush();
 };
-// 進行中的懸賞：畫面左上方小字
-(() => { const st = document.createElement('style'); st.textContent = `.mrow.bounty.on { box-shadow: inset 3px 0 0 #ffd36a; } #bountyHud { position:fixed; left:50%; top:52px; transform:translateX(-50%); color:#ffd36a; font-size:13px; text-shadow:0 0 3px #000,0 0 2px #000; pointer-events:none; z-index:5; }`; document.head.appendChild(st); })();
-setInterval(() => {
-  let el = document.getElementById('bountyHud');
-  const t = (typeof G !== 'undefined' && G.P && G.world) ? bountyProgressText() : '';
-  if (!el) { if (!t) return; el = document.createElement('div'); el.id = 'bountyHud'; document.body.appendChild(el); }
-  el.textContent = t; el.style.display = t ? '' : 'none';
-}, 250);
+// 進行中的懸賞：小地圖下方的狀態列（core.js 的 StatusLines）
+(() => { const st = document.createElement('style'); st.textContent = `.mrow.bounty.on { box-shadow: inset 3px 0 0 #ffd36a; }`; document.head.appendChild(st); })();
+StatusLines.add(() => (G.P && G.world) ? { t: bountyProgressText(), c: '#ffd36a' } : null);

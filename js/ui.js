@@ -79,7 +79,7 @@ const UI = {
         if (CURRENCY[k].scroll) return usePortalScroll();
         if (G.P.cur[k] > 0) { this.curSel = this.curSel === k ? null : k; this.refreshInv(); } else this.msg(`沒有${CURRENCY[k].name}`);
       };
-      d.onmouseenter = e => this.showTip(`<div class="tip-name" style="color:${CURRENCY[k].color}">${CURRENCY[k].name}</div><div class="tip-sub">${CURRENCY[k].scroll ? '卷軸' : '工藝石'}　·　持有 ${G.P.cur[k]}　碎片 ${G.P.shards[k] || 0}/${SHARD_NEED}</div><div class="tip-mod">${CURRENCY[k].desc}</div><div class="tip-hint">${CURRENCY[k].scroll ? '點一下或按 T 使用' : '點一下選取，再點要改造的裝備。按住 Shift 可連續使用，右鍵取消。'}</div>`, e.clientX, e.clientY);
+      d.onmouseenter = e => this.showTip(`<div class="tip-name" style="color:${CURRENCY[k].color}">${CURRENCY[k].name}</div><div class="tip-sub">${CURRENCY[k].scroll ? '卷軸' : '工藝石'}　·　持有 ${G.P.cur[k]}　碎片 ${G.P.shards[k] || 0}/${SHARD_NEED}</div><div class="tip-mod">${CURRENCY[k].desc}</div><div class="tip-hint">${CURRENCY[k].scroll ? byCtl(`點一下或按 ${keyLabel('portal')} 使用`, '再點一下使用') : byCtl('點一下選取，再點要改造的裝備。按住 Shift 可連續使用，右鍵取消。', '再點一下選起來，然後點要改造的裝備；再點一次石頭取消')}</div>`, e.clientX, e.clientY);
       d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();
       cb.appendChild(d);
     }
@@ -148,7 +148,7 @@ const UI = {
     // v1.2：功能列收在藍球左邊的一顆按鈕裡，點了才往上彈出；回城獨立放在小地圖旁邊
     const bar = $('#menubar');
     const svg = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${this.ICONS[id]}</svg>`;
-    const items = this.MENU.filter(m => m.id !== 'portal');
+    const items = this.MENU.filter(m => m.id !== 'portal' && !(m.hide && m.hide(G.P)));   // v2.18.2 hide(P)＝還沒解鎖的不顯示
     bar.innerHTML = `<div id="mpop">${items.map(m => `<div class="mbtn" data-m="${m.id}"><span class="mico">${svg(m.id)}<span class="mkey">${keyLabel(m.id)}</span></span><span class="mname">${m.name}</span><span class="mbadge"></span></div>`).join('')}</div>`
       + `<div id="mtoggle" title="功能選單"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg><span>功能</span><b class="mtbadge"></b></div>`;
     bar.querySelectorAll('.mbtn').forEach(b => {
@@ -207,22 +207,22 @@ const UI = {
   hudTip(id) {
     const P = G.P, S = G.S, pl = G.pl; if (!S) return '';
     if (id.startsWith('sk')) {
-      const i = +id.slice(2), sid = P.skills[i], key = ['左鍵', '右鍵', 'Q', 'E', 'R'][i];
-      if (!sid) return `<div class="tip-name">空的技能欄（${key}）</div><div class="tip-hint">點一下或按 K 裝上技能</div>`;
+      const i = +id.slice(2), sid = P.skills[i], key = skillKeyNames()[i];
+      if (!sid) return `<div class="tip-name">空的技能欄（${key}）</div><div class="tip-hint">${ctlText('點一下或到技能頁（{skills}）裝上技能')}</div>`;
       const sk = SKILLS[sid], c = G.slotCalc[i], err = skillUsable(S, sid);
       const sups = (P.links[i] || []).filter(x => x).map(x => `<span style="color:${supportFits(x, sid) ? SUPPORTS[x].color : '#a05050'}">◆${SUPPORTS[x].name}</span>`).join(' ');
       return `<div class="tip-name" style="color:${sk.color}"><img class="skico" src="${skillIconURL(sid, 64)}">${sk.name}　<span class="mkey2">${key}</span></div><div class="tip-sub">${sk.tags.map(t => TAG_NAME[t]).join('・')}　魔力消耗 ${c.cost}</div>
         <div class="tip-mod" style="color:#d8ccb4">${sk.desc}</div><div class="tip-mod ${err ? 'c-bad' : ''}" style="color:${err ? '' : '#8fd0ff'}">${err || this.skillInfo(sid, c)}</div>
         ${sups ? `<div class="tip-sep"></div><div class="tip-mod">${sups}</div>` : ''}<div class="tip-hint">點一下打開技能面板</div>`;
     }
-    if (id === 'life') return `<div class="tip-name" style="color:#ff8080">生命 ${Math.ceil(pl.life)} / ${S.maxLife}</div>${S.maxES ? `<div class="tip-mod" style="color:#9fd8ff">能量護盾 ${Math.ceil(pl.es)} / ${S.maxES}（外圈藍色，先扣護盾）</div>` : ''}
+    if (id === 'life') return `<div class="tip-name" style="color:#ff8080">生命 ${Math.max(0, Math.ceil(pl.life))} / ${S.maxLife}</div>${S.maxES ? `<div class="tip-mod" style="color:#9fd8ff">能量護盾 ${Math.ceil(pl.es)} / ${S.maxES}（外圈藍色，先扣護盾）</div>` : ''}
       <div class="tip-mod" style="color:#d8ccb4">每秒回復 ${S.lifeRegenPS.toFixed(1)}　護甲 ${S.armourT}　閃避 ${S.evasionT}</div>
       <div class="tip-mod" style="color:#d8ccb4">抗性：火 ${S.resF}%　冰 ${S.resC}%　雷 ${S.resL}%　毒 ${S.resX}%</div><div class="tip-hint">生命歸零就會在牢房醒來</div>`;
     if (id === 'mana') return S.flags.bloodMagic ? '<div class="tip-name">血之魔法</div><div class="tip-mod" style="color:#d8ccb4">技能消耗生命，沒有魔力</div>'
       : `<div class="tip-name" style="color:#8fb8ff">魔力 ${Math.floor(pl.mana)} / ${S.maxMana}</div><div class="tip-mod" style="color:#d8ccb4">每秒回復 ${S.manaRegenPS.toFixed(1)}，擊殺也會回一點</div><div class="tip-hint">施放技能要消耗魔力</div>`;
     if (id.startsWith('fl')) {
       const k = +id.slice(2), f = pl.fl[k];
-      if (!f) return `<div class="tip-name">空的藥劑欄　<span class="mkey2">${k + 1}</span></div><div class="tip-hint">按 I 打開背包，在「藥劑欄」選一瓶放進來</div>`;
+      if (!f) return `<div class="tip-name">空的藥劑欄　<span class="mkey2">${k + 1}</span></div><div class="tip-hint">${ctlText('打開背包（{inv}），在「藥劑欄」選一瓶放進來')}</div>`;
       const on = G.flaskBuffs && G.flaskBuffs[f.type];
       return flaskTipHTML(f.item, { hint: `目前充能 ${Math.floor(f.c)} / ${f.max}${on ? `　<span style="color:#9fff9f">生效中 ${on.t.toFixed(1)} 秒</span>` : ''}<br>按 ${k + 1} 或點一下喝。殺怪和時間都會充能，回營地補滿` });
     }
@@ -345,7 +345,7 @@ const UI = {
         else unequipFlask(i);
         this.hideTip(); this.refreshInv(); saveGame();
       };
-      d.onmouseenter = e => { const it = P.flaskSlots[i]; if (it) this.showTip(flaskTipHTML(it, { hint: this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : `按 ${i + 1} 喝　左鍵：放回背包` }), e.clientX, e.clientY); };
+      d.onmouseenter = e => { const it = P.flaskSlots[i]; if (it) this.showTip(flaskTipHTML(it, { hint: this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : byCtl(`按 ${i + 1} 喝　左鍵：放回背包`, '再點一下：放回背包') }), e.clientX, e.clientY); };
       d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();
     });
   },
@@ -398,10 +398,10 @@ const UI = {
     const btns = [];
     if (this.sel.eq) {
       h += `<div class="tipcol">${itemTipHTML(it)}</div></div>`;
-      btns.push(['unequip', '卸下（右鍵）']);
+      btns.push(['unequip', byCtl('卸下（右鍵）', '卸下')]);
     } else if (isFlask(it)) {
       h += `<div class="tipcol">${flaskTipHTML(it)}</div></div>`;
-      btns.push(['equip', '放上藥劑欄（右鍵）']);
+      btns.push(['equip', byCtl('放上藥劑欄（右鍵）', '放上藥劑欄')]);
     } else {
       const b = BASE_BY_ID[it.base];
       let slot = b.slot; if (slot === 'ring') slot = !P.equip.ring1 ? 'ring1' : !P.equip.ring2 ? 'ring2' : 'ring1';
@@ -411,7 +411,7 @@ const UI = {
       h += '</div>';
       const err = canEquip(it);
       h += err ? `<div class="cmpdiff c-bad">無法裝備：${err}</div>` : this.diffHTML(it, slot);
-      if (!err) btns.push(['equip', '裝備（右鍵）']);
+      if (!err) btns.push(['equip', byCtl('裝備（右鍵）', '裝備')]);
     }
     if (this.sel.inv != null) {
       if (this.open.shop) btns.push(['sell', `賣出（${this.valueText(sellValue(it))}）`]);
@@ -543,17 +543,17 @@ const UI = {
   hoverInv(i, e) {
     const it = G.P.inv[i]; if (!it) return;
     if (isStack(it)) {   // v2.6.1 通貨、材料、寶石
-      const hint = this.open.stash ? '右鍵：放進倉庫　拖曳：移動位置' : it.stack === 'cur' ? (CURRENCY[it.key].scroll ? '左鍵：使用' : '左鍵：選起來，再點要改造的裝備（右鍵取消）') : it.stack === 'sup' ? '按 K 到技能頁插上去' : it.stack === 'jewel' ? '按 G 到珠寶工坊鑲嵌、合成' : '按 B 到工坊使用';
+      const hint = this.open.stash ? byCtl('右鍵：放進倉庫　拖曳：移動位置', '拖曳：移動位置') : it.stack === 'cur' ? (CURRENCY[it.key].scroll ? byCtl('左鍵：使用', '再點一下：使用') : byCtl('左鍵：選起來，再點要改造的裝備（右鍵取消）', '再點一下選起來，然後點要改造的裝備（再點一次石頭取消）')) : it.stack === 'sup' ? ctlText('到技能頁插上去（{skills}）', true) : it.stack === 'jewel' ? byCtl('按 G 到珠寶工坊鑲嵌、合成', '到珠寶工坊鑲嵌、合成') : ctlText('到工坊使用（{craft}）', true);
       return this.showTip(stackTipHTML(it, hint), e.clientX, e.clientY);
     }
     if (isFlask(it)) {
-      const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? `右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解` : this.open.stash ? '右鍵：放進倉庫' : '左鍵：選取　右鍵：放到藥劑欄';
+      const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? byCtl(`右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解`, `再點一下選取，用「賣出」鈕（得到 ${this.valueText(sellValue(it))}）或「分解」鈕`) : this.open.stash ? byCtl('右鍵：放進倉庫', '再點一下選取，用「放進倉庫」鈕') : byCtl('左鍵：選取　右鍵：放到藥劑欄', '再點一下選取，用「放上藥劑欄」鈕');
       return this.showTip(flaskTipHTML(it, { hint }), e.clientX, e.clientY);
     }
     const base = BASE_BY_ID[it.base];
     const slot = base.slot === 'ring' ? 'ring1' : base.slot;
     const cur = G.P.equip[slot];
-    const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? `右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解成碎片` : this.open.stash ? '右鍵：放進倉庫　左鍵：選取比較' : '左鍵：選取並比較　右鍵：裝備（要分解或賣掉請找商人）';
+    const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? byCtl(`右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解成碎片`, `再點一下選取，用「賣出」鈕（得到 ${this.valueText(sellValue(it))}）或「分解成碎片」鈕`) : this.open.stash ? byCtl('右鍵：放進倉庫　左鍵：選取比較', '再點一下選取比較，用「放進倉庫」鈕') : byCtl('左鍵：選取並比較　右鍵：裝備（要分解或賣掉請找商人）', '再點一下選取並比較，用「裝備」鈕穿上（要分解或賣掉請找商人）');
     let h = `<div class="tipcols"><div class="tipcol">${itemTipHTML(it, { hint })}</div>`;
     if (cur) h += `<div class="tipcol cmp"><div class="tip-cmp">目前裝備</div>${itemTipHTML(cur)}</div>`;
     h += '</div>';
@@ -561,7 +561,7 @@ const UI = {
   },
   hoverEquip(slot, e) {
     const it = G.P.equip[slot]; if (!it) return;
-    this.showTip(itemTipHTML(it, { hint: this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : '左鍵：選取　右鍵：卸下' }), e.clientX, e.clientY);
+    this.showTip(itemTipHTML(it, { hint: this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : byCtl('左鍵：選取　右鍵：卸下', '再點一下選取，用「卸下」鈕') }), e.clientX, e.clientY);
   },
 
   // ---------- 角色面板 ----------
@@ -603,7 +603,7 @@ const UI = {
     });
     h += `<div class="csec">異常狀態（全部技能共用的加成）</div>`;
     h += row('點燃／冰凍／感電', `${S.ignite_ch}%／${S.freeze_ch}%／${S.shock_ch}%`) + row('中毒／流血', `${S.poison_ch}%／${S.bleed_ch}%`) + row('持續傷害', `+${S.dot_inc}%`);
-    h += `<div class="cnote">技能本身還有內建機率，按 K 看每個技能的實際機率。點燃要火焰傷害、冰凍要冰冷、感電要閃電、中毒要物理或毒素、流血要物理。</div>`;
+    h += `<div class="cnote">技能本身還有內建機率，到技能頁看每個技能的實際機率（${ctlText('{skills}')}）。點燃要火焰傷害、冰凍要冰冷、感電要閃電、中毒要物理或毒素、流血要物理。</div>`;
     const flags = Object.keys(S.flags);
     if (flags.length) { h += `<div class="csec">特殊效果</div>`; flags.forEach(f => h += `<div class="crow c-unique">${STAT_TEXT[f]()}</div>`); }
     $('#charBody').innerHTML = h;
@@ -649,10 +649,10 @@ const UI = {
       }
       const gearIcon = gear ? (isFlask(gear) ? '' : `<img src="${itemIconURL(BASE_BY_ID[gear.base], 64)}">`) : `<span class="gslabel">${gname}</span>`;
       h += `<div class="gearrow ${sid ? '' : 'empty'}">
-        <div class="gearbox ${gear ? 'r-' + gear.rarity : ''}" title="${gear ? gear.name : '沒有裝備（寶石還是可以放）'}">${gearIcon}<b class="gkey">${key}</b></div>
+        <div class="gearbox ${gear ? 'r-' + gear.rarity : ''}" title="${gear ? gear.name : '沒有裝備（寶石還是可以放）'}">${gearIcon}<b class="gkey">${skillKeyNames()[i]}</b></div>
         <span class="gsock skill ${sid ? (err ? 'bad' : '') : 'empty'}" data-drop="skill:${i}" ${sid ? `data-gem="slot:${i}"` : ''}>${sid ? `<img src="${skillIconURL(sid, 64)}">` : '技能'}</span>
         <div class="gsocks">${socks}</div>${sid && typeof EvoCodex !== 'undefined' ? EvoCodex.cell(sid) : ''}
-        <div class="ginfo">${sid ? this.gemLine(sid, err) : `<span class="thint">${gname}：把技能寶石拖到大格</span>`}</div></div>`;
+        <div class="ginfo">${sid ? this.gemLine(sid, err) : `<span class="thint">${gname}：${byCtl('把技能寶石拖到大格', '點一下技能寶石，再點這一列的大格')}</span>`}</div></div>`;
     });
     $('#skillSlots').innerHTML = h;
     // 寶石袋：還沒放上去的技能寶石，和輔助寶石（數字＝還有幾顆）
@@ -676,7 +676,15 @@ const UI = {
       el.onmousemove = e => this.moveTip(e); el.onmouseleave = () => this.hideTip();
       el.oncontextmenu = e => { e.preventDefault(); this.gemRemove(el.dataset.gem); };
     });
-    $('#skills').querySelectorAll('[data-drop]').forEach(el => el.classList.toggle('canDrop', !!this.gemPick && this.gemAccepts(this.gemPick, el.dataset.drop)));
+    $('#skills').querySelectorAll('[data-drop]').forEach(el => {
+      el.classList.toggle('canDrop', !!this.gemPick && this.gemAccepts(this.gemPick, el.dataset.drop));
+      // v2.18.2 空的孔（大格、小格）和寶石袋也接住「點一下」：手上選了寶石，再點空孔就放進去（手機以前只能用拖的）
+      if (!el.dataset.gem) el.onclick = e => {
+        if (!this.gemPick || e.target.closest('[data-gem]') || e.target.closest('button')) return;
+        if (this.gemAccepts(this.gemPick, el.dataset.drop)) { this.gemDrop(this.gemPick, el.dataset.drop); this.gemPick = null; this.refreshSkills(); }
+        else if (el.dataset.drop !== 'bag') { this.gemDrop(this.gemPick, el.dataset.drop); }   // 放錯格：說明要放哪裡
+      };
+    });
     $('#skills').querySelectorAll('[data-gemup]').forEach(b => b.onclick = e => { e.stopPropagation(); gemLevelUp(b.dataset.gemup); this.refreshSkills(); });
     $('#skills').querySelectorAll('[data-gemlock]').forEach(b => b.onclick = e => { e.stopPropagation(); gemSetLock(b.dataset.gemlock, !gemLocked(b.dataset.gemlock)); this.refreshSkills(); });
     Hook.emit('skillsPanel', $('#skills'));   // 技能頁畫好之後（進化圖鑑 evocodex.js）
@@ -693,7 +701,7 @@ const UI = {
     if (err) h += `<span class="c-bad">${err}</span>`;
     else if (full && !lack) h += `<button class="gupbtn" data-gemup="${sid}">升級到 ${d.lv + 1} 級</button>`;
     else if (full) h += `<span class="c-bad">升級${lack}</span>`;
-    else h += `<span class="thint">${d.lv >= GEM_MAX ? '已經最高等級' : `經驗 ${pct}%　滑鼠移到寶石上看詳細數字`}</span>`;
+    else h += `<span class="thint">${d.lv >= GEM_MAX ? '已經最高等級' : `經驗 ${pct}%${byCtl('　滑鼠移到寶石上看詳細數字', '')}`}</span>`;
     return h;
   },
   // 寶石說明
@@ -715,14 +723,14 @@ const UI = {
         <div class="tip-req">需求：<span class="${P.lvl < reqL ? 'c-bad' : ''}">等級 ${reqL}</span>，${Object.keys(reqA).map(x => `<span class="${S[x] < reqA[x] ? 'c-bad' : ''}">${ATTR_ZH[x]} ${reqA[x]}</span>`).join('，')}</div>
         <div class="tip-mod" style="color:#d8ccb4">${sk.desc}</div><div class="tip-mod ${err ? 'c-bad' : ''}" style="color:${err ? '' : '#8fd0ff'}">${err || this.skillInfo(sid, c)}</div>
         ${gl > 1 ? `<div class="tip-mod" style="color:#a89878">寶石等級加成：${gemBonusText(sid, gl)}</div>` : ''}${nextH}
-        <div class="tip-hint">${kind === 'slot' ? '拖到別的裝備可以換位置；右鍵或拖回寶石袋＝拿下來' : '拖到裝備的大格（技能孔）就會生效'}</div>`;
+        <div class="tip-hint">${kind === 'slot' ? byCtl('拖到別的裝備可以換位置；右鍵或拖回寶石袋＝拿下來', '點一下選起來，再點別的大格換位置；點寶石袋＝拿下來') : byCtl('拖到裝備的大格（技能孔）就會生效', '點一下選起來，再點裝備旁的大格（技能孔）就會生效')}</div>`;
     }
     const id = kind === 'sup' ? a : P.links[+a][+b];
     const sp = SUPPORTS[id]; if (!sp) return '';
     const fit = Object.keys(SKILLS).filter(s => supportFits(id, s)).map(s => SKILLS[s].name).join('、');
     return `<div class="tip-name" style="color:${sp.color}"><img class="skico" src="${supportIconURL(id, 48)}">${sp.name}</div><div class="tip-sub">輔助寶石 · <span style="color:#8fb8ff">${manaEffTxt(sp.cost)}</span>${kind === 'sup' ? ` · 還有 ${supHave(id)} 顆` : ''}</div>
       <div class="tip-mod" style="color:#d8ccb4">${sp.desc}</div><div class="tip-mod" style="color:#a89878">可搭配：${fit}</div>
-      <div class="tip-hint">${kind === 'link' ? '右鍵或拖回寶石袋＝拿下來' : '拖到裝備旁邊的小格（輔助孔）'}</div>`;
+      <div class="tip-hint">${kind === 'link' ? byCtl('右鍵或拖回寶石袋＝拿下來', '點一下選起來，再點寶石袋＝拿下來') : byCtl('拖到裝備旁邊的小格（輔助孔）', '點一下選起來，再點裝備旁邊的小格（輔助孔）')}</div>`;
   },
   gemAccepts(p, drop) {
     const kind = p.split(':')[0], t = drop.split(':')[0];
@@ -816,7 +824,7 @@ const UI = {
       // v2.5.4：地圖等級＝怪物等級；能掉哪些基底看「物品等級」（一般怪最高＝地圖等級、黃色精英 +2、首領 +3）
       const L = mapLevel(t), top = L + MON_LVL_BONUS.boss, tiers = BASE_TIER_NAME.filter((n, i) => BASE_TIER_DROP[i] <= top);
       const nextT = BASE_TIER_DROP.find(d => d > top);
-      return `<b>第 ${t} 夜　${th.name}</b>　<span class="mgrade">地圖等級 ${L}</span><br><span class="mdesc">掉落基底：${tiers.join("、")}${nextT ? `（下一階要物品等級 ${nextT}）` : ""}<br>看守者：${boss.name}（${boss.desc}）擊敗 ${kills} 次<br>專屬掉落：<span class="c-unique">${excl}</span>　<span class="thint">每次擊敗約 12% 機率掉一件（地圖稀有度越高越容易）</span></span>`;
+      return `<b>第 ${t} 夜　${th.name}</b>　<span class="mgrade">地圖等級 ${L}</span><br><span class="mdesc">${advInfo() ? `掉落基底：${tiers.join("、")}${nextT ? `（下一階要物品等級 ${nextT}）` : ""}<br>` : ''}看守者：${boss.name}（${boss.desc}）擊敗 ${kills} 次<br>專屬掉落：<span class="c-unique">${excl}</span>　<span class="thint">每次擊敗約 12% 機率掉一件（地圖稀有度越高越容易）</span></span>`;
     };
     // —— 終局：深層夢境 ——
     if (P.maxTier >= DEEP_TIER) {
@@ -874,7 +882,8 @@ const UI = {
 
   // ---------- 死亡 ----------
   showDeath(loss, keep) {
-    $('#deathInfo').textContent = `失去 ${loss} 點經驗值。裝備都還在。` + (keep ? '你在這張地圖開過傳送門，可以從城鎮的藍色傳送門回去。' : '這張地圖沒開過傳送門，進度消失了。');
+    $('#deathInfo').textContent = `失去 ${loss} 點經驗值。裝備都還在。` + (keep === 'gate' ? '這一夜前面打過的區都還在：可以回到首領之門前再打一次（營地的藍色傳送門也回得去）。' : keep ? '你在這張地圖開過傳送門，可以從城鎮的藍色傳送門回去。' : '這張地圖沒開過傳送門，進度消失了。');
+    if (typeof DeathHelp !== 'undefined') DeathHelp.panel(keep);   // v2.18.2 死因、小提示、「回到首領之門前」鈕（deathhelp.js）
     $('#death').classList.add('show');
   },
   hideDeath() { $('#death').classList.remove('show'); goTown(!!G.savedMap); },
@@ -922,7 +931,7 @@ const UI = {
     if (regen || !G.shop) G.shop = genShop();
     if (!this.open.shop) return;
     const P = G.P;
-    let h = `<div class="ihint">背包裡的物品<b>右鍵賣出</b>，換成通貨碎片（湊滿 ${SHARD_NEED} 片自動變成 1 顆）；<b>Ctrl＋左鍵分解</b>：武器得到磨石碎片、防具得到護貝劑碎片（1～8 片，越稀有、等級越高越多；湊滿 10 片變 1 個）。每次從地圖回來，商人會換一批貨。</div>`;
+    let h = `<div class="ihint">背包裡的物品${byCtl('<b>右鍵賣出</b>', '點一下再按<b>「賣出」</b>')}，換成通貨碎片（湊滿 ${SHARD_NEED} 片自動變成 1 顆）；${byCtl('<b>Ctrl＋左鍵分解</b>', '打開背包上方的<b>「分解」</b>開關再點物品＝分解')}：武器得到磨石碎片、防具得到護貝劑碎片（1～8 片，越稀有、等級越高越多；湊滿 10 片變 1 個）。每次從地圖回來，商人會換一批貨。</div>`;
     // 自動整理：勾選要處理的稀有度，一次賣掉或分解
     const f = this.bulkFilter(), n = this.bulkList().length;
     h += `<div class="bulk"><span class="bulkt">自動整理</span>${[['normal', '白裝', '#d8d8d8'], ['magic', '藍裝', '#8890ff'], ['rare', '黃裝', '#ffff77'], ['flask', '藥劑', '#e08080']].map(([k, t, c]) =>
@@ -1044,7 +1053,7 @@ const UI = {
     for (const k in price) P.cur[k] -= price[k];
     P.skillGems[sid] = true;
     if (typeof shareSkillGem === 'function') shareSkillGem(sid);
-    this.msg(`學會新技能：${SKILLS[sid].name}（按 K 裝上）`, '#ffd27a');
+    this.msg(ctlText(`學會新技能：${SKILLS[sid].name}（{skills}裝上）`, true), '#ffd27a');
     this.hideTip(); this.refreshGemShop(); this.refreshSkills(); this.refreshInv(); saveGame();
   },
 
@@ -1066,7 +1075,7 @@ const UI = {
       d.className = 'cell icell scell' + (it ? (isStack(it) ? ' r-stack' : ' r-' + it.rarity) : '');
       d.innerHTML = this.cellHTML(it);
       d.onclick = () => this.withdraw(i);
-      d.onmouseenter = e => { if (it) this.showTip(isStack(it) ? stackTipHTML(it, '左鍵：拿回背包') : itemTipHTML(it, { hint: '左鍵：拿回背包' }), e.clientX, e.clientY); };
+      d.onmouseenter = e => { if (it) this.showTip(isStack(it) ? stackTipHTML(it, byCtl('左鍵：拿回背包', '再點一下：拿回背包')) : itemTipHTML(it, { hint: byCtl('左鍵：拿回背包', '再點一下：拿回背包') }), e.clientX, e.clientY); };
       d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();
       grid.appendChild(d);
     });
@@ -1104,7 +1113,7 @@ const UI = {
     const ok = storageOK();
     const idx = ok ? loadIndex() : { chars: [] };
     let h = '';
-    if (!ok) h += `<div class="warnbox">⚠ 這個瀏覽器目前<b>不允許遊戲存檔</b>（可能是無痕視窗或隱私設定）。<br>可以照常玩，但離開前請按 H →「匯出備份」把進度存成檔案，下次再「匯入備份」。<br>建議改用一般視窗的 Chrome 或 Edge 開啟 index.html。</div>`;
+    if (!ok) h += `<div class="warnbox">⚠ 這個瀏覽器目前<b>不允許遊戲存檔</b>（可能是無痕視窗或隱私設定）。<br>可以照常玩，但離開前請${ctlText('{help}')} →「匯出備份」把進度存成檔案，下次再「匯入備份」。<br>建議改用一般視窗的 Chrome 或 Edge 開啟 index.html。</div>`;
     if (idx.chars.length) {
       h += '<div class="slots">' + idx.chars.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).map(c => `<div class="slot"><img src="${spriteURL(c.cls)}">
         <div class="sinfo"><b style="color:${CLASSES[c.cls].color}">${c.name}</b><br>${CLASSES[c.cls].name}　Lv ${c.lvl}　第 ${c.maxTier} 夜</div>
@@ -1216,7 +1225,7 @@ const UI = {
     h += got.length ? got.map(k => `<div class="jent"><b>${STORY[k].journal.title}</b><div>${this.storyText(STORY[k].journal.text)}</div><button class="replay" data-k="${k}">重看</button></div>`).join('') : '<div class="skd">還沒有記憶。</div>';
     h += `<div class="jnote">已收集 ${got.length} / ${STORY_ORDER.length}</div>`;
     // 人物故事
-    h += '<div class="csec">人物　<span class="thint">在牢房裡靠近他們按 F，頭上有「！」代表有新故事</span></div>';
+    h += `<div class="csec">人物　<span class="thint">${ctlText('在營地裡靠近他們{talk}，頭上有「！」代表有新故事')}</span></div>`;
     for (const npc in NPC_STORIES) {
       const S = NPC_STORIES[npc], seen = S.chapters.filter(c => P.story.seen[c.id]);
       const face = typeof ArtStyle !== 'undefined' && ArtStyle.img(NPC_PORTRAIT[npc]);

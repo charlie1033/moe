@@ -73,3 +73,40 @@ const JournalTabs = {
 };
 (() => { const st = document.createElement('style'); st.textContent = `.jtabs { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 6px; padding-bottom:8px; border-bottom:1px solid #4a3a24; }
   .jtabs button { flex:1 1 auto; min-height:32px; font-size:13px; } .jtabs button.on { border-color:#f2d692 !important; color:#ffe6a0 !important; background:rgba(242,214,146,.12) !important; }`; document.head.appendChild(st); })();
+//  StatusLines.add(fn)   畫面右上「小地圖下方」的狀態列（v2.18.2：夢話、懸賞、神殿、試煉、守護者、獻祭圈……以前各自釘在畫面正上方，首領戰時五層字疊在一起）
+//     fn() 回傳 { t: 文字, c: 顏色 } 或 null／''（不顯示）；所有行由這裡統一縱向排好，不會重疊
+//  StatusLines.set(代號, 文字, 顏色)   直接設定一行（文字空白＝拿掉）。舊的 mechHud(代號, top, 顏色, 文字) 也轉到這裡（top 不再使用）
+const StatusLines = {
+  fns: [], fixed: {},
+  add(f) { this.fns.push(f); },
+  set(id, t, c) { if (t) this.fixed[id] = { t, c: c || '#e8dcc0' }; else delete this.fixed[id]; },
+  lines() {
+    const out = []; for (const id in this.fixed) out.push(this.fixed[id]);
+    for (const f of this.fns) { let r; try { r = f(); } catch (err) { console.error('[StatusLines]', err); } if (r && r.t) out.push(r); }
+    return out;
+  },
+  draw() {
+    let el = document.getElementById('statusStack');
+    const on = typeof G !== 'undefined' && G.state === 'play' && G.P && G.world && !(typeof UI !== 'undefined' && UI.storyOpen);
+    const L = on ? this.lines() : [];
+    if (!el) { if (!L.length) return; el = document.createElement('div'); el.id = 'statusStack'; document.body.appendChild(el); }
+    const h = L.map(l => `<div style="color:${l.c}">${String(l.t).replace(/</g, '&lt;')}</div>`).join('');
+    if (el._h !== h) { el.innerHTML = h; el._h = h; }
+    el.style.display = L.length ? '' : 'none'; if (!L.length) return;
+    // 位置：小地圖（含下面那行「怪物 N」）的正下方，靠右；沒有小地圖就貼右上
+    const cv = document.getElementById('game'), r = cv && cv.getBoundingClientRect(), mb = G.mmBox && G.mmBox.wd === G.world && CFG.minimap !== 'off' ? G.mmBox : null;
+    if (r && r.width) { const sc = r.width / VW; el.style.top = Math.round(r.top + (mb ? mb.y + mb.h + 30 : 10) * sc) + 'px'; el.style.right = Math.round(innerWidth - r.right + 10 * sc) + 'px'; }
+  },
+};
+function mechHud(id, top, color, t) { StatusLines.set(id, t, color); }
+// 任務框（DOM）在畫面上的範圍，換成畫面座標記在 G.qbBox：左下的訊息列看到任務框拉長到下面時，就改排在任務框右邊（render.js）
+function hudBoxes() {
+  if (typeof G === 'undefined') return;
+  const q = document.getElementById('questbox'), cv = document.getElementById('game');
+  const r = q && q.getClientRects().length ? q.getBoundingClientRect() : null, c = cv && cv.getBoundingClientRect();
+  G.qbBox = r && r.height && c && c.width ? { right: (r.right - c.left) * VW / c.width, bottom: (r.bottom - c.top) * VW / c.width } : null;
+}
+setInterval(() => { StatusLines.draw(); hudBoxes(); }, 200);
+(() => { const st = document.createElement('style'); st.textContent = `#statusStack { position:fixed; z-index:5; pointer-events:none; display:flex; flex-direction:column; align-items:flex-end; gap:3px; max-width:min(440px, 48vw); }
+  #statusStack div { font-size:13px; font-weight:bold; line-height:1.35; padding:1px 7px; border-radius:3px; background:rgba(6,4,8,.62); text-shadow:0 0 3px #000, 0 1px 1px #000; text-align:right; }
+  body.touch #statusStack { max-width:34vw; } body.touch #statusStack div { font-size:11px; padding:1px 5px; }`; document.head.appendChild(st); })();

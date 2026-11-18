@@ -1,6 +1,6 @@
 // =============================================================
 //  手機／平板觸控操作（電腦版不會啟動）
-//  左半邊：手指按下的地方就是搖桿；右下：5 個技能鈕（自動瞄準最近的怪）
+//  左半邊：手指按下的地方就是搖桿；右下：5 個技能鈕（自動瞄準畫面裡的怪：首領＞精英＞一般，同級打最近；點怪可以鎖定，見 autoaim.js）
 //  右上「☰」：所有功能選單；靠近人物時出現「對話」鈕
 //  點地上物品名稱＝撿起；背包裡的物品：點一下看說明，再點一下才使用
 // =============================================================
@@ -68,6 +68,7 @@ const Touch = {
     // 點到地上物品的名稱：撿起來
     const l = G.loot.find(l => l.rect && p.x >= l.rect.x - 4 && p.x <= l.rect.x + l.rect.w + 4 && p.y >= l.rect.y - 4 && p.y <= l.rect.y + l.rect.h + 4);
     if (l) { if (dist(l, G.pl) < 240) pickupLoot(l); else UI.msg('太遠了，走近一點再撿', '#d8c8a0'); return; }
+    if (typeof AutoAim !== 'undefined' && AutoAim.tap(p.x, p.y, p.x > VW * 0.55) && p.x > VW * 0.55) return;   // v2.18.2 點一下怪物＝鎖定（右半邊再點同一隻＝解除；左半邊點到怪只鎖定、照樣當搖桿）
     if (p.x > VW * 0.55 || this.joyId != null) return;
     this.joyId = e.pointerId; this.joyO = p;
     const j = $('#tjoy'); j.style.display = 'block'; j.style.left = (p.x - 56) + 'px'; j.style.top = (p.y - 56) + 'px';
@@ -86,14 +87,13 @@ const Touch = {
     if (e.pointerId !== this.joyId) return;
     this.joyId = null; input.joy = null; $('#tjoy').style.display = 'none';
   },
-  // 每一格畫面呼叫一次：按著技能鈕時自動瞄準最近的怪；更新按鈕外觀
+  // 每一格畫面呼叫一次：按著技能鈕時自動瞄準（autoaim.js 挑目標）；更新按鈕外觀
   frame: 0,
   tick() {
     if (!this.on || G.state !== 'play' || !G.P || !G.pl) return;
     const pl = G.pl;
     if (this.held.size) {
-      let best = null, bd = 460;
-      for (const m of G.mons) { if (m.dead || (m.boss && !m.awake)) continue; const d = dist(m, pl); if (d < bd) { bd = d; best = m; } }
+      const best = typeof AutoAim !== 'undefined' ? AutoAim.pick() : null;   // v2.18.2 只打畫面裡的；首領＞精英＞一般，同級打最近；點怪可以鎖定（autoaim.js）
       const j = input.joy && Math.hypot(input.joy.x, input.joy.y) > 0.2 ? input.joy : { x: pl.facing || 1, y: 0 };
       const tx = best ? best.x : pl.x + j.x * 140, ty = best ? best.y : pl.y + j.y * 140;
       input.mx = tx - G.cam.x; input.my = ty - G.cam.y;
@@ -132,8 +132,8 @@ const Touch = {
     const svg = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${UI.ICONS[id]}</svg>`;
     const fs = document.fullscreenElement ? '離開全螢幕' : '全螢幕';
     const h = `<div class="ph">功能選單<span class="x" id="tmclose">✕</span></div><div class="tmgrid">`
-      + UI.MENU.map(m => `<div class="tmbtn" data-m="${m.id}"><span class="mico">${svg(m.id)}</span>${m.name}${badge(m.id)}</div>`).join('')
-      + `<div class="tmbtn" data-m="fs"><span class="mico">⛶</span>${fs}</div></div>`;
+      + UI.MENU.filter(m => !(m.hide && m.hide(G.P))).map(m => `<div class="tmbtn" data-m="${m.id}"><span class="mico">${svg(m.id)}</span>${m.name}${badge(m.id)}</div>`).join('')
+      + `<div class="tmbtn" data-m="fs"><span class="mico">⛶</span>${fs}</div><div class="tmbtn" data-m="pause"><span class="mico">⚙</span>設定・存檔</div></div>`;   // v2.18.2 手機沒有 Esc：從這裡打開暫停選單（設定、存檔、回選角）
     const p = $('#tmenupanel');
     if (!force && p.dataset.h === h) return;
     p.innerHTML = h; p.dataset.h = h;
@@ -143,6 +143,7 @@ const Touch = {
       this.toggleMenu(false);
       if (id === 'portal') usePortalScroll();
       else if (id === 'fs') this.fullscreen();
+      else if (id === 'pause') Pause.show();
       else UI.toggle(id, true);
     });
   },

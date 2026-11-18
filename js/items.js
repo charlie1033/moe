@@ -558,7 +558,7 @@ function itemTipHTML(item, opts = {}) {
   const reqParts = [];
   const S = G.S;
   if (req.lvl > 1) reqParts.push(`<span class="${G.P.lvl < req.lvl ? 'c-bad' : ''}">等級 ${req.lvl}</span>`);
-  [['str', '力量'], ['dex', '敏捷'], ['int', '智慧']].forEach(([k, n]) => { if (req[k]) reqParts.push(`<span class="${S[k] < req[k] ? 'c-bad' : ''}">${n} ${req[k]}</span>`); });
+  [['str', '力量'], ['dex', '敏捷'], ['int', '智慧']].forEach(([k, n]) => { if (req[k]) reqParts.push(`<span class="${S[k] + itemOwnAttr(item, k) < req[k] ? 'c-bad' : ''}">${n} ${req[k]}</span>`); });
   if (reqParts.length) h += `<div class="tip-req">需求：${reqParts.join('，')}</div>`;
   if (item.implicit.length) {
     h += '<div class="tip-sep"></div>';
@@ -571,7 +571,7 @@ function itemTipHTML(item, opts = {}) {
       if (item.set && prevU && m.type !== 'u') h += '<div class="tip-sep"></div><div class="tip-mod" style="font-size:11px;color:#8a9a90">隨機詞綴</div>';   // v2.17.4 套裝：固定效果和隨機詞綴分開
       prevU = m.type === 'u';
       const t = STAT_TEXT[m.stat] ? STAT_TEXT[m.stat](m.v, base.def) : m.stat;
-      const tag = m.type === 'p' ? `<span class="tip-tier">前綴 T${m.tier}</span>` : m.type === 's' ? `<span class="tip-tier">後綴 T${m.tier}</span>` : '';
+      const tag = !advInfo() ? '' : m.type === 'p' ? `<span class="tip-tier">前綴 T${m.tier}</span>` : m.type === 's' ? `<span class="tip-tier">後綴 T${m.tier}</span>` : '';
       h += `<div class="tip-mod ${m.type === 'u' && FLAG_STATS.has(m.stat) ? 'c-unique' : ''}">${t}${tag}</div>`;
     }
   }
@@ -620,10 +620,12 @@ function genShop() {
   for (const e of list) e.price = curMainOnly(e.price);
   return list;
 }
+// v2.18.2 這件裝備自己加的屬性（還沒穿上的才算；已經穿著的早就算在 G.S 裡）：判斷能不能穿、說明的紅字都把它算進去
+function itemOwnAttr(item, k) { if (!item || Object.values(G.P.equip || {}).includes(item)) return 0; return [].concat(item.implicit || [], item.mods || []).reduce((s, m) => s + (m.stat === k || m.stat === 'all_attr' ? (+m.v || 0) : 0), 0); }
 function canEquip(item) {
   if (isFlask(item)) return null;
   const req = BASE_BY_ID[item.base].req || {};
   if (req.lvl && G.P.lvl < req.lvl) return `等級不足（需要 ${req.lvl}）`;
-  for (const [k, n] of [['str', '力量'], ['dex', '敏捷'], ['int', '智慧']]) if (req[k] && G.S[k] < req[k]) return `${n}不足（需要 ${req[k]}）`;
+  for (const [k, n] of [['str', '力量'], ['dex', '敏捷'], ['int', '智慧']]) if (req[k] && G.S[k] + itemOwnAttr(item, k) < req[k]) return `${n}不足（需要 ${req[k]}）`;
   return null;
 }

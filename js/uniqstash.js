@@ -16,7 +16,7 @@ const UNIQ_SLOT_NAME = { weapon: '武器', offhand: '副手', helmet: '頭盔', 
 UI.uniqHTML = function () {
   const list = G.stash.spec.uniq, have = id => list.filter(it => it.uniqueId === id);
   const kinds = new Set(list.map(it => it.uniqueId)).size;
-  let h = `<div class="spsum">收集了 ${kinds} / ${UNIQUES.length} 種、共 ${list.length} 件　<span class="thint">左鍵拿回背包　傳奇存進倉庫都會放在這頁（套裝不放這裡）</span></div>`;
+  let h = `<div class="spsum">收集了 ${kinds} / ${UNIQUES.length} 種、共 ${list.length} 件　<span class="thint">${byCtl('左鍵', '點一下')}拿回背包　傳奇存進倉庫都會放在這頁（套裝不放這裡）</span></div>`;
   // v2.17 收藏獎勵：每集滿一類，這個角色拿 1 點終局盤點數
   const got = (G.P && G.P.atlas && G.P.atlas.got) || {};
   h += `<div class="uqcol"><b>收藏獎勵</b><span class="thint">　每集滿一類給 1 點終局盤點數（每個角色各拿一次）</span><br>` + UNIQ_COLS.map(c => {
@@ -50,7 +50,7 @@ UI.refreshStash = function () {
     d.onmouseenter = e => {
       const items = G.stash.spec.uniq.filter(it => it.uniqueId === id);
       if (!items.length) return this.showTip(`<div class="tip-name c-unique">${u.name}</div><div class="tip-sub">${BASE_BY_ID[u.base].name}・還沒收集到</div>${u.dropNote ? `<div class="tip-mod" style="color:#a89878">${u.dropNote}</div>` : ''}${u.boss ? `<div class="tip-mod" style="color:#a89878">只有首領「${BOSSES[u.boss] ? BOSSES[u.boss].name : u.boss}」會掉</div>` : ''}${u.flavor ? `<div class="tip-mod" style="color:#8a7a60;font-style:italic">${u.flavor}</div>` : ''}`, e.clientX, e.clientY);
-      const cols = items.slice(0, 3).map((it, i) => `<div class="tipcol">${i ? '' : '<div class="tip-cmp">左鍵拿這件</div>'}${itemTipHTML(it)}</div>`).join('');
+      const cols = items.slice(0, 3).map((it, i) => `<div class="tipcol">${i ? '' : `<div class="tip-cmp">${byCtl('左鍵', '點一下')}拿這件</div>`}${itemTipHTML(it)}</div>`).join('');
       this.showTip(`<div class="tipcols">${cols}</div>${items.length > 3 ? `<div class="thint" style="padding:4px">還有 ${items.length - 3} 件</div>` : ''}`, e.clientX, e.clientY);
     };
     d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();

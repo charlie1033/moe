@@ -29,13 +29,13 @@ const SCARS = [
   { id: 'sc_thorns', slot: 'body', name: '荊甲', r: [40, 60], text: v => `被近戰打到時，把 ${v}% 傷害反彈給攻擊者` },
   { id: 'sc_soulward', slot: 'body', name: '魂護', r: [100, 100], text: () => '生命自然回復時，能量護盾也一起回復' },
   // 鞋子
-  { id: 'sc_wind', slot: 'boots', name: '乘風', r: [25, 35], text: v => `用空白鍵的「瞬移」「一閃」或「猛衝」之後，2 秒內移動速度 +${v}%` },
+  { id: 'sc_wind', slot: 'boots', name: '乘風', r: [25, 35], text: v => `用${ctl('dodgeKey')}的「瞬移」「一閃」或「猛衝」之後，2 秒內移動速度 +${v}%` },
   { id: 'sc_rooted', slot: 'boots', name: '紮根', r: [12, 18], text: v => `站著不動 1.5 秒後，受到的傷害 −${v}%` },
   { id: 'sc_riposte', slot: 'boots', name: '見切', r: [100, 100], text: () => '閃避或閃身成功後，下一次擊中必定暴擊' },
-  { id: 'sc_cinder', slot: 'boots', name: '焦土', r: [20, 30], text: v => `走過的地方留下 2 秒的火焰足跡（每 0.5 秒 ${v}% 左鍵技能傷害）` },
+  { id: 'sc_cinder', slot: 'boots', name: '焦土', r: [20, 30], text: v => `走過的地方留下 2 秒的火焰足跡（每 0.5 秒 ${v}% ${ctl('lmbSkill')}傷害）` },
   // 副手
   { id: 'sc_bastion', slot: 'offhand', name: '堡壘', r: [2, 4], text: v => `格擋時回復 ${v}% 生命` },
-  { id: 'sc_quake', slot: 'offhand', name: '反震', r: [25, 35], text: v => `格擋時 ${v}% 機率對周圍造成反震（左鍵技能傷害）` },
+  { id: 'sc_quake', slot: 'offhand', name: '反震', r: [25, 35], text: v => `格擋時 ${v}% 機率對周圍造成反震（${ctl('lmbSkill')}傷害）` },
   // 項鍊
   { id: 'sc_surge', slot: 'amulet', name: '蓄勢', r: [8, 12], text: v => `每 ${v} 秒，下一招的傷害 ×2（準備好時腳下會發光）` },
   { id: 'sc_bond', slot: 'amulet', name: '共生', r: [1, 2], text: v => `召喚物擊中時，你回復 ${v}% 生命（每秒最多 5 次）` },

@@ -48,5 +48,5 @@ Hook.on('start', P => {
   if (!P || P.cls !== 'summoner' || P.skills.includes('bonespear')) return;
   const i = P.skills.indexOf(null);
   if (i >= 0) { P.skills[i] = 'bonespear'; onBuildChanged(); }
-  setTimeout(() => UI.msg(i >= 0 ? `新技能：骨矛（已經放在技能欄第 ${i + 1} 格）` : '新技能：骨矛（按 K 裝到技能欄）', '#e8dcc0'), 1200);
+  setTimeout(() => UI.msg(i >= 0 ? `新技能：骨矛（已經放在技能欄第 ${i + 1} 格）` : ctlText('新技能：骨矛（{skills}裝到技能欄）', true), '#e8dcc0'), 1200);
 });

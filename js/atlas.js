@@ -113,7 +113,7 @@ const AtlasUI = {
   build() {
     if (document.getElementById('atlas')) return;
     const d = document.createElement('div'); d.id = 'atlas'; d.className = 'panel';
-    d.innerHTML = `<div class="ph">終局盤（N）　<span class="thint">只影響深層夢境（第 11 夜起）・隨時可以免費重置</span><span class="x">✕</span></div><div id="atlasBody"></div>`;
+    d.innerHTML = `<div class="ph">終局盤${byCtl('（N）', '')}　<span class="thint">只影響深層夢境（第 11 夜起）・隨時可以免費重置</span><span class="x">✕</span></div><div id="atlasBody"></div>`;
     document.body.appendChild(d); d.querySelector('.x').onclick = () => UI.toggle('atlas', false);
     const st = document.createElement('style');
     st.textContent = `#atlas { left:50%; top:50%; transform:translate(-50%,-50%); width:min(900px,96vw); max-height:92vh; overflow:auto; z-index:30; }
@@ -134,7 +134,7 @@ const AtlasUI = {
   render() {
     const P = G.P; if (!P) return; this.build();
     const A = atlasOf(P), total = atlasTotal(P), free = total - atlasUsed(P);
-    let h = `<div class="atl-top"><span>可用點數 <b>${free}</b>　／　已獲得 ${total}（最多 ${atlasMaxPts()}，全點滿要 46）</span><button id="atlReset">全部重置</button><span class="thint">左鍵加點・右鍵退點</span></div>`;
+    let h = `<div class="atl-top"><span>可用點數 <b>${free}</b>　／　已獲得 ${total}（最多 ${atlasMaxPts()}，全點滿要 46）</span><button id="atlReset">全部重置</button><span class="thint">${byCtl('左鍵加點・右鍵退點', '點節點加點・想退點按「全部重置」')}</span></div>`;
     h += `<div class="atl-cards">${Object.entries(ATLAS_PRESETS).map(([k, p]) => `<div class="atl-card${A.preset === k ? ' on' : ''}" data-pre="${k}" style="--c:${p.color}"><b>${p.name}</b><span>${p.sub}</span><i>${A.preset === k ? '目前用這個' : '點一下自動配點'}</i></div>`).join('')}</div><div class="atl-cols">`;
     ATLAS_COLS.forEach(([name, sub, color], c) => {
       h += `<div class="atl-col"><h4 style="color:${color}">${name}<small>${sub}</small></h4>`;
@@ -162,7 +162,8 @@ const AtlasUI = {
   },
 };
 // 掛進功能選單、按鍵設定、N 鍵
-UI.MENU.splice(UI.MENU.findIndex(m => m.id === 'journal'), 0, { id: 'atlas', name: '終局盤', key: 'N', desc: '決定深層夢境多出現什麼：怪海、打王、寶箱……（第 11 夜起有用）' });
+UI.MENU.splice(UI.MENU.findIndex(m => m.id === 'journal'), 0, { id: 'atlas', name: '終局盤', key: 'N', desc: '決定深層夢境多出現什麼：怪海、打王、寶箱……（第 11 夜起有用）', hide: P => !P || (P.maxTier < DEEP_TIER && !atlasTotal(P)) });   // v2.18.2 還沒解鎖（沒到深層夢境、也沒有點數）就不出現在選單
+Hook.on('enterMap', () => { const on = G.P && !UI.MENU.find(m => m.id === 'atlas').hide(G.P); if (on !== UI._atlasOn) { UI._atlasOn = on; UI.buildMenuBar(); } });
 UI.ICONS.atlas = '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>';
 KEY_ACTIONS.push({ id: 'atlas', name: '終局盤', def: 'KeyN', grp: '介面' });
 AtlasUI.build();

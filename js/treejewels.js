@@ -33,9 +33,9 @@ function makeTreeJewel(ilvl, rarity) {
 }
 // 不能當裝備穿、不能用通貨改
 const _canEquipTJ = canEquip;
-canEquip = function (it) { if (isTreeJewel(it)) return '天賦珠寶要鑲在天賦樹的珠寶洞（按 P）'; return _canEquipTJ(it); };
+canEquip = function (it) { if (isTreeJewel(it)) return ctlText('天賦珠寶要鑲在天賦樹的珠寶洞（{tree}）', true); return _canEquipTJ(it); };
 const _equipTJ = UI.equipFromInv.bind(UI);
-UI.equipFromInv = function (i, slot) { if (isTreeJewel(G.P.inv[i])) { this.msg('天賦珠寶要鑲在天賦樹的珠寶洞：按 P 打開天賦樹，左鍵點亮的珠寶洞', '#c8a0ff'); return null; } return _equipTJ(i, slot); };
+UI.equipFromInv = function (i, slot) { if (isTreeJewel(G.P.inv[i])) { this.msg(ctlText(`天賦珠寶要鑲在天賦樹的珠寶洞：打開天賦樹（{tree}），${byCtl('左鍵', '')}點已經點亮的珠寶洞`, true), '#c8a0ff'); return null; } return _equipTJ(i, slot); };
 const _applyCurTJ = applyCurrency;
 applyCurrency = function (cur, item) { if (isTreeJewel(item)) return '天賦珠寶不能用通貨改造'; return _applyCurTJ(cur, item); };
 
@@ -78,7 +78,7 @@ TreeView.nodeTip = function (n) {
   let h = `<div class="tip-name" style="color:#c8a0ff">珠寶洞</div><div class="tip-sub">天賦樹・可以鑲一顆天賦珠寶</div>`;
   if (it) h += `<div class="tip-sep"></div>` + itemTipHTML(it);
   else h += `<div class="tip-mod" style="color:#a89878">空的。天賦珠寶只在深層夢境（第 11 夜以上）掉落。</div>`;
-  h += `<div class="tip-hint">${alloc ? '左鍵：選一顆天賦珠寶鑲進來' + (it ? '（換下來的回到背包）' : '') : '先點亮這一點（花 1 點天賦點）'}</div>`;
+  h += `<div class="tip-hint">${alloc ? byCtl('左鍵', '再點一下') + '：選一顆天賦珠寶鑲進來' + (it ? '（換下來的回到背包）' : '') : '先點亮這一點（花 1 點天賦點）'}</div>`;
   return h;
 };
 const _tryAllocTJ = TreeView.tryAlloc.bind(TreeView);

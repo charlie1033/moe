@@ -312,7 +312,7 @@ function spawnPack(cx, cy, w) {
   // v2.5.5 前期精英怪少一點：第 1 夜只有原本的 35%，之後每夜 +13%，第 6 夜恢復正常
   const early = Math.min(1, 0.35 + 0.13 * tp);
   const r = Math.random(), el = w.mm.elite * (1 + Math.min(1, tp * 0.04)) * early * (1 + atlasVal('elite') / 100);   // v2.11 終局盤
-  const rare = r < 0.14 * el ? 1 : 0, magic = r >= 0.14 * el && r < 0.4 * el ? rint(1, 2) : 0;
+  const rare = r < 0.14 * el && !(w.tier === 1 && (!w.stage || w.stage.i === 1)) ? 1 : 0, magic = r >= 0.14 * el && r < 0.4 * el ? rint(1, 2) : 0;   // v2.18.2 第 1 夜第 1 區不出稀有精英（藍色精英照舊少量）
   let t1 = pick(w.theme.monsters), t2 = pick(w.theme.monsters);
   // v2.12.5 前期遠程怪少一點：第 1～4 夜一群怪的主力一定是近戰（遠程最多佔三分之一）；第 1 夜有 70%、第 2 夜有 40% 的怪群完全沒有遠程
   if ((w.tier || 9) <= 4) {
@@ -336,7 +336,7 @@ function populate(w) {
   }
   const s = rc(w.start);
   let placed = 0, tries = 0;
-  while (placed < 6 && tries < 300) {
+  while (placed < (w.tier === 1 ? 3 : w.tier === 2 ? 4 : 6) && tries < 300) {   // v2.18.2 額外的怪群：第 1 夜 6 → 3、第 2 夜 → 4（另見 chapmaps.js 的房間數）
     tries++;
     const x = rint(1, w.W - 2), y = rint(1, w.H - 2);
     if (w.grid[y * w.W + x] !== 1) continue;
@@ -374,7 +374,7 @@ function goTown(viaPortal) {
   G.dead = false;
   if (G.fromMap) UI.refreshShop(true);
   G.fromMap = false;
-  UI.msg(G.savedMap ? `你回到了${G.town.name}。站到右邊的藍色門前按 F 可以回到剛才的夢。` : `你回到了${G.town.name}。站到金色的「夢之門」前按 F 入夢，也可以傳送到其他營地。`, '#e8d8a0');
+  UI.msg(ctlText(G.savedMap ? `你回到了${G.town.name}。站到右邊的藍色門前{interact}可以回到剛才的夢。` : `你回到了${G.town.name}。站到金色的「夢之門」前{interact}入夢，也可以傳送到其他營地。`, true), '#e8d8a0');
   saveGame();
 }
 // 從主線地圖回來時，回到那一章的營地
@@ -438,7 +438,7 @@ function enterMap(tier) {
   UI.showMapDevice(false);
   UI.msg(`進入 ${G.world.name}。看守者：${BOSSES[G.world.theme.boss].name}`, '#ffcf70');
   storyBeat('firstDream');
-  for (const t of [4, 7, 10]) if (tier >= t) storyBeat('tier' + t);
+  if (tier >= 10 && tier < DEEP_TIER) storyBeat('tier10');   // v2.18.2 第 4、7 夜的主線改成打完之後回營地才播（camplife.js）
 }
 function deepMods(tier) {
   const P = G.P;
@@ -576,7 +576,7 @@ function saveGame() {
     if (G.stash) localStorage.setItem(STASH_KEY, JSON.stringify(G.stash));
     G.lastSave = Date.now(); G.saveFail = false;
   } catch (e) {
-    if (!G.saveFail && !FileSave.ok) UI.msg('⚠ 存檔失敗！請按 H → 「匯出備份」或「連結存檔檔案」。', '#ff6a6a');
+    if (!G.saveFail && !FileSave.ok) UI.msg(ctlText('⚠ 存檔失敗！請{help} →「匯出備份」或「連結存檔檔案」。', true), '#ff6a6a');
     G.saveFail = true;
   }
   FileSave.write(); // 有連結存檔檔案時，同時寫進電腦裡的檔案
@@ -687,7 +687,7 @@ function startGame(P, id) {
   fullHeal();
   goTown();
   UI.onStart();
-  if (P.treeRefunded) { delete P.treeRefunded; UI.msg('天賦樹改版了，天賦點數已全部退還，按 P 重新配點。', '#ffd780'); }
+  if (P.treeRefunded) { delete P.treeRefunded; UI.msg(ctlText('天賦樹改版了，天賦點數已全部退還，{tree}重新配點。', true), '#ffd780'); }
   storyBeat('prologue');
 }
 function onBuildChanged() {
@@ -717,10 +717,10 @@ function gainXp(n) {
   P.xp += Math.round(n);
   while (P.xp >= xpNeed(P.lvl) && P.lvl < MAX_LEVEL) {
     P.xp -= xpNeed(P.lvl); P.lvl++;
-    UI.msg(`升級！現在 ${P.lvl} 級。獲得 1 點天賦點數（按 P）`, '#9fff9f');
+    UI.msg(ctlText(`升級！現在 ${P.lvl} 級。獲得 1 點天賦點數（{tree}）`, true), '#9fff9f');
     const unlocked = Object.keys(SKILLS).filter(k => SKILLS[k].lvl === P.lvl).map(k => SKILLS[k].name);
-    if (unlocked.length) UI.msg(`新技能解鎖：${unlocked.join('、')}（按 K 裝上）`, '#ffd780');
-    if (LINK_LEVELS.includes(P.lvl)) UI.msg('技能欄多了一個輔助寶石連結孔（按 K）', '#3fd8b8');
+    if (unlocked.length) UI.msg(ctlText(`新技能解鎖：${unlocked.join('、')}（{skills}裝上）`, true), '#ffd780');
+    if (LINK_LEVELS.includes(P.lvl)) UI.msg(ctlText('技能欄多了一個輔助寶石連結孔（{skills}）', true), '#3fd8b8');
     burst(G.pl.x, G.pl.y, '#9fff9f', 30); Sfx.play('levelup'); UI.banner('升級', '等級 ' + P.lvl, '#9fff9f');
     G.fx.push({ k: 'ring', x: G.pl.x, y: G.pl.y, r: 150, t: 0, dur: 0.6, color: '#c8ffc8', fill: 'rgba(150,255,150,0.12)' });
     onBuildChanged(); fullHeal();
@@ -1317,7 +1317,7 @@ function tickPlayerAilments(dt) {
   if (dmg > 0 && !G.dead) {
     if (pl.es > 0) { const s = Math.min(pl.es, dmg); pl.es -= s; dmg -= s; }
     pl.life -= dmg;
-    if (pl.life <= 0) playerDie();
+    if (pl.life <= 0) { if (typeof DeathHelp !== 'undefined') DeathHelp.ail(a); playerDie(); }
   }
 }
 function damageMinion(mn, amt) { mn.life -= amt; mn.flash = 0.08; }
@@ -1328,9 +1328,11 @@ function playerDie() {
   P.xp = Math.max(0, P.xp - loss);
   // 地圖裡如果已經開過傳送門，死後還能從城鎮回去
   const w = G.world;
-  const keep = w.kind === 'map' && !!w.portal;
+  let keep = w.kind === 'map' && !!w.portal;
   if (keep) G.savedMap = { world: w, mons: G.mons, loot: G.loot, bossBar: G.bossBar };
+  else if (w.bossRoom && G.gateBack) { const gb = G.gateBack, gt = gb.world.bossGate; const pp = nearestFloor(gt.x + 90, gt.y + 10); gb.world.portal = { x: pp.x, y: pp.y, exit: true }; G.savedMap = gb; keep = 'gate'; }   // v2.18.2 巢穴裡倒下：回到首領之門前（bossroom.js 進門時記的）
   else if (w.kind === 'map') G.savedMap = null;
+  G.gateBack = null;
   setHubFromWorld(w);
   UI.showDeath(loss, keep);
   storyBeat('firstDeath');
@@ -1348,7 +1350,8 @@ function monsterParts(m, mult, elemOverride) {
 }
 function monsterStrike(m, target, mult = 1, elemOverride, opts = {}) {
   if (target === G.pl) {
-    damagePlayer(monsterParts(m, mult, elemOverride), opts);
+    const o = Object.assign({ src: m }, opts); if (!o.how && G._move) o.how = G._move;   // v2.18.2 誰打的、哪一招（死因、新手保護用）
+    damagePlayer(monsterParts(m, mult, elemOverride), o);
     if (m.vamp) m.life = Math.min(m.maxLife, m.life + m.maxLife * 0.03);
   } else damageMinion(target, rnd(m.dmg[0], m.dmg[1]) * mult);
 }
@@ -1491,9 +1494,10 @@ function bossAI(b, dt) {
   const pl = G.pl;
   if (!b.awake) {
     const arena = G.world.arena;
-    if ((!arena && inBossRoom(pl)) || dist(b, pl) < (arena ? 380 : 300)) { b.awake = true; G.bossBar = b; Sfx.play('bossroar'); G.shake = Math.max(G.shake, 6); UI.msg(BOSS_LINES[b.boss] ? `${b.name}：「${BOSS_LINES[b.boss]}」` : `${b.name}醒了！`, '#ff9a6a'); }
+    if ((!arena && inBossRoom(pl)) || dist(b, pl) < (arena ? 380 : 300) || b.life < b.maxLife - 0.5) { b.awake = true; G.bossBar = b; Sfx.play('bossroar'); G.shake = Math.max(G.shake, 6); UI.msg(BOSS_LINES[b.boss] ? `${b.name}：「${BOSS_LINES[b.boss]}」` : `${b.name}醒了！`, '#ff9a6a'); }
     else return;
   }
+  // v2.18.2 上面那行：被打到也會醒（以前站遠遠的可以打睡著的看守者）
   const enr = b.life < b.maxLife * 0.5 ? 0.65 : 1;
   const slow = b.chill > 0 ? 1 - b.chillAmt * 0.5 : 1;
   const abil = BOSS_ABILITIES[b.def.ai || b.boss];
@@ -1505,13 +1509,15 @@ function bossAI(b, dt) {
     const ox = b.x, oy = b.y;
     moveEnt(b, Math.cos(b.ang) * sp, Math.sin(b.ang) * sp);
     if (Math.abs(b.x - ox) + Math.abs(b.y - oy) < 1) b.dash = 0;
-    if (!b.dashHit && dist(b, pl) < b.r + pl.r + 6) { b.dashHit = true; monsterStrike(b, pl, 1.6); G.shake = 7; }
+    if (!b.dashHit && dist(b, pl) < b.r + pl.r + 6) { b.dashHit = true; monsterStrike(b, pl, 1.6, null, { how: 'charge' }); G.shake = 7; }
     if (Math.random() < 0.5) G.parts.push({ x: b.x + rnd(-10, 10), y: b.y + rnd(-10, 10), vx: 0, vy: 0, t: 0, dur: 0.4, color: '#a8e0ff', s: 3 });
     return;
   }
   if (b.casting) {
     b.castT -= dt * slow;
-    if (b.castT <= 0) { const a = b.casting; b.casting = null; a.fire(b); }
+    if (b.castT <= 0) { const a = b.casting; b.casting = null; const np = G.projs.length, nz = G.zones.length; G._move = a.id; try { a.fire(b); } finally { G._move = null; }
+      for (let i = np; i < G.projs.length; i++) if (G.projs[i].team !== 'ally') G.projs[i].how = a.id;   // v2.18.2 記下是哪一招（死亡面板的死因）
+      for (let i = nz; i < G.zones.length; i++) { G.zones[i].src = b; G.zones[i].how = a.id; } }
     return;
   }
   const d = dist(b, pl);
@@ -1589,18 +1595,18 @@ function pickupLoot(l) {
   const P = G.P;
   Sfx.play(l.cur || l.mat ? 'coin' : 'pickup');
   if (l.cur) { P.cur[l.cur]++; UI.msg(`撿到 ${CURRENCY[l.cur].name}`, '#e8d8a8'); }
-  else if (l.gem) { P.supports[l.gem] = (P.supports[l.gem] || 0) + 1; UI.msg(`撿到輔助寶石：${SUPPORTS[l.gem].name}（按 K 插到技能上）`, '#3fd8b8'); UI.refreshSkills(); }
+  else if (l.gem) { P.supports[l.gem] = (P.supports[l.gem] || 0) + 1; UI.msg(ctlText(`撿到輔助寶石：${SUPPORTS[l.gem].name}（{skills}插到技能上）`, true), '#3fd8b8'); UI.refreshSkills(); }
   else if (l.skill) {
     if (hasSkillGem(P, l.skill)) { P.cur.alter++; UI.msg(`已經會「${SKILLS[l.skill].name}」了，換成 1 顆改造石`, '#d8c8a0'); }
-    else { P.skillGems[l.skill] = true; if (typeof shareSkillGem === 'function') shareSkillGem(l.skill); UI.msg(`學會新技能：${SKILLS[l.skill].name}（按 K 裝上）`, '#ffd27a'); UI.refreshSkills(); }
+    else { P.skillGems[l.skill] = true; if (typeof shareSkillGem === 'function') shareSkillGem(l.skill); UI.msg(ctlText(`學會新技能：${SKILLS[l.skill].name}（{skills}裝上）`, true), '#ffd27a'); UI.refreshSkills(); }
   }
-  else if (l.mat) { P.mats = P.mats || {}; P.mats[l.mat] = (P.mats[l.mat] || 0) + 1; UI.msg(`撿到材料：${matName(l.mat)}（按 B 到工坊使用）`, l.color); if (UI.refreshCraft) UI.refreshCraft(); }
+  else if (l.mat) { P.mats = P.mats || {}; P.mats[l.mat] = (P.mats[l.mat] || 0) + 1; UI.msg(ctlText(`撿到材料：${matName(l.mat)}（{craft}到工坊使用）`, true), l.color); if (UI.refreshCraft) UI.refreshCraft(); }
   else if (l.jewel) { P.jewels[l.jewel] = (P.jewels[l.jewel] || 0) + 1; UI.msg(`撿到珠寶：${jewelName(l.jewel)}（在背包點它，再點有空孔的裝備就能鑲上）`, l.color); UI.refreshJewels(); }
   else if (l.frag) { P.frags[l.frag]++; UI.msg(`撿到 ${NIGHTMARES[l.frag].frag}（${P.frags[l.frag]}/${FRAG_NEED}）`, NIGHTMARES[l.frag].color); }
   else if (l.key) { P.keys[l.key]++; UI.msg(`撿到 ${NIGHTMARES[l.key].key}`, NIGHTMARES[l.key].color); }
   else if (!autoEquipPickup(l.item)) {
     const idx = P.inv.indexOf(null);
-    if (idx < 0) return msgOnce('full', '背包已滿（Ctrl+左鍵 可分解物品）');
+    if (idx < 0) return msgOnce('full', byCtl('背包已滿（在商人那裡 Ctrl+左鍵 可以分解物品）', '背包已滿（在商人那裡打開「分解」開關，點物品就能分解）'));
     P.inv[idx] = l.item;
   }
   l.gone = true;
@@ -1790,14 +1796,14 @@ function update(dt) {
         }
       }
     } else {
-      if (dist(p, pl) < pl.r + p.r) { damagePlayer(p.parts, { spell: p.spell }); p.dead = true; continue; }
+      if (dist(p, pl) < pl.r + p.r) { damagePlayer(p.parts, { spell: p.spell, src: p.owner, how: p.how || 'proj' }); p.dead = true; continue; }
       for (const mn of G.mins) if (dist(p, mn) < mn.r + p.r) { damageMinion(mn, p.parts[0][0]); p.dead = true; break; }
     }
     if (p.sprite === 'fireball' && Math.random() < 0.6) G.parts.push({ x: p.x, y: p.y, vx: rnd(-20, 20), vy: rnd(-20, 20), t: 0, dur: 0.3, color: p.team === 'ally' ? '#ff9a40' : '#ff6030', s: 3 });
   }
   G.projs = G.projs.filter(p => !p.dead && p.life > 0);
   // 地面效果
-  for (const z of G.zones) { z.t += dt; if (dist(z, pl) < z.r) damagePlayer([[z.dps * dt, z.elem || 'fire']], { dot: true }); }
+  for (const z of G.zones) { z.t += dt; if (dist(z, pl) < z.r) damagePlayer([[z.dps * dt, z.elem || 'fire']], { dot: true, src: z.src, how: z.how || 'zone' }); }
   G.zones = G.zones.filter(z => z.t < z.dur);
   for (const t of G.teles) {
     t.t += dt;

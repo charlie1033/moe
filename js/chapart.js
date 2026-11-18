@@ -1,7 +1,7 @@
 // =============================================================
 //  章節劇情事件的地上標記與夢裡的人物（全部程式畫，不吃美術圖）
 //  玩家看到：還沒完成的事件腳下有金色光暈（慢慢呼吸）、頭上一個跳動的金色「！」、偶爾冒出金色火花，夜裡也照得亮一圈；
-//            完成過的變暗、沒有光暈。npc 會輕輕呼吸，幽魂半透明飄著；靠近時頭上顯示名字
+//            完成過的變暗、沒有光暈；被區域首領鎖住的也畫成暗的（頭上寫「先打倒『名字』」），首領倒下才亮起來。npc 會輕輕呼吸，幽魂半透明飄著；靠近時頭上顯示名字
 //  標記 11 種：book 書頁、bowl 碗、altar 祭壇、grave 墓碑、chest 箱子、crown 王冠、lamp 燈、npc 人影、bones 屍骨、crystal 水晶、sign 告示牌
 //  人物 5 種（look）：skel 骷髏、human 旅人、ghost 幽魂、child 小孩、dog 狗
 //  美術掛鉤：drawChapArt(g, ev, def) 有定義且回傳 true＝美術畫好了本體（光暈、「！」、名字照舊畫）
@@ -52,7 +52,7 @@ const ChapArt = (() => {
     const t = G.time, pl = G.pl;
     for (const ev of c.evs) {
       const d = ChapterMaps.evDef(w, ev); if (!d || (d.kind === 'collect' && ev.done) || !onScr(ev.x, ev.y)) continue;
-      const on = !ev.done, x = ev.x, y = ev.y + 10, ph = ev.tx * 0.7 + ev.ty;
+      const lk = !ev.done && typeof ChapEv !== 'undefined' && ChapEv.locked(w, ev), on = !ev.done && !lk, x = ev.x, y = ev.y + 10, ph = ev.tx * 0.7 + ev.ty;   // lk：被區域首領鎖住（畫成暗的、不發光）
       g.save();
       if (on) { g.globalAlpha = 0.65 + 0.3 * Math.sin(t * 2.2 + ph); g.drawImage(halo(), x - 48, y - 26); g.globalAlpha = 1; }
       if (ev.amb) { g.strokeStyle = `rgba(255,90,60,${0.5 + 0.3 * Math.sin(t * 6)})`; g.lineWidth = 3; g.beginPath(); g.ellipse(x, y, 120, 60, 0, 0, Math.PI * 2); g.stroke(); }
@@ -78,7 +78,8 @@ const ChapArt = (() => {
         txt(g, "！", x, top - 8 + Math.sin(t * 5 + ph) * 2.5, 16, '#ffd36a', 'center');
         if (pl && Math.hypot(pl.x - x, pl.y - y) < 300) txt(g, d.kind === 'npc' ? (d.who || '夢裡的人') : (d.title || ''), x, top - 26, 11, '#ffe6a0', 'center');
         if (Math.random() < 0.06) G.parts.push({ x: x + rnd(-14, 14), y: y - rnd(0, 20), vx: rnd(-6, 6), vy: -rnd(20, 40), t: 0, dur: rnd(0.6, 1.1), color: Math.random() < 0.5 ? '#ffd36a' : '#fff0c0', s: 2 });
-      } else if (d.kind === 'npc' && pl && Math.hypot(pl.x - x, pl.y - y) < 200) txt(g, d.who || '', x, top - 6, 10, '#bfb59a', 'center');
+      } else if (lk) { if (pl && Math.hypot(pl.x - x, pl.y - y) < 300) txt(g, `先打倒『${lk}』`, x, top - 8, 11, '#ffb070', 'center'); }
+      else if (d.kind === 'npc' && pl && Math.hypot(pl.x - x, pl.y - y) < 200) txt(g, d.who || '', x, top - 6, 10, '#bfb59a', 'center');
     }
   }
   function light(cut, cx, cy) {
@@ -88,7 +89,7 @@ const ChapArt = (() => {
   function glow(g, cx, cy) {
     const w = G.world, c = w && w.chap; if (!c) return;
     g.save(); g.globalCompositeOperation = 'lighter';
-    for (const ev of c.evs) { if (ev.done) continue; const x = ev.x - cx, y = ev.y - cy; if (x < -80 || x > VW + 80 || y < -80 || y > VH + 80) continue;
+    for (const ev of c.evs) { if (ev.done || (typeof ChapEv !== 'undefined' && ChapEv.locked(w, ev))) continue; const x = ev.x - cx, y = ev.y - cy; if (x < -80 || x > VW + 80 || y < -80 || y > VH + 80) continue;
       g.globalAlpha = 0.22 + 0.08 * Math.sin(G.time * 2.2 + ev.tx); g.drawImage(glowImg(), x - 56, y - 64, 112, 112); }
     g.restore();
   }

@@ -193,7 +193,7 @@ ArtUI.load();
     if (!use) return;
     g.save(); g.imageSmoothingEnabled = true;
     if (IM.hud_slot) {
-      const labels = CFG.swapMouse ? ['右', '左', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')] : ['左', '右', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')];
+      const labels = IS_TOUCH && typeof skillKeyNames === 'function' ? skillKeyNames() : CFG.swapMouse ? ['右', '左', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')] : ['左', '右', keyLabel('sk3'), keyLabel('sk4'), keyLabel('sk5')];   // 手機：主、2～5（跟技能頁一致）
       for (let i = 0; i < 5; i++) {
         const [x, y, s] = HUD.skill(i);
         if (!G.P.skills[i]) emptySlot(g, x, y, s);   // v2.11 沒放技能的格子：一個淡淡的空寶石座
@@ -207,7 +207,7 @@ ArtUI.load();
       if (ic) { g.fillStyle = '#0c0a0e'; roundRect(g, x + 0.5, y + 0.5, fw - 1, fh - 1, 4); g.fill(); }   // 蓋掉原本的色塊
       if (IM.hud_flask) ArtUI.frame(g, IM.hud_flask, x, y, fw, fh, 1, 2);
       if (ic) drawFlaskBottle(g, f, ic, x, y, fw, fh);
-      txt(g, keyLabel('f' + (i + 1)), x + fw / 2, y + 7, 9, '#f0d088', 'center');
+      if (!IS_TOUCH) txt(g, keyLabel('f' + (i + 1)), x + fw / 2, y + 7, 9, '#f0d088', 'center');   // 手機不畫按鍵字
     }
     drawMiniFrame(g);
     g.restore();

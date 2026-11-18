@@ -3,7 +3,7 @@
 //  玩家看到：日誌上方多一個分頁「第一百三十八本」，分成：做過的抉擇、倒下的夜（第幾夜、在哪、被誰打倒）、
 //    常常打倒你的看守者、紀錄（爬塔最高層之類）。還沒聽歐莉講「一百三十七本」那一章時，頁首會提示去找她
 //  同一隻看守者（任何首領）打倒你第 3 次：回到營地時，格倫說一句那隻看守者專屬的話，送一瓶藥（稜鏡藥劑；沒有這種藥就送生命藥劑）
-//  被誰打倒：倒下那一刻，看守者的血條還在而且在附近就算看守者；否則算離你最近的怪；附近沒有怪就算陷阱或身上的毒火
+//  被誰打倒：v2.18.2 起用最後一下的準確資料（deathhelp.js 的 G._lastHit：誰的哪一招）；萬一沒有，才照舊推測（看守者血條→最近的怪→陷阱或毒火）
 //  給其他組用：
 //    Book138.note(kind, text)   kind：'choice' 抉擇、'death' 死亡、'record' 紀錄（自動記下第幾夜和時間）
 //    Book138.record(名稱, 數字)  只有比舊紀錄高才更新，有更新回傳 true（同時寫一行 'record'）
@@ -44,13 +44,19 @@ const Book138 = {
   // 倒下的那一刻
   onDeath() {
     const b = this.data(), pl = G.pl, w = G.world; if (!b || !pl || !w) return;
-    let killer = null;
-    const bb = G.bossBar; if (bb && !bb.dead && bb.awake !== false && dist(bb, pl) < 600) killer = bb;
-    if (!killer) { let bd = 420; for (const m of G.mons) { if (m.dead || m.hidden) continue; const d = dist(m, pl) - (m.boss ? 200 : 0); if (d < bd) { bd = d; killer = m; } } }
-    const a = pl.ail || {};
-    const by = killer ? killer.name : a.poison && a.poison.length ? '身上的毒' : a.ign ? '身上的火' : '夢裡的陷阱';
+    // v2.18.2 用受傷時記下的準確資料（deathhelp.js 的 G._lastHit：誰、哪一招）；沒有才退回舊的推測
+    const L = G._lastHit && G.time - G._lastHit.t < 8 ? G._lastHit : null;
+    let killer = null, by, bossId = L ? L.boss : null;
+    if (L) by = L.ail ? `${L.who}留下的${L.how}` : `${L.who}的${L.how}`;
+    else {
+      const bb = G.bossBar; if (bb && !bb.dead && bb.awake !== false && dist(bb, pl) < 600) killer = bb;
+      if (!killer) { let bd = 420; for (const m of G.mons) { if (m.dead || m.hidden) continue; const d = dist(m, pl) - (m.boss ? 200 : 0); if (d < bd) { bd = d; killer = m; } } }
+      const a = pl.ail || {};
+      by = killer ? killer.name : a.poison && a.poison.length ? '身上的毒' : a.ign ? '身上的火' : '夢裡的陷阱';
+      bossId = killer && killer.boss ? killer.boss : null;
+    }
     const place = w.arena ? (BOSSES[w.arena] ? BOSSES[w.arena].name + '的競技場' : '競技場') : (w.theme ? w.theme.name : (w.name || ''));
-    const e = { n: w.kind === 'map' && !w.arena ? (w.tier || 0) : 0, place, by, boss: killer && killer.boss ? killer.boss : null, t: Date.now() };
+    const e = { n: w.kind === 'map' && !w.arena ? (w.tier || 0) : 0, place, by, boss: bossId, t: Date.now() };
     b.deaths.push(e); if (b.deaths.length > 60) b.deaths.splice(0, b.deaths.length - 60);
     if (e.boss) {
       b.bossDeaths[e.boss] = (b.bossDeaths[e.boss] || 0) + 1;

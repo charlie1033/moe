@@ -12,6 +12,7 @@
 //        首領／看守者（m.boss）：每次碎冰最多吃到牠最大生命 3%、導電 2%；毒爆一次最多結算 2%（稀有怪 8%），沒結算完的毒照常留著
 //  日誌（J）多一頁「反應圖鑑」：觸發過的顯示名稱、條件、效果、次數，沒觸發過的是「？？？」；下面附上每個異常狀態的說明
 //  異常狀態說明（AILMENTS[x].desc）第一行補上它參與的反應（技能頁滑鼠移到異常狀態上看得到）
+//  輔助寶石說明（SUPPORTS[x].desc）最後補一行「可觸發：凝血（流血＋冰緩）」：依寶石 mods 會造成的狀態（SUP_AIL）對 REACTIONS 的 need 自動產生
 //  做法：不包裝任何函式。Hook 'update' 每格比對每隻怪的冰凍／生命／冰緩／點燃，'kill' 補抓「一下打死冰凍的怪」
 //  資料：全帳號共用 G.stash.reactSeen = { shatter: 次數, toxic, clot, conduct }
 // =============================================================
@@ -23,6 +24,20 @@ const REACTIONS = {
 };
 const REACT_ORDER = ['shatter', 'toxic', 'clot', 'conduct'];
 const REACT_CD = { shatter: 2, toxic: 3, clot: 3, conduct: 2 };
+// 輔助寶石說明最後一行「可觸發：凝血（流血＋冰緩）」：看寶石的 mods 會造成哪種異常狀態，再找用到那個狀態的反應（從 REACTIONS 產生）
+//   need＝這個反應要哪些狀態（有其中一個就算「可觸發」）；combo＝括號裡寫的組合
+Object.assign(REACTIONS.shatter, { need: ['freeze'], combo: '冰凍＋重擊' });
+Object.assign(REACTIONS.toxic, { need: ['poison', 'ignite'], combo: '中毒＋點燃' });
+Object.assign(REACTIONS.clot, { need: ['bleed', 'chill'], combo: '流血＋冰緩' });
+Object.assign(REACTIONS.conduct, { need: ['shock'], combo: '感電＋水邊' });
+const SUP_AIL = { bleed_ch: ['bleed'], poison_ch: ['poison'], ignite_ch: ['ignite'], shock_ch: ['shock'], freeze_ch: ['freeze', 'chill'], conv_cold: ['chill'] };   // 輔助的 mod → 造成的狀態（冰冷傷害一定會冰緩）
+function supReactLine(sp) {
+  const ail = new Set(); for (const k in (sp && sp.mods) || {}) for (const a of SUP_AIL[k] || []) ail.add(a);
+  const rs = REACT_ORDER.filter(k => REACTIONS[k].need.some(a => ail.has(a)));
+  return rs.length ? '可觸發：' + rs.map(k => `${REACTIONS[k].name}（${REACTIONS[k].combo}）`).join('、') : '';
+}
+function supReactAll() { for (const k in SUPPORTS) { const sp = SUPPORTS[k], t = supReactLine(sp); if (t && !String(sp.desc).includes('可觸發：')) sp.desc += '<br>' + t; } }
+supReactAll(); Hook.on('start', supReactAll);   // 後面的檔案也會加輔助寶石：進角色時再補一次（已經補過的不會重複）
 // 異常狀態說明的第一行：它參與哪些反應
 (() => {
   const line = { freeze: '連動：碎冰（冰凍中被重擊）、凝血（冰冷傷害讓流血的敵人定身）', ignite: '連動：毒爆（點燃中毒的敵人，毒一次結算）',
@@ -34,7 +49,7 @@ function reactFire(k, m) {
   const R = REACTIONS[k], seen = reactSeen(), first = !seen[k];
   seen[k] = (seen[k] || 0) + 1;
   G.texts.push({ x: m.x + rnd(-8, 8), y: m.y - m.r - 34, txt: R.name, color: R.color, size: 13, t: 0, dur: 0.9, pop: 0.6 });
-  if (first) { UI.banner('元素連動：' + R.name, R.eff, R.color); UI.msg(`新的反應「${R.name}」：${R.cond}。記在日誌（J）的反應圖鑑。`, R.color); Sfx.play('crit'); if (UI.open && UI.open.journal) UI.refreshJournal(); }
+  if (first) { UI.banner('元素連動：' + R.name, R.eff, R.color); UI.msg(`新的反應「${R.name}」：${R.cond}。記在日誌${byCtl('（J）', '')}的反應圖鑑。`, R.color); Sfx.play('crit'); if (UI.open && UI.open.journal) UI.refreshJournal(); }
 }
 const _rxArcs = [];
 const rxOf = m => m._rx || (m._rx = { pz: false, pl: m.life, pc: m.chill || 0, pi: m.ign || null, cd: {}, recv: -9 });

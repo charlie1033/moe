@@ -17,11 +17,7 @@
 //  資料：都在 w.events 的事件物件上（rite：round／pool／mobs／out；mist：t／kills／layer）
 // =============================================================
 const RITE = { R: 190, outMax: 4 }, MIST = { t0: 12, perKill: 0.5, perLayer: 12 };
-function mechHud(id, top, color, t) {
-  let el = document.getElementById(id);
-  if (!el) { if (!t) return; el = document.createElement('div'); el.id = id; el.style.cssText = `position:fixed;left:50%;top:${top}px;transform:translateX(-50%);font-size:16px;font-weight:bold;color:${color};text-shadow:0 0 4px #000,0 0 2px #000;pointer-events:none;z-index:5`; document.body.appendChild(el); }
-  if (el.textContent !== t) el.textContent = t; el.style.display = t ? '' : 'none';
-}
+// mechHud(代號, top, 顏色, 文字) 在 core.js：v2.18.2 起所有狀態列統一排在小地圖下方（StatusLines）
 const evActive = kind => G.world && G.world.events && G.world.events.find(e => e.kind === kind && e.active);
 // —— 放進地圖 ——
 Hook.on('stage', w => {

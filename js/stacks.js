@@ -13,7 +13,7 @@ const STACK_TYPES = {
   mat: { name: k => matName(k), max: () => 30, color: k => MATS[k.slice(0, k.lastIndexOf('_'))].color, ok: k => !!MATS[k.slice(0, k.lastIndexOf('_'))],
     icon: k => matIconURL(k.slice(0, k.lastIndexOf('_')), +k.slice(k.lastIndexOf('_') + 1), 64), desc: k => MATS[k.slice(0, k.lastIndexOf('_'))].desc + '（在工坊 B 用來製作、改造裝備）', kind: '材料' },
   sup: { name: k => SUPPORTS[k].name, max: () => 10, color: k => SUPPORTS[k].color, ok: k => !!SUPPORTS[k],
-    icon: k => supportIconURL(k, 64), desc: k => SUPPORTS[k].desc + '（按 K 插到技能上）', kind: '輔助寶石' },
+    icon: k => supportIconURL(k, 64), desc: k => SUPPORTS[k].desc + ctlText('（到技能頁插到技能上：{skills}）'), kind: '輔助寶石' },
   jewel: { name: k => jewelName(k), max: () => 10, color: k => JEWELS[parseJewel(k).type].color, ok: k => { try { return !!JEWELS[parseJewel(k).type]; } catch (e) { return false; } },
     icon: k => jewelIconURL(k), desc: k => jewelText(k) + '（在背包點它，再點有空孔的裝備就鑲上去；3 顆同階可以找營地的小雀合成高一階）', kind: '珠寶' },
 };

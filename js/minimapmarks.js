@@ -9,7 +9,8 @@
 // =============================================================
 const MINI_EV_COLOR = { abyss: '#b070ff', essence: '#9ae8ff', vision: '#ffe9a0', chest: '#ffd36a', tide: '#7ad8ff', rite: '#ff7a90', mist: '#a8c8c0' };
 Hook.on('drawMinimap', (g, mx, my, s) => {
-  const w = G.world, pl = G.pl; if (!w || w.kind === 'town') return;
+  const w = G.world, pl = G.pl; if (w) G.mmBox = { x: mx, y: my, w: w.W * s, h: w.H * s, wd: w };   // v2.18.2 狀態列排在小地圖下方（core.js StatusLines）
+  if (!w || w.kind === 'town') return;
   const seen = (x, y) => { const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return !w.explored || w.explored[ty * w.W + tx]; };
   const P = (x, y) => [mx + x / TS * s, my + y / TS * s];
   const dot = (x, y, r, col, ring) => { const [px, py] = P(x, y); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill(); if (ring) { g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke(); } };
@@ -19,9 +20,10 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
     const alive = G.mons.filter(m => !m.dead && !m.boss), el = alive.filter(m => m.rarity && m.rarity !== 'normal').length;
     const tx = mx + w.W * s, ty = my + w.H * s + 16;
     g.save(); g.font = 'bold 12px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
-    const t = `怪物 ${alive.length}${el ? `（精英 ${el}）` : ''}`, tw = g.measureText(t).width;
+    const bossUp = !alive.length && G.mons.some(m => m.boss && !m.dead);   // v2.18.2 首領巢穴：首領還活著就不寫「清空了」
+    const t = alive.length ? `怪物 ${alive.length}${el ? `（精英 ${el}）` : ''}` : bossUp ? '首領還在' : '這一區清空了', tw = g.measureText(t).width;
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(tx - tw - 8, ty - 9, tw + 10, 18);
-    g.fillStyle = alive.length ? '#e8d8b8' : '#9fe0a0'; g.fillText(alive.length ? t : '這一區清空了', tx - 2, ty);
+    g.fillStyle = alive.length ? '#e8d8b8' : bossUp ? '#ff9a70' : '#9fe0a0'; g.fillText(t, tx - 2, ty);
     g.restore();
   }
   // 事件
@@ -46,7 +48,7 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
   for (const m of G.mons) {
     if (m.dead || m.boss || m.hidden || (m.rarity === 'normal' && !m.guardian)) continue;
     if (Math.hypot(m.x - pl.x, m.y - pl.y) > 520 && !seen(m.x, m.y)) continue;
-    if (m.guardian) { g.globalAlpha = blink; dot(m.x, m.y, Math.max(2.5, s * 1.4), '#ff8a30', true); g.globalAlpha = 1; }
+    if (m.guardian) { g.globalAlpha = 0.55 + 0.45 * blink; dot(m.x, m.y, Math.max(4.5, s * 2.6), '#ff8a30', true); g.globalAlpha = 1; }   // v2.18.2 守護者的點畫大一點
     else dot(m.x, m.y, Math.max(1.5, s * 0.8), m.rarity === 'rare' ? '#ffd84a' : '#7aa8ff');
   }
 });

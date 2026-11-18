@@ -2,6 +2,7 @@
 //  v2.7.10 營地（庇護所）更有生氣
 //  ・每個營地多 2 位「路人」：沒有功能，會在附近慢慢走動，你靠近時會說話（按 F 也可以跟他們聊一句）
 //  ・營火、掛燈、每個營地自己的氛圍粒子（牢房的塵埃、冰窟的雪、驛站的海霧、樹根的螢火蟲、燈塔的虛空光點）
+//  ・v2.18.2 打完第 4／7 夜回到營地時，播主線的「歐莉的紙條」「牆上的字」（story.js 的 tier4、tier7）
 // =============================================================
 const CAMP_FOLK = {
   cell: [
@@ -9,7 +10,7 @@ const CAMP_FOLK = {
     { id: 'f_monk', name: '褪色的修士', sprite: 'flv_monk', at: [25, 15], ghost: true, lines: ['「……醒來……」', '「我在這裡禱告了很久，久到忘了要求什麼。」', '「每個人都以為自己是第一個醒來的。」'] },
   ],
   icecamp: [
-    { id: 'f_dwarf', name: '鑿冰的矮人．古倫', sprite: 'flv_dwarf', at: [5, 6], lines: ['「冰裡凍著一些東西，有時候它們會眨眼。」', '「這把鎬子比我老。」', '「別在冰上生火，會哭的。」'] },
+    { id: 'f_dwarf', name: '鑿冰的矮人．托姆', sprite: 'flv_dwarf', at: [5, 6], lines: ['「冰裡凍著一些東西，有時候它們會眨眼。」', '「這把鎬子比我老。」', '「別在冰上生火，會哭的。」'] },
     { id: 'f_kid', name: '雪地裡的孩子．小石', sprite: 'flv_kid', at: [24, 15], lines: ['「你看！我堆的雪人會自己轉頭！」', '「阿雷說外面的狼是夢變的。」', '「我不冷，我只是不記得溫暖是什麼。」'] },
   ],
   harbor: [
@@ -73,10 +74,10 @@ drawTownDeco = function (g, w) {
     drawSprite(g, f.sprite, f.x, f.y + 12, 2, f.facing, null, false, bob, f.tx != null, f.hx);
     g.globalAlpha = 1;
     const near = G.nearAct && G.nearAct.ref === f;
-    txt(g, near ? `[F] ${f.name}` : f.name, f.x, f.y + 26, near ? 12 : 10, near ? '#ffe9a0' : '#a89878', 'center');
+    txt(g, near ? `${ctlTag()}${f.name}` : f.name, f.x, f.y + 26, near ? 12 : 10, near ? '#fff2b0' : '#d4c6a4', 'center');
     if (f.sayT > 0 && f.say) {
       g.globalAlpha = Math.min(1, f.sayT / 0.4);
-      g.font = `12px ${FONT}`; const tw = Math.min(260, g.measureText(f.say).width) + 14, bx = f.x - tw / 2, by = f.y - 64;
+      g.font = `12px ${FONT}`; const tw = Math.min(260, g.measureText(f.say).width) + 14, bx = f.x - tw / 2, by = Math.max(f.y - 64, Math.round(G.cam.y) + 30);   // v2.18.2 不蓋到左上角的營地名稱
       g.fillStyle = 'rgba(250,244,228,0.94)'; roundRect(g, bx, by, tw, 20, 6); g.fill();
       g.beginPath(); g.moveTo(f.x - 5, by + 20); g.lineTo(f.x + 2, by + 27); g.lineTo(f.x + 5, by + 20); g.fill();
       txt(g, f.say, f.x, by + 10, 12, '#3a2a18', 'center', false);
@@ -96,3 +97,8 @@ drawTownDeco = function (g, w) {
     g.fillStyle = col; g.beginPath(); g.arc(a.x, a.y, r, 0, Math.PI * 2); g.fill();
   }
 };
+// v2.18.2 主線「歐莉的紙條」（tier4）、「牆上的字」（tier7）：打完第 4／7 夜之後，回到任何一個營地時播（以前是一進那一夜就播，人卻還寫在牢房裡）
+Hook.on('update', () => {
+  const w = G.world, P = G.P; if (!w || w.kind !== 'town' || !P || !P.story || UI.storyOpen || UI.paused()) return;
+  for (const t of [4, 7]) if ((P.maxTier || 0) > t && !P.story.seen['tier' + t]) { storyBeat('tier' + t); break; }
+});

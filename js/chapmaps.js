@@ -2,7 +2,10 @@
 //  章節手工地圖（引擎）：主線第 1～10 夜每一區用固定地形，第 11 夜以後照舊隨機
 //  玩家看到：同一夜同一區每次進去地形、障礙物、劇情事件、布景、區域首領的位置都一樣；怪物照舊隨機放在固定的房間裡
 //    ・封住的通道（D）：一開始是發光的封印牆，完成打開它的劇情事件後震動＋粒子，變成路
+//      打開時不整張重畫底圖：進圖畫底圖時（'worldCanvas'）先用「D 已打開」的格子在另一張畫布畫一次，只留 D 和四周兩格（牆邊陰影會多出一格）存成小圖（_dPatch），打開時直接貼上
 //    ・進每一區時橫幅副標是那一區的 intro（stages.js 讀 w.intro）
+//    ・劇情點、布景周圍 5 格內不放怪：隨機的怪群、p 標記、守護者放好之後整群搬到別的房間（伏擊自己的怪、區域首領不算）
+//    ・首領之門離劇情點至少 4 格、不壓在布景上（第 3 區有劇情點時用）
 //  資料：內容檔（chapmaps1.js 第 1～5 夜、chapmaps2.js 第 6～10 夜）呼叫 ChapterMaps.add({ tier, stage, name, intro, rows, events, bosses })
 //        存在 CHAPTER_MAPS['夜-區']；後加的蓋掉先加的。格式見 D:\POE系統 的章節地圖規格
 //  地圖物件：一般欄位跟 game.js 的 genMap 一樣，另外 w.chap = { key, evs:[{n,id,part,kind,x,y,tx,ty,done,amb…}], packs, dCells, open, boss:{x,y,dead}, scenes:[…] }
@@ -87,7 +90,7 @@ const ChapterMaps = {
     }
     const hit = (r, o) => o && r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y;
     if (!boss) { const far = cand.slice().sort((a, b) => b.d - a.d)[0] || { x: W - 12, y: H - 10, w: 9, h: 7 }; boss = { x: far.x, y: far.y, w: far.w, h: far.h }; }
-    const N = Math.max(6, Math.round(floor / 100) - packs.length);
+    const N = tier <= 2 ? Math.max(tier === 1 ? 3 : 5, Math.round(floor / (tier === 1 ? 200 : 133)) - packs.length) : Math.max(6, Math.round(floor / 100) - packs.length);   // v2.18.2 放怪的房間數：第 1 夜減半、第 2 夜 ×0.75（新手）
     const others = cand.filter(r => !hit(r, start) && !hit(r, boss)).sort((a, b) => b.f - a.f).slice(0, N).map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h }));
     const theme = THEMES[(tier - 1) % THEMES.length];
     const chap = { key, evs, packs, dCells, open: false, boss: B && def.bosses && def.bosses.B ? { x: B.x * TS + 16, y: B.y * TS + 16, dead: false } : null, scenes: [] };
@@ -111,8 +114,20 @@ const ChapterMaps = {
     c.open = true;
     for (const i of c.dCells) { w.grid[i] = 1; w.deco[i] = 0; }
     if (w === G.world) {
-      const ex = w.explored; buildWorldCanvas(w);
-      if (ex && ex.length === w.W * w.H) { w.explored = ex; for (let i = 0; i < ex.length; i++) if (ex[i]) paintMini(w, i % w.W, Math.floor(i / w.W)); }
+      const pt = _dPatch.get(w); _dPatch.delete(w);
+      if (pt && w.canvas && w.miniG && w.explored) {   // 只貼 D 和四周兩格（小地圖補 D 和四周一格）
+        const g = w.canvas.getContext('2d'); g.save(); g.beginPath();
+        for (const i of c.dCells) g.rect((i % w.W - 2) * TS, (Math.floor(i / w.W) - 2) * TS, 5 * TS, 5 * TS);
+        g.clip(); g.drawImage(pt.cv, pt.x0 * TS, pt.y0 * TS); g.restore();
+        const seen = {};
+        for (const i of c.dCells) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const x = i % w.W + dx, y = Math.floor(i / w.W) + dy, j = y * w.W + x;
+          if (x < 0 || y < 0 || x >= w.W || y >= w.H || seen[j] || !w.explored[j]) continue; seen[j] = 1; w.miniG.clearRect(x, y, 1, 1); paintMini(w, x, y);
+        }
+      } else {
+        const ex = w.explored; buildWorldCanvas(w);
+        if (ex && ex.length === w.W * w.H) { w.explored = ex; for (let i = 0; i < ex.length; i++) if (ex[i]) paintMini(w, i % w.W, Math.floor(i / w.W)); }
+      }
       if (!quiet) {
         G.shake = Math.max(G.shake, 9); Sfx.play('portal');
         c.dCells.forEach((i, k) => { if (k % 2 === 0 || c.dCells.length < 20) burst((i % w.W) * TS + 16, Math.floor(i / w.W) * TS + 16, k % 3 ? '#ffd36a' : '#c8a8ff', 10, 160); });
@@ -164,4 +179,63 @@ Hook.on('drawWorld', g => {
 Hook.on('light', (cut, cx, cy) => {
   const w = G.world, c = w && w.chap; if (!c || c.open || !c.dCells.length) return;
   for (let k = 0; k < c.dCells.length; k += 3) { const i = c.dCells[k], x = (i % w.W) * TS + 16 - cx, y = Math.floor(i / w.W) * TS + 16 - cy; if (x > -80 && x < VW + 80 && y > -80 && y < VH + 80) cut(x, y, 60, 0.35); }
+});
+// 封住的通道的「打開後」小圖：底圖畫好時，用 D 已打開的格子在另一張畫布整張畫一次（跟整張重畫的結果一模一樣），只留 D 四周兩格
+//   代價是進圖時多畫一次底圖（約 40 毫秒，在換區的時候），打開通道時只要貼小圖（不到 1 毫秒）；小圖存在 WeakMap，不會進存檔
+const _dPatch = new WeakMap();
+Hook.on('worldCanvas', w => {
+  const c = w && w.chap; if (!c || c.open || !c.dCells.length || w._dSub || !w.canvas) return;
+  _dPatch.delete(w);
+  const W = w.W, grid = w.grid.slice(), deco = w.deco.slice();
+  for (const i of c.dCells) { grid[i] = 1; deco[i] = 0; }
+  const sub = Object.assign({}, w, { grid, deco, _dSub: true, chap: Object.assign({}, c, { open: true }) });
+  try { buildWorldCanvas(sub); } catch (e) { console.error('[ChapterMaps D]', e); return; }
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (const i of c.dCells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x - 2); y0 = Math.min(y0, y - 2); x1 = Math.max(x1, x + 2); y1 = Math.max(y1, y + 2); }
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W - 1, x1); y1 = Math.min(w.H - 1, y1);
+  const cv = document.createElement('canvas'); cv.width = (x1 - x0 + 1) * TS; cv.height = (y1 - y0 + 1) * TS;
+  cv.getContext('2d').drawImage(sub.canvas, x0 * TS, y0 * TS, cv.width, cv.height, 0, 0, cv.width, cv.height);
+  _dPatch.set(w, { x0, y0, cv });
+});
+// 劇情點、布景周圍 5 格內不放怪；首領之門離劇情點至少 4 格（排在 bossroom.js 放門和守護者、上面放 p 怪群之後）
+Hook.on('stage', w => {
+  const c = w && w.chap; if (!c || w.bossRoom || c.spaced) return; c.spaced = true;
+  const W = w.W, R = 5 * TS, S = typeof ChapScenes !== 'undefined' ? ChapScenes.S : {};
+  const boxes = (c.scenes || []).map(sc => S[sc.id] && { x0: sc.sx * TS, y0: sc.sy * TS, x1: (sc.sx + S[sc.id].w) * TS, y1: (sc.sy + S[sc.id].h) * TS }).filter(Boolean);
+  const gap = (x, y) => {   // 離最近的劇情點／布景多遠（像素）
+    let d = 1e9;
+    for (const e of c.evs) d = Math.min(d, Math.hypot(e.x - x, e.y - y));
+    for (const b of boxes) d = Math.min(d, Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1)));
+    return d;
+  };
+  if (!c.evs.length && !boxes.length) return;
+  const floor3 = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!w.grid[(y + dy) * W + x + dx]) return false; return true; };
+  const inStart = (x, y) => w.start && x >= w.start.x && x < w.start.x + w.start.w && y >= w.start.y && y < w.start.y + w.start.h;
+  // 首領之門：太靠近劇情點就在出口房裡（找不到再往外 3 格）挑離劇情點最遠的空地
+  const gt = w.bossGate;
+  if (gt && c.evs.some(e => Math.hypot(e.x - gt.x, e.y - gt.y) < 4 * TS) && w.boss) {
+    let best = null;
+    for (let y = Math.max(1, w.boss.y - 3); y < Math.min(w.H - 1, w.boss.y + w.boss.h + 3); y++) for (let x = Math.max(1, w.boss.x - 3); x < Math.min(W - 1, w.boss.x + w.boss.w + 3); x++) {
+      if (!floor3(x, y) || inStart(x, y)) continue;
+      const px = x * TS + 16, py = y * TS + 16, d = gap(px, py) - Math.hypot(px - gt.x, py - gt.y) * 0.05;   // 同樣遠時離原本的位置近一點
+      if (!best || d > best.d) best = { x: px, y: py, d };
+    }
+    if (best) { gt.x = best.x; gt.y = best.y; }
+  }
+  // 怪：一群一起搬（140 內的算同一群），搬到別的房間離劇情點、布景 7 格以上的地方；找不到就留著
+  const bad = G.mons.filter(m => !m.dead && !m.chapAmb && !m.chapBoss && !m.boss && gap(m.x, m.y) < R), done = new Set();
+  const rooms = (w.others && w.others.length ? w.others : w.rooms || []).filter(r => r !== w.start);
+  for (const m of bad) {
+    if (done.has(m)) continue;
+    const grp = bad.filter(o => !done.has(o) && Math.hypot(o.x - m.x, o.y - m.y) < 140); grp.forEach(o => done.add(o));
+    let to = null;
+    for (let t = 0; t < 60 && !to && rooms.length; t++) {
+      const r = pick(rooms), x = rint(r.x + 1, r.x + r.w - 2), y = rint(r.y + 1, r.y + r.h - 2), px = x * TS + 16, py = y * TS + 16;
+      if (x < 1 || y < 1 || x >= W - 1 || y >= w.H - 1 || !floor3(x, y) || inStart(x, y) || gap(px, py) < R + 2 * TS || (gt && Math.hypot(px - gt.x, py - gt.y) < 3 * TS)) continue;
+      to = { x: px, y: py };
+    }
+    if (!to) continue;
+    const mx = m.x, my = m.y;
+    for (const o of grp) { const p = nearestFloor(to.x + (o.x - mx), to.y + (o.y - my)); o.x = p.x; o.y = p.y; }
+  }
 });

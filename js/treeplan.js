@@ -52,10 +52,10 @@ const _tipTP = TreeView.nodeTip.bind(TreeView);
 TreeView.nodeTip = function (n) {
   let h = _tipTP(n);
   const P = G.P;
-  if (pendOf(P).includes(n.id)) h = h.replace(/<div class="tip-hint">[\s\S]*?<\/div>/, '<div class="tip-hint" style="color:#ffd36a">待確認：右鍵免費取消（後面接著的待確認點也會一起退）</div>');
+  if (pendOf(P).includes(n.id)) h = h.replace(/<div class="tip-hint">[\s\S]*?<\/div>/, `<div class="tip-hint" style="color:#ffd36a">待確認：${byCtl('右鍵免費取消', '再點一下就免費取消')}（後面接著的待確認點也會一起退）</div>`);
   else if (!P.tree.includes(n.id)) {
     const path = treePath(P, n.id);
-    if (path && path.length > 1) h = h.replace(/<div class="tip-hint">[\s\S]*?<\/div>/, `<div class="tip-hint" style="color:${path.length <= treeFree(P) ? '#9fff9f' : '#ff9a9a'}">左鍵：沿最短路徑一次點到這裡，共 ${path.length} 點（你還剩 ${treeFree(P)} 點）</div>`);
+    if (path && path.length > 1) h = h.replace(/<div class="tip-hint">[\s\S]*?<\/div>/, `<div class="tip-hint" style="color:${path.length <= treeFree(P) ? '#9fff9f' : '#ff9a9a'}">${byCtl('左鍵', '再點一下')}：沿最短路徑一次點到這裡，共 ${path.length} 點（你還剩 ${treeFree(P)} 點）</div>`);
   }
   return h;
 };

@@ -21,7 +21,7 @@
     if (e.target !== canvas) return;
     // 滑過地上物品標籤時顯示說明
     const l = G.loot.find(l => l.rect && l.item && input.mx >= l.rect.x && input.mx <= l.rect.x + l.rect.w && input.my >= l.rect.y && input.my <= l.rect.y + l.rect.h);
-    if (l) UI.showTipCorner(itemTipHTML(l.item, { hint: '左鍵：撿起' }));   // v2.5.2 改到右下角
+    if (l) UI.showTipCorner(itemTipHTML(l.item, { hint: byCtl('左鍵：撿起', '點一下：撿起') }));   // v2.5.2 改到右下角
     else if (!UI.open.inv || e.target === canvas) UI.hideTip();
   });
   canvas.addEventListener('mousedown', e => {
