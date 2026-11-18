@@ -32,7 +32,7 @@ function wShardAdd(id, n) { if (!G.stash) return; G.stash.wshard = G.stash.wshar
 const wShardTotal = () => WARDEN_IDS.reduce((s, id) => s + wShardHave(id), 0);
 function wGive(it) {
   const P = G.P, j = P.inv.indexOf(null);
-  if (j >= 0) { P.inv[j] = it; UI.msg(`${it.name} 放進了背包`, RARITY_COLOR[it.rarity] || '#ffd27a'); if (UI.refreshInv) UI.refreshInv(); }
+  if (j >= 0) { P.inv[j] = it; UI.msg(`${it.name} 放進了背包`, itemColor(it) || '#ffd27a'); if (UI.refreshInv) UI.refreshInv(); }
   else dropLoot(G.pl.x, G.pl.y, { item: it });
   Sfx.play('unique'); saveGame();
 }

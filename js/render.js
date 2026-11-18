@@ -102,7 +102,7 @@ function render() {
     if (lootHidden(l) || (l.item && l.item.rarity === 'normal' && !G.showNormal && !isFlask(l.item))) continue;   // v2.7 掉落篩選：藏起來的連圖示都不畫
     if (l.item && l.item.rarity === 'unique') {
       const gr = g.createLinearGradient(0, l.y - 120, 0, l.y);
-      gr.addColorStop(0, 'rgba(232,128,58,0)'); gr.addColorStop(1, 'rgba(232,128,58,0.55)');
+      const uc = l.item.set ? '90,208,138' : '232,128,58'; gr.addColorStop(0, `rgba(${uc},0)`); gr.addColorStop(1, `rgba(${uc},0.55)`);
       g.fillStyle = gr; g.fillRect(l.x - 5, l.y - 120, 10, 120);
     }
     // 地上的物品：用跟背包一樣的圖示（art.js），下面有一圈淡淡的光
@@ -110,7 +110,7 @@ function render() {
     const icon = isFlask(l.item) ? flaskIcon(l.item.type, 64) : l.item ? itemIcon(BASE_BY_ID[l.item.base], 64)
       : l.gem ? supportIcon(l.gem, 48) : l.skill ? skillIcon(l.skill, 48) : l.cur ? currencyIcon(l.cur, 48) : l.stackItem ? (l.stackItem.stack === 'cur' ? currencyIcon(l.stackItem.key, 48) : null) : l.mat ? matIcon(l.mat.slice(0, l.mat.lastIndexOf("_")), +l.mat.slice(l.mat.lastIndexOf("_") + 1), 48) : null;
     if (icon) {
-      const rc = l.item ? RARITY_COLOR[l.item.rarity] : l.gem ? SUPPORTS[l.gem].color : l.skill ? '#ffd27a' : '#e8d8a8';
+      const rc = l.item ? itemColor(l.item) : l.gem ? SUPPORTS[l.gem].color : l.skill ? '#ffd27a' : '#e8d8a8';
       g.globalAlpha = 0.28; g.fillStyle = rc; g.beginPath(); g.ellipse(l.x, l.y + 8, 11, 4, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
       const sz = l.item ? 24 : 18;
       g.imageSmoothingEnabled = true; g.drawImage(icon, l.x - sz / 2, l.y - sz / 2 + bob, sz, sz); g.imageSmoothingEnabled = false;
@@ -511,7 +511,7 @@ function drawGearOnBody(g, pl, feet, sp, bob, EQ, offB, eqIcon) {
       cg.globalCompositeOperation = 'source-in'; cg.fillStyle = DEF_COL[b.def] || '#c0b090'; cg.fillRect(0, Math.round(H * y0), W, Math.round(H * (y1 - y0)));
       g.globalAlpha = a; g.drawImage(c, sp._x, sp._y);
       const glow = { magic: 0.35, rare: 0.5, unique: 0.65 }[it.rarity];
-      if (glow) { cg.fillStyle = RARITY_COLOR[it.rarity]; cg.fillRect(0, 0, W, H); g.globalAlpha = glow * (0.6 + 0.4 * Math.sin(G.time * 3)) * 0.35; g.drawImage(c, sp._x, sp._y); }
+      if (glow) { cg.fillStyle = itemColor(it); cg.fillRect(0, 0, W, H); g.globalAlpha = glow * (0.6 + 0.4 * Math.sin(G.time * 3)) * 0.35; g.drawImage(c, sp._x, sp._y); }
       g.globalAlpha = 1;
     };
     band(EQ.body, body, 0.45, 0.88, 0.62);    // 軀幹和腿

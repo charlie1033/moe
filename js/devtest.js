@@ -13,6 +13,24 @@ const MOE_DEV = {
     try { JSON.parse(localStorage.getItem('yiwang_chars_v2')).chars.filter(c => c.name === this.NAME).forEach(c => deleteChar(c.id)); } catch (e) { }
     Object.keys(localStorage).filter(k => k.startsWith('yiwang_dream_')).forEach(k => localStorage.removeItem(k));
   },
+  // 章節手工地圖的示範圖（第 1 夜第 1 區）：S、X、D、p、三種池子、木橋、障礙物、四種事件、布景、區域首領；chapTry 跑完會還原
+  chapDemo() {
+    const W = 64, H = 44, R = Array.from({ length: H }, () => Array(W).fill('#'));
+    const box = (x, y, w, h, ch = '.') => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) R[j][i] = ch; };
+    box(3, 3, 26, 16); box(28, 8, 8, 4); box(35, 3, 26, 16); box(3, 24, 26, 17); box(14, 18, 4, 7); box(35, 24, 26, 17);
+    box(50, 19, 4, 5, 'D'); box(43, 3, 2, 16, '~'); box(43, 10, 2, 2, '='); box(48, 30, 11, 8, 'X'); box(5, 37, 3, 2, '%'); box(55, 14, 2, 2, '^'); box(38, 32, 4, 3, '~');
+    [[20, 5, 'T'], [24, 7, 'o'], [26, 15, 'I'], [37, 16, '*'], [40, 15, 'b'], [57, 6, '!'], [58, 9, 'm'], [25, 27, 'w'], [26, 38, 't'], [57, 26, 'v'], [37, 26, 'c'],
+      [6, 6, 'S'], [14, 12, '1'], [8, 32, '2'], [39, 6, '3'], [22, 36, '4'], [48, 13, '5'], [18, 30, 'B'], [10, 28, 'p'], [40, 38, 'p']].forEach(([x, y, c]) => R[y][x] = c);
+    const ev = (id, kind, o) => Object.assign({ id, kind, marker: 'book', label: '查看', title: id, pages: ['測試。'], journal: '測試。' }, o);
+    return { tier: 1, stage: 1, name: '測試墓穴', intro: '測試用的夢。', rows: R.map(r => r.join('')),
+      events: { '1': ev('dev_ghost', 'npc', { who: '士兵', look: 'ghost', scene: 'hut', opens: true, npcLine: { npc: 'jailer', text: '測試台詞' } }), '2': ev('dev_book', 'lore', { scene: 'shrine', reward: { cur: 'alch', n: 1 } }),
+        '3': ev('dev_shard', 'collect', { part: 1, of: 2 }), '4': ev('dev_shard', 'collect', { part: 2, of: 2, done: { title: '鏡子', pages: ['拼好了。'], journal: '拼好了。' } }),
+        '5': ev('dev_amb', 'ambush', { scene: 'camp', waves: 2, after: '安靜了。' }) },
+      bosses: { B: { id: 'dev_boss', name: '測試的老骨頭', base: 'skeleton', scale: 1.6, color: '#bfe8ff', line: '你來了。', reward: { item: 'rare' }, story: 'dev_bossstory' } } };
+  },
+  chapTry(fn) { const old = CHAPTER_MAPS['1-1']; ChapterMaps.add(this.chapDemo()); try { fn(); } finally { if (old) CHAPTER_MAPS['1-1'] = old; else ChapterMaps.remove(1, 1); } },
+
+
   hero(cls = 'warrior', lvl = 30, maxTier = 13) {
     this.clean();
     const P = newCharacter(cls, this.NAME); P.lvl = lvl; P.maxTier = maxTier; P.story = { seen: { intro: true, ending: true } };
@@ -153,7 +171,7 @@ const MOE_DEV = {
     '地圖每一塊地都走得到（河流一定有橋）': T => {
       T.hero('warrior', 40, 20);
       for (const tier of [3, 6, 7, 8, 10, 12, 14]) for (let k = 0; k < 4; k++) {
-        G._stagePlan = { i: 1, n: 3 }; const w = genMap(tier); G._stagePlan = null; const W = w.W, g = w.grid;
+        G._stagePlan = { i: 1, n: 3 }; const w = genMap(tier); G._stagePlan = null; const W = w.W, g = w.grid.slice(); if (w.chap) w.chap.dCells.forEach(i => g[i] = 1);
         const s = Math.floor(w.start.y + w.start.h / 2) * W + Math.floor(w.start.x + w.start.w / 2), seen = new Uint8Array(g.length), q = [s]; seen[s] = 1;
         while (q.length) { const i = q.pop(); for (const d of [1, -1, W, -W]) { const j = i + d; if (j >= 0 && j < g.length && !seen[j] && g[j]) { seen[j] = 1; q.push(j); } } }
         let miss = 0; for (let i = 0; i < g.length; i++) if (g[i] && !seen[i]) miss++;
@@ -338,6 +356,104 @@ const MOE_DEV = {
       P.wardens.first.b_swamp = 'free'; T.ok(STORY.yin2.journal.text.includes('回到了茵身邊'), '日誌文字沒變');
       T.ok(!STORY.sparrow3.pages[0].includes('放在你手上'), '小雀之三還在重複送王冠');
       P.wardens.first = {};
+    },
+    '章節地圖：固定地圖會被採用、同一區兩次一樣、沒資料和第 11 夜照舊隨機': T => T.chapTry(() => {
+      T.hero('warrior', 20, 12); enterMap(1); T.quiet(); const w = G.world, a = Array.from(w.grid).join('');
+      T.ok(w.chap && w.W === 64 && /測試墓穴/.test(w.name) && G.banner.sub === '測試用的夢。', '第 1 夜第 1 區沒有用固定地圖或開場白');
+      T.ok(w.chap.scenes.length === 3 && G.mons.some(m => m.chapBoss) && w.deco.includes(15), '布景、木橋或區域首領沒放');
+      enterMap(1); T.quiet(); T.ok(Array.from(G.world.grid).join('') === a, '同一區兩次地形不一樣');
+      const o2 = CHAPTER_MAPS['1-2']; delete CHAPTER_MAPS['1-2']; try { nextStage(); T.ok(!G.world.chap && G.world.stage.i === 2, '沒有資料的區沒有照舊隨機'); } finally { if (o2) CHAPTER_MAPS['1-2'] = o2; }
+      enterMap(11); T.quiet(); T.ok(!G.world.chap && G.world.W === 84, '第 11 夜不是隨機地圖');
+    }),
+    '章節地圖：四種事件都能完成、D 會打開、再進圖不重複給獎勵': T => T.chapTry(() => {
+      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); const w = G.world, ev = n => w.chap.evs.find(e => e.n === n), use = n => { T.near(ev(n), 0); UI.interact(); T.quiet(); };
+      T.ok(w.chap.dCells.every(i => !w.grid[i]), 'D 一開始沒有封住');
+      use('1'); T.ok(G.P.chapEv.dev_ghost && w.chap.dCells.every(i => w.grid[i]) && NPC_LINES.jailer.includes('「測試台詞」'), 'npc 完成後 D 沒打開或沒多台詞');
+      use('2'); use('3'); T.ok(!G.P.chapEv.dev_shard, '收集只撿一片就完成了'); use('4'); T.ok(G.P.chapEv.dev_book && G.P.chapEv.dev_shard, 'lore 或收集沒有完成');
+      G.mons = []; use('5'); for (let k = 0; k < 12 && !G.P.chapEv.dev_amb; k++) { T.run(1); G.mons.filter(m => m.chapAmb).forEach(m => killMonster(m)); }
+      T.ok(G.P.chapEv.dev_amb, '伏擊打完沒有完成');
+      enterMap(1); T.quiet(); const l0 = G.loot.length; T.near(G.world.chap.evs.find(e => e.n === '2'), 0); UI.interact(); T.quiet();
+      T.ok(G.world.chap.open && G.world.chap.evs.every(e => e.done) && G.loot.length === l0, '第二次進圖事件又出現或又給獎勵');
+    }),
+    '章節地圖：區域首領、沒打完的夢還原 D 和首領、日誌與任務面板': T => T.chapTry(() => {
+      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); let w = G.world, b = G.mons.find(m => m.chapBoss);
+      G.pl.x = b.x + 120; G.pl.y = b.y; T.run(0.2); T.ok(G.bossBar === b, '區域首領沒有首領血條');
+      b.life = b.maxLife / 2; dreamSave(); goTown(); G.savedMap = null; dreamRestore(G.charId); resumeMap(); T.run(0.2); w = G.world;
+      T.ok(w.chap && w.chap.dCells.every(i => !w.grid[i]) && w.chap.scenes.length === 3, '讀檔後地圖、D 的狀態不對');
+      b = G.mons.find(m => m.chapBoss && !m.dead); T.ok(b && Math.abs(b.life / b.maxLife - 0.5) < 0.05, '讀檔後區域首領沒有還原');
+      const l0 = G.loot.length; killMonster(b); T.ok(G.P.chapBoss.dev_boss && G.P.chapEv.dev_bossstory && G.loot.length > l0, '打倒區域首領沒記錄或沒掉獎勵');
+      T.ok(/第 1 夜的夢：\d+ \/ \d+/.test(PanelRows.html('quest', G.P)), '任務面板沒顯示劇情進度');
+      T.ok(/測試的老骨頭/.test(JournalTabs.list.find(t => t.id === 'chapstory').html()), '日誌「夢裡的故事」沒有內容');
+    }),
+
+    '章節地圖第1到5夜': T => {
+      for (let t = 1; t <= 5; t++) for (let s = 1; s <= 3; s++) { const d = CHAPTER_MAPS[t + '-' + s]; T.ok(d && d.rows.every(r => r.length === d.rows[0].length), `第 ${t}-${s} 區手工地圖缺少或列長不一`); }
+      enterMap(1); T.ok(G.world.chap && G.world.W === 64 && G.world.chap.evs.length === 2, '第 1 夜第 1 區沒有用手工地圖');
+      T.ok(STORY.chev_ch1_decree && STORY['chev_ch1_decree#3'], '詔書收集的劇情沒有登記');
+    },
+    '六件套裝：四套 24 件、2／4／6 件門檻': T => {
+      const P = T.hero('warrior', 70, 20), ids = SET6_IDS.flatMap(s => SETS[s].pieces);
+      T.ok(ids.length === 24 && ids.every(id => { const it = makeSetItem(id, 75); return it && it.set && BASE_BY_ID[it.base]; }), '六件套裝做不出來');
+      const wear = (sid, n) => { for (const k of ['helmet', 'body', 'gloves', 'boots', 'belt', 'amulet', 'ring1', 'ring2']) P.equip[k] = null; SETS[sid].pieces.slice(0, n).forEach(pid => { const it = makeSetItem(pid, 75); P.equip[BASE_BY_ID[it.base].slot] = it; }); onBuildChanged(); };
+      for (const sid of SET6_IDS) { const f = SETS[sid].bonus.map(b => b[1]), on = n => { wear(sid, n); return f.map(x => G.S.flags[x] ? 1 : 0).join(''); };
+        T.ok(on(1) === '000' && on(2) === '100' && on(3) === '100' && on(4) === '110' && on(5) === '110' && on(6) === '111', sid + ' 的 2／4／6 件門檻不對'); }
+    },
+    '第一百三十八枚指環：多算一件、兩枚不疊加': T => {
+      const P = T.hero('warrior', 70, 20); for (const k of ['helmet', 'body', 'gloves', 'boots', 'belt', 'amulet', 'ring1', 'ring2']) P.equip[k] = null;
+      SETS.door.pieces.slice(0, 5).forEach(pid => { const it = makeSetItem(pid, 75); P.equip[BASE_BY_ID[it.base].slot] = it; }); onBuildChanged();
+      T.ok(!G.S.flags.setDoorRiposte, '5 件就有 6 件效果');
+      P.equip.ring1 = makeUnique(SET_RING_ID, 75); onBuildChanged(); T.ok(setCounts(P).door === 6 && G.S.flags.setDoorRiposte, '指環沒有讓 5 件變成 6 件效果');
+      T.ok(/身上 5（\+1） \/ 6/.test(itemTipHTML(P.equip.helmet).replace(/<[^>]+>/g, '')), '說明沒顯示「身上 5（+1）/ 6」');
+      P.equip.ring2 = makeUnique(SET_RING_ID, 75); P.equip.helmet = null; onBuildChanged(); T.ok(setCounts(P).door === 5 && !G.S.flags.setDoorRiposte, '兩枚指環疊加了');
+      for (const k of ['helmet', 'body', 'gloves', 'boots', 'belt', 'amulet', 'ring2']) P.equip[k] = null; P.equip.body = makeSetItem('set_n137_coat', 75); onBuildChanged();
+      T.ok(G.S.flags.setN137Die, '舊套裝（1 件＋指環）沒有 2 件效果');
+    },
+    '六件套裝、指環只在深層掉': T => {
+      T.hero('warrior', 70, 30); enterMap(8); T.quiet(); let n = 0; for (let i = 0; i < 2000; i++) if (set6DropRoll({ boss: true })) n++;
+      T.ok(n === 0, '主線掉了六件套裝或指環');
+      enterMap(14); T.quiet(); n = 0; for (let i = 0; i < 2000; i++) if (set6DropRoll({ boss: true })) n++;
+      T.ok(n > 0, '深層看守者掉不出六件套裝');
+      let r = 0; for (let i = 0; i < 5000; i++) if (randomItem(80, 50).uniqueId === SET_RING_ID) r++; T.ok(r === 0, '指環跑進一般傳奇的掉落池');
+    },
+    '套裝：4 條隨機詞綴、不能改造、神聖石、舊存檔、綠色': T => {
+      const P = T.hero('warrior', 60, 12);
+      T.ok(Object.keys(SET_PIECES).every(id => setRandCount(makeSetItem(id, 70)) === 4), '套裝沒有 4 條隨機詞綴');
+      const it = makeSetItem('set_nerd_cap', 70), st = JSON.stringify(it.mods.map(m => m.stat)), v0 = JSON.stringify(it.mods);
+      for (const c of ['chaos', 'exalt', 'annul', 'alch', 'regal', 'alter', 'chance']) T.ok(applyCurrency(c, it) && JSON.stringify(it.mods) === v0, c + ' 改得動套裝');
+      let ch = false; for (let i = 0; i < 6; i++) { T.ok(applyCurrency('divine', it) === null, '神聖石不能用在套裝'); if (JSON.stringify(it.mods) !== v0) ch = true; }
+      T.ok(ch && JSON.stringify(it.mods.map(m => m.stat)) === st, '神聖石沒重骰數值，或改到了詞綴');
+      const old = makeSetItem('set_desert_boots', 40); old.mods = old.mods.filter(m => m.type === 'u'); P.inv[3] = old; saveGame(); startGame(loadChar(G.charId), G.charId); T.quiet();
+      T.ok(G.P.inv[3] && setRandCount(G.P.inv[3]) === 4, '舊套裝讀檔沒補詞綴');
+      T.ok(/tip-head c-set/.test(itemTipHTML(it)) && itemRarityKey(it) === 'set' && itemColor(it) === RARITY_COLOR.set, '套裝名字不是綠色');
+    },
+    '六件套裝效果：站穩反擊、燈、回頭箭、召喚物站起來': T => {
+      const wear = sid => { const P = G.P; for (const k of ['helmet', 'body', 'gloves', 'boots', 'belt', 'amulet', 'ring1', 'ring2']) P.equip[k] = null; SETS[sid].pieces.forEach(pid => { const it = makeSetItem(pid, 75); P.equip[BASE_BY_ID[it.base].slot] = it; }); onBuildChanged(); };
+      T.hero('warrior', 70, 20); enterMap(12); T.quiet(); wear('door'); T.run(2.5); T.ok(_s6stand >= 3, '站穩沒有疊層');
+      spawnPack(G.pl.x + 60, G.pl.y, G.world); const ms = G.mons.filter(m => !m.dead).slice(0, 8); ms.forEach(m => { m.x = G.pl.x + 50; m.y = G.pl.y; }); const l0 = ms.map(m => m.life);
+      Hook.emit('hurt', 50, {}); T.ok(ms.some((m, i) => m.dead || m.life < l0[i]), '被打到沒有反擊');
+      T.hero('mage', 70, 20); enterMap(12); T.quiet(); wear('lamp'); const sp = G.P.skills.findIndex(s => s && SKILLS[s].tags.includes('spell') && SKILLS[s].type !== 'summon');
+      input.wx = G.pl.x + 200; input.wy = G.pl.y; G.pl.mana = 999; G.pl.act = 0; G.pl.cd = {}; useSkill(sp); T.run(0.1); T.ok(_s6lamps.length === 1 && G.slotCalc[sp].cost === 0, '燈沒點起來，或站在燈旁邊還要付魔力');
+      T.hero('druid', 70, 20); enterMap(12); T.quiet(); G.mons = []; wear('arrow'); const pi = G.P.skills.findIndex(s => s && SKILLS[s].type === 'proj');
+      input.wx = G.pl.x + 300; input.wy = G.pl.y; G.pl.mana = 999; G.pl.act = 0; G.pl.cd = {}; useSkill(pi); let ret = 0; for (let i = 0; i < 120; i++) { update(1 / 30); ret = Math.max(ret, G.projs.filter(p => p.s6ret).length); }
+      T.ok(ret > 0 && _s6catch > 0, '投射物沒有飛回來，或沒接住');
+      T.hero('summoner', 70, 20); enterMap(12); T.quiet(); G.mons = []; wear('roll'); const si = G.P.skills.findIndex(s => s && SKILLS[s].type === 'summon');
+      G.pl.mana = 999; G.pl.act = 0; G.pl.cd = {}; useSkill(si); update(1 / 30); const mn = G.mins[0]; mn.life = 0; update(1 / 30); T.run(3.3); T.ok(G.mins.includes(mn) && mn.life === mn.maxLife, '召喚物沒有站起來');
+    },
+    '章節地圖：第 6～10 夜格式': T => {
+      for (let t = 6; t <= 10; t++) for (let s = 1; s <= 3; s++) {
+        const d = CHAPTER_MAPS[t + '-' + s], all = d ? d.rows.join('') : '';
+        T.ok(d && d.rows.every(r => r.length === d.rows[0].length), `第 ${t}-${s} 區 rows 長度不一致`);
+        T.ok(all.split('S').length === 2, `第 ${t}-${s} 區 S 不是 1 個`);
+        const digs = [...new Set(all.match(/[1-9]/g) || [])].sort().join();
+        T.ok(digs === Object.keys(d.events || {}).sort().join(), `第 ${t}-${s} 區事件數字對不上`);
+      }
+    },
+    '章節地圖：10-2 封印打開通道': T => {
+      T.hero('warrior', 40, 10); enterMap(10); nextStage();
+      const w = G.world, c = w.chap;
+      T.ok(c && c.key === '10-2' && c.dCells.length > 0 && !w.grid[c.dCells[0]], '10-2 一開始要封住');
+      ChapterMaps.openD(w, true);
+      T.ok(w.grid[c.dCells[0]] === 1, '打開後要變成路');
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');

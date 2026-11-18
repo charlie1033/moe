@@ -49,7 +49,7 @@ UI.refreshStash = function () {
     };
     d.onmouseenter = e => {
       const items = G.stash.spec.uniq.filter(it => it.uniqueId === id);
-      if (!items.length) return this.showTip(`<div class="tip-name c-unique">${u.name}</div><div class="tip-sub">${BASE_BY_ID[u.base].name}・還沒收集到</div>${u.boss ? `<div class="tip-mod" style="color:#a89878">只有首領「${BOSSES[u.boss] ? BOSSES[u.boss].name : u.boss}」會掉</div>` : ''}${u.flavor ? `<div class="tip-mod" style="color:#8a7a60;font-style:italic">${u.flavor}</div>` : ''}`, e.clientX, e.clientY);
+      if (!items.length) return this.showTip(`<div class="tip-name c-unique">${u.name}</div><div class="tip-sub">${BASE_BY_ID[u.base].name}・還沒收集到</div>${u.dropNote ? `<div class="tip-mod" style="color:#a89878">${u.dropNote}</div>` : ''}${u.boss ? `<div class="tip-mod" style="color:#a89878">只有首領「${BOSSES[u.boss] ? BOSSES[u.boss].name : u.boss}」會掉</div>` : ''}${u.flavor ? `<div class="tip-mod" style="color:#8a7a60;font-style:italic">${u.flavor}</div>` : ''}`, e.clientX, e.clientY);
       const cols = items.slice(0, 3).map((it, i) => `<div class="tipcol">${i ? '' : '<div class="tip-cmp">左鍵拿這件</div>'}${itemTipHTML(it)}</div>`).join('');
       this.showTip(`<div class="tipcols">${cols}</div>${items.length > 3 ? `<div class="thint" style="padding:4px">還有 ${items.length - 3} 件</div>` : ''}`, e.clientX, e.clientY);
     };
@@ -76,7 +76,7 @@ const UNIQ_COLS = [
   { id: 'wardens', name: '七位看守者的遺物', ids: _uqIds(u => u.boss && u.boss.startsWith('b_')) },
   { id: 'nightmare', name: '夢魘首領的遺物', ids: _uqIds(u => u.boss && u.boss.startsWith('nm_')) },
   { id: 'keeper', name: '守門人的遺物', ids: _uqIds(u => u.boss === 'keeper') },
-  { id: 'plain', name: '一般傳奇', ids: _uqIds(u => !u.boss && !u.wr && !_uqSkill(u)) },
+  { id: 'plain', name: '一般傳奇', ids: _uqIds(u => !u.boss && !u.wr && !u.noDrop && !_uqSkill(u)) },   // noDrop＝特殊掉落的傳奇（第一百三十八枚指環），不算進任何一類
   { id: 'skill', name: '技能型傳奇', ids: _uqIds(_uqSkill) },
   { id: 'rule', name: '世界規則傳奇', ids: _uqIds(u => u.wr) },
 ];

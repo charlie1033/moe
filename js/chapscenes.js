@@ -1,0 +1,159 @@
+// =============================================================
+//  章節地圖的布景（事件加 scene: '代號'）：在事件後面蓋一組程式畫的布景，主體會擋路（也擋投射物）
+//  13 種：hut 森林小屋（煙囪冒煙、窗光）、camp 營火營地（火會跳、火星）、tent 帳篷（裡面有燈）、wreck 擱淺的船＋木箱、
+//        cart 翻倒的馬車、kennel 冰封的狗屋、throne 崩塌的王座、shrine 小祭壇（蠟燭會晃）、well 枯井、
+//        lighthouse 小燈塔底座（燈會轉）、ruin 倒塌的石門、nest 巢穴（蛛網＋骨堆）、pier 小碼頭（可以走上去；水會變成木板）
+//  規則：事件那一格和它前面一格一定留空；布景放在事件「後面」四個方向裡空地最多的那一邊（同分優先放上面）；
+//        只把原本是地板的格子蓋成布景（格子設成牆、deco 30），牆、障礙物、起點、出口房都不動
+//  畫法：靜態部分在地圖底圖畫好之後畫一次（'worldCanvas'，排在地圖色調之前，所以會一起被調色）；會動的（火、煙、燈）每格只畫畫面裡的
+//  資料：w.chap.scenes = [{ id, sx, sy }]（格子座標，跟著地圖存檔）
+// =============================================================
+const SCENE_DECO = 30;
+const ChapScenes = (() => {
+  const T = TS;
+  const H = g => ({
+    r: (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); },
+    c: (x, y, r, c) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); },
+    e: (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); },
+    p: (pts, c) => { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); },
+    l: (x1, y1, x2, y2, c, w = 2) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); },
+  });
+  const flame = (d, x, y, s, t) => { const f = 0.85 + 0.15 * Math.sin(t * 13 + x); d.p([[x - 6 * s, y], [x - 3 * s, y - 10 * s * f], [x, y - 16 * s * f], [x + 3 * s, y - 9 * s * f], [x + 6 * s, y]], 'rgba(255,120,30,0.9)'); d.p([[x - 3 * s, y], [x, y - 10 * s * f], [x + 3 * s, y]], 'rgba(255,230,120,0.95)'); };
+  const crate = (d, x, y, s) => { d.r(x, y, s, s, '#8a6038'); d.r(x, y, s, 3, '#a87a48'); d.r(x + 2, y + 2, s - 4, s - 4, '#7a5230'); d.l(x + 3, y + 3, x + s - 3, y + s - 3, '#5a3a20', 2); d.l(x + s - 3, y + 3, x + 3, y + s - 3, '#5a3a20', 2); };
+  // w,h＝佔地（格）；m＝哪些格擋路（#）；paint 靜態；anim 每格；lights [x, y, 半徑, 強度]（像素，相對左上角）；pier＝走得上去、水會變木板
+  const S = {
+    hut: { w: 5, h: 4, m: ['#####', '#####', '#####', '#####'], lights: [[36, 86, 80, 0.5], [124, 86, 80, 0.5]],
+      paint(d) { d.e(80, 124, 84, 10, 'rgba(0,0,0,0.35)'); d.r(6, 116, 148, 10, '#4a4a52');
+        for (let i = 0; i < 6; i++) { d.r(10, 50 + i * 11, 140, 10, i % 2 ? '#6a4628' : '#5a3a20'); d.r(10, 59 + i * 11, 140, 1, '#2a1a0e'); d.c(10, 55 + i * 11, 5, '#8a6a44'); d.c(150, 55 + i * 11, 5, '#8a6a44'); d.c(10, 55 + i * 11, 2, '#5a3a20'); d.c(150, 55 + i * 11, 2, '#5a3a20'); }
+        d.r(112, -6, 16, 40, '#5a5a62'); d.r(110, -10, 20, 6, '#72727c'); for (let k = 0; k < 4; k++) d.r(112, 2 + k * 8, 16, 1, '#3a3a42');
+        d.p([[-8, 58], [80, -16], [168, 58]], '#4a2418'); for (let k = 1; k < 6; k++) { const y = -16 + k * 12.4, hw = 88 * k / 6; d.l(80 - hw, y, 80 + hw, y, '#3a1a10', 2); }
+        d.l(-8, 58, 80, -16, '#7a3a24', 4); d.l(80, -16, 168, 58, '#7a3a24', 4);
+        d.r(63, 75, 34, 3, '#7a5634'); d.r(66, 78, 28, 46, '#3a2414'); d.r(79, 78, 2, 46, '#2a1a0e'); d.c(89, 102, 2, '#d8b050');
+        for (const wx of [22, 110]) { d.r(wx, 74, 28, 22, '#2a1a10'); d.r(wx + 3, 77, 22, 16, '#ffc860'); d.r(wx + 13, 77, 2, 16, '#3a2414'); d.r(wx + 3, 84, 22, 2, '#3a2414'); d.r(wx - 2, 96, 32, 3, '#7a5634'); } },
+      anim(d, t) { for (const wx of [22, 110]) d.r(wx + 3, 77, 22, 16, `rgba(255,230,150,${0.15 + 0.12 * Math.sin(t * 3 + wx)})`);
+        for (let k = 0; k < 4; k++) { const p = (t * 0.35 + k / 4) % 1; d.c(120 + Math.sin(p * 6 + k) * 6 + p * 10, -12 - p * 50, 4 + p * 8, `rgba(200,200,210,${0.35 * (1 - p)})`); } } },
+    camp: { w: 5, h: 3, m: ['.###.', '#.#.#', '.....'], lights: [[80, 46, 150, 0.85]],
+      paint(d) { d.e(80, 52, 28, 15, '#2a2420'); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; d.c(80 + Math.cos(a) * 23, 51 + Math.sin(a) * 12, 4, '#6a6a70'); d.c(79 + Math.cos(a) * 23, 50 + Math.sin(a) * 12, 2, '#8a8a92'); }
+        d.l(68, 57, 92, 45, '#4a2a14', 5); d.l(68, 45, 92, 57, '#5a3a20', 5);
+        d.r(36, 10, 88, 14, '#6a4628'); d.r(36, 10, 88, 3, '#8a6a44'); d.e(36, 17, 5, 7, '#9a7a54'); d.e(124, 17, 5, 7, '#9a7a54'); d.c(124, 17, 2, '#6a4628');
+        for (const lx of [8, 136]) { d.r(lx, 34, 16, 28, '#6a4628'); d.r(lx, 34, 3, 28, '#8a6a44'); d.e(lx + 8, 34, 8, 4, '#9a7a54'); d.c(lx + 8, 34, 2, '#6a4628'); }
+        d.c(110, 62, 7, '#2a2a30'); d.r(103, 58, 14, 3, '#3a3a42'); d.e(52, 70, 6, 3, '#8a7a5a'); },
+      anim(d, t, X, Y) { d.e(80, 50, 18, 8, `rgba(255,140,40,${0.25 + 0.1 * Math.sin(t * 9)})`); flame(d, 74, 52, 0.9, t); flame(d, 86, 52, 0.8, t + 1); flame(d, 80, 50, 1.2, t + 2);
+        if (Math.random() < 0.15) G.parts.push({ x: X + 80 + rnd(-8, 8), y: Y + 40, vx: rnd(-10, 10), vy: -rnd(40, 70), t: 0, dur: rnd(0.6, 1), color: '#ffb040', s: 2 }); } },
+    tent: { w: 5, h: 3, m: ['.###.', '#####', '#####'], lights: [[80, 78, 70, 0.45]],
+      paint(d) { d.e(80, 92, 82, 8, 'rgba(0,0,0,0.35)'); d.l(22, 70, -8, 96, '#8a7a5a', 1); d.l(138, 70, 168, 96, '#8a7a5a', 1); d.r(-10, 92, 4, 6, '#5a3a20'); d.r(166, 92, 4, 6, '#5a3a20');
+        d.p([[6, 92], [80, -10], [154, 92]], '#b89a6a'); d.p([[80, -10], [154, 92], [112, 92]], '#9a7e52'); d.l(80, -10, 40, 92, '#8a6e48', 1); d.l(80, -10, 120, 92, '#8a6e48', 1);
+        for (let k = 0; k < 3; k++) d.l(24 + k * 4, 70 - k * 22, 136 - k * 4, 70 - k * 22, 'rgba(160,60,40,0.5)', 3);
+        d.p([[62, 92], [80, 30], [98, 92]], '#2a1a10'); d.p([[98, 92], [80, 30], [108, 72]], '#d8bc88'); d.r(78, -18, 4, 10, '#5a3a20'); d.p([[82, -18], [94, -15], [82, -12]], '#a83a2a'); },
+      anim(d, t) { d.e(80, 82, 12, 9, `rgba(255,200,110,${0.25 + 0.1 * Math.sin(t * 4)})`); } },
+    wreck: { w: 6, h: 3, m: ['######', '######', '.####.'], lights: [],
+      paint(d, g) { d.e(96, 90, 96, 9, 'rgba(0,0,0,0.35)');
+        const hull = [[0, 70], [18, 30], [70, 14], [150, 12], [186, 30], [192, 62], [170, 88], [30, 92]];
+        d.p(hull, '#5a3a22'); g.save(); g.beginPath(); hull.forEach(([x, y], i) => i ? g.lineTo(d.X + x, d.Y + y) : g.moveTo(d.X + x, d.Y + y)); g.clip();
+        for (let k = 0; k < 7; k++) d.r(0, 16 + k * 12, 192, 2, '#3a2414'); for (let k = 0; k < 6; k++) d.r(10 + k * 32, 10, 2, 84, 'rgba(30,18,8,0.5)'); g.restore();
+        d.l(18, 30, 150, 12, '#2a1a0c', 5); d.p([[88, 40], [122, 32], [134, 58], [104, 66]], '#120a06'); for (let k = 0; k < 3; k++) d.l(96 + k * 10, 38 - k * 2, 104 + k * 10, 62 - k, '#7a5634', 2);
+        d.l(140, 22, 186, -22, '#6a4628', 6); d.p([[156, -6], [190, -24], [184, 12]], '#c8b890'); d.p([[170, -4], [184, -12], [182, 6]], '#a89870');
+        crate(d, 26, 62, 26); crate(d, 56, 70, 20); crate(d, 140, 66, 22); for (let k = 0; k < 6; k++) d.c(30 + k * 26, 82 + (k % 2) * 4, 2, '#4a7a4a'); } },
+    cart: { w: 5, h: 3, m: ['#####', '#####', '.###.'], lights: [],
+      paint(d) { d.e(80, 90, 80, 8, 'rgba(0,0,0,0.35)'); d.p([[10, 30], [130, 10], [146, 62], [22, 82]], '#7a5030'); d.p([[22, 82], [146, 62], [148, 70], [24, 90]], '#5a3a20');
+        for (let k = 1; k < 5; k++) d.l(10 + k * 3, 30 + k * 13, 130 + k * 4, 10 + k * 13, '#5a3a20', 2);
+        d.p([[16, 28], [70, 2], [112, 8], [64, 42]], '#d8c8a0'); for (let k = 0; k < 3; k++) d.l(26 + k * 26, 24 - k * 8, 46 + k * 26, 36 - k * 8, '#a83a2a', 3);
+        d.c(124, 66, 22, '#3a2410'); d.c(124, 66, 18, '#6a4628'); d.c(124, 66, 15, '#2a1a0e'); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; d.l(124, 66, 124 + Math.cos(a) * 16, 66 + Math.sin(a) * 16, '#7a5634', 2); } d.c(124, 66, 4, '#8a8a90');
+        d.e(36, 84, 18, 7, '#4a3018'); d.e(36, 84, 14, 5, '#2a1a0e'); d.e(70, 86, 12, 8, '#b8a070'); d.e(92, 88, 10, 7, '#a89060'); d.c(80, 92, 2.5, '#c03030'); d.c(86, 90, 2.5, '#c03030'); d.c(104, 92, 2.5, '#d84a30'); } },
+    kennel: { w: 5, h: 3, m: ['.###.', '.###.', '.###.'], lights: [],
+      paint(d) { d.e(80, 88, 80, 11, 'rgba(230,245,255,0.55)'); d.r(40, 40, 80, 52, '#7a5634'); for (let k = 1; k < 8; k++) d.r(40 + k * 10, 40, 1, 52, '#5a3a20');
+        d.p([[30, 46], [80, 4], [130, 46]], '#5a3a22'); d.p([[30, 46], [80, 4], [130, 46], [124, 40], [80, 12], [36, 40]], '#e8f6ff');
+        for (let k = 0; k < 9; k++) d.p([[34 + k * 11, 46], [38 + k * 11, 46], [36 + k * 11, 52 + (k % 3) * 4]], '#bfe8ff');
+        d.r(66, 60, 28, 32, '#120c08'); d.c(80, 60, 14, '#120c08'); d.r(68, 48, 24, 8, '#c8a870'); d.r(71, 51, 18, 1, '#6a4a2a');
+        d.r(40, 40, 80, 52, 'rgba(200,235,255,0.22)'); d.e(18, 84, 10, 4, '#4a6a8a'); d.e(18, 83, 8, 3, '#9ac8e8');
+        for (let k = 0; k < 7; k++) d.c(96 + k * 7, 82 + k * 0.8, 1.6, '#8a8a90'); d.r(144, 84, 4, 8, '#5a5a62'); } },
+    throne: { w: 5, h: 4, m: ['#.#.#', '#.#.#', '.###.', '.....'], lights: [],
+      paint(d) { d.r(8, 110, 144, 12, '#36303e'); d.r(16, 100, 128, 12, '#3e3846'); d.r(24, 60, 112, 42, '#4a4452'); d.r(24, 60, 112, 5, '#6a6476'); d.l(40, 70, 56, 96, '#2a2630', 1); d.l(120, 66, 108, 98, '#2a2630', 1);
+        d.r(68, 64, 24, 58, '#6a1a1a'); d.r(68, 64, 2, 58, '#c89420'); d.r(90, 64, 2, 58, '#c89420');
+        d.p([[54, -12], [64, -20], [80, -8], [96, -20], [106, -12], [108, 62], [52, 62]], '#5a5464'); d.p([[96, -20], [106, -12], [108, 20], [92, 4]], '#2a2630');
+        d.r(46, 34, 12, 32, '#6a6476'); d.r(102, 34, 12, 32, '#6a6476'); d.r(52, 46, 56, 18, '#4a4452'); d.r(58, 48, 44, 8, '#7a2020'); d.c(80, 6, 5, '#c89420');
+        d.r(2, 0, 26, 64, '#6a6476'); d.r(2, 0, 4, 64, '#8a8496'); d.p([[2, 0], [10, -10], [16, -2], [28, -8], [28, 0]], '#6a6476');
+        d.r(132, 28, 26, 36, '#6a6476'); d.p([[132, 28], [140, 18], [148, 26], [158, 20], [158, 28]], '#6a6476');
+        for (const [x, y, r] of [[140, 70, 6], [150, 76, 4], [12, 72, 5], [28, 96, 3], [134, 100, 4]]) d.c(x, y, r, '#5a5464'); } },
+    shrine: { w: 3, h: 2, m: ['###', '###'], lights: [[48, 8, 80, 0.55]],
+      paint(d) { d.e(48, 62, 46, 5, 'rgba(0,0,0,0.35)'); d.r(14, 24, 68, 36, '#5a5464'); d.r(8, 18, 80, 10, '#7a7486'); d.r(30, 18, 36, 30, '#6a2a6a'); d.r(30, 46, 36, 2, '#d8b050');
+        d.r(44, 4, 8, 14, '#a8a0b8'); d.c(48, 4, 5, '#b8b0c8'); for (const x of [14, 26, 70, 82]) { d.r(x - 2, 6, 4, 12, '#e8e0c8'); d.r(x - 3, 17, 6, 2, '#c8c0a8'); }
+        for (const [x, c] of [[8, '#e8a0c0'], [16, '#f0e070'], [86, '#a0c8f0'], [90, '#e8a0c0']]) { d.c(x, 58, 3, c); d.r(x - 1, 60, 2, 4, '#3a6a2a'); } },
+      anim(d, t) { for (const x of [14, 26, 70, 82]) flame(d, x, 6, 0.45, t + x); } },
+    well: { w: 3, h: 3, m: ['###', '###', '###'], lights: [],
+      paint(d) { d.e(48, 88, 46, 8, 'rgba(0,0,0,0.35)'); d.r(10, 0, 6, 62, '#5a3a20'); d.r(80, 0, 6, 62, '#5a3a20'); d.r(6, -2, 84, 7, '#6a4628'); d.r(6, -2, 84, 2, '#8a6a44');
+        d.e(48, 62, 40, 24, '#4a4a52'); for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; d.e(48 + Math.cos(a) * 34, 62 + Math.sin(a) * 19, 7, 5, k % 2 ? '#6a6a72' : '#5a5a62'); }
+        d.e(48, 58, 27, 14, '#0a0808'); d.e(48, 55, 27, 11, 'rgba(0,0,0,0)'); d.l(48, 5, 48, 44, '#a89060', 2); d.r(44, 40, 8, 6, '#6a4628');
+        d.l(24, 48, 30, 54, '#2a2630', 1); d.r(76, 76, 14, 12, '#6a4628'); d.e(83, 76, 7, 3, '#3a2414'); d.c(20, 84, 2, '#8a6a30'); d.c(28, 88, 2, '#a07a3a'); } },
+    lighthouse: { w: 5, h: 4, m: ['.###.', '.###.', '#####', '#####'], lights: [[80, -18, 170, 0.75]],
+      paint(d) { d.e(80, 116, 82, 14, '#3a3a42'); for (const [x, y, r] of [[12, 112, 10], [150, 110, 12], [40, 120, 7], [126, 122, 8]]) d.c(x, y, r, '#5a5a62');
+        d.r(14, 72, 132, 48, '#7a7480'); d.r(14, 72, 132, 6, '#9a94a0'); for (let k = 0; k < 4; k++) d.r(14, 84 + k * 10, 132, 1, '#5a5464');
+        d.r(48, -8, 64, 82, '#d8d0c0'); d.r(48, -8, 8, 82, '#e8e0d0'); d.r(48, 12, 64, 12, '#a83a2a'); d.r(48, 42, 64, 12, '#a83a2a'); d.r(70, 46, 20, 28, '#3a2414'); d.c(80, 46, 10, '#3a2414');
+        d.r(54, -14, 52, 8, '#5a5a62'); d.r(58, -32, 44, 18, '#2a2a30'); d.r(62, -29, 36, 12, '#ffe8a0'); d.p([[54, -32], [80, -48], [106, -32]], '#3a3a44'); },
+      anim(d, t, X, Y, g) { const a = t * 0.9; g.save(); g.globalCompositeOperation = 'lighter';
+        for (const s of [0, Math.PI]) { const b = a + s; d.p([[80, -23], [80 + Math.cos(b - 0.14) * 140, -23 + Math.sin(b - 0.14) * 70], [80 + Math.cos(b + 0.14) * 140, -23 + Math.sin(b + 0.14) * 70]], 'rgba(255,240,180,0.13)'); }
+        g.restore(); d.r(62, -29, 36, 12, `rgba(255,255,220,${0.3 + 0.2 * Math.sin(t * 3)})`); } },
+    ruin: { w: 7, h: 3, m: ['##...##', '##...##', '###....'], lights: [],
+      paint(d) { d.e(112, 92, 112, 8, 'rgba(0,0,0,0.3)'); d.r(6, -24, 52, 86, '#6a6476'); d.r(0, -32, 64, 10, '#7a7486'); for (let k = 0; k < 4; k++) d.r(14 + k * 10, -20, 2, 80, '#5a5464'); d.l(20, 0, 34, 30, '#3a3440', 1);
+        d.r(166, 10, 52, 52, '#6a6476'); d.p([[166, 10], [176, -4], [188, 8], [200, -10], [218, 6], [218, 10]], '#6a6476'); for (let k = 0; k < 4; k++) d.r(174 + k * 10, 4, 2, 56, '#5a5464');
+        d.p([[0, 72], [96, 60], [100, 88], [4, 96]], '#7a7486'); d.p([[0, 72], [96, 60], [96, 64], [0, 76]], '#9a94a0'); for (let k = 0; k < 5; k++) d.r(16 + k * 16, 72 - k * 2, 6, 10, '#4a4452');
+        for (const [x, y] of [[10, 40], [24, 52], [180, 50], [200, 56], [60, 88]]) { d.c(x, y, 5, '#3a6a2a'); d.c(x + 4, y + 2, 4, '#4a7a34'); } },
+      anim(d, t) { for (let k = 0; k < 5; k++) d.r(17 + k * 16, 73 - k * 2, 4, 8, `rgba(200,160,255,${0.15 + 0.15 * Math.sin(t * 2 + k)})`); } },
+    nest: { w: 5, h: 4, m: ['.....', '.###.', '.###.', '.....'], lights: [],
+      paint(d) { d.e(80, 60, 30, 14, '#1a1410'); d.e(80, 74, 48, 24, '#b8b098');
+        for (const [x, y] of [[62, 66], [92, 62], [78, 80], [104, 78]]) { d.c(x, y, 7, '#e0d8c0'); d.r(x - 4, y - 2, 3, 3, '#2a2420'); d.r(x + 1, y - 2, 3, 3, '#2a2420'); }
+        for (let k = 0; k < 6; k++) d.l(46 + k * 12, 86 - (k % 2) * 10, 60 + k * 12, 76 + (k % 3) * 6, '#e8e0c8', 3);
+        for (const [x, y] of [[70, 56], [86, 54], [100, 60]]) { d.e(x, y, 7, 9, '#d8d0b8'); d.c(x - 2, y - 2, 1.5, '#8a8070'); } } ,
+      web(d) { const cx = 80, cy = 58, pt = (i, k) => [cx + Math.cos(i / 8 * Math.PI * 2) * 84 * k, cy + Math.sin(i / 8 * Math.PI * 2) * 66 * k];
+        for (let i = 0; i < 8; i++) { const [x, y] = pt(i, 1); d.l(cx, cy, x, y, 'rgba(230,230,240,0.4)', 1); }
+        for (let k = 1; k <= 4; k++) for (let i = 0; i < 8; i++) { const a = pt(i, k / 4 + (i % 2) * 0.03), b = pt(i + 1, k / 4 + ((i + 1) % 2) * 0.03); d.l(a[0], a[1], b[0], b[1], 'rgba(230,230,240,0.3)', 1); } } },
+    pier: { w: 5, h: 4, m: ['....#', '.....', '.....', '.....'], pier: true, lights: [[8, 94, 70, 0.45]],
+      paint(d) { for (let k = 0; k < 16; k++) { d.r(16, k * 8, 128, 7, k % 2 ? '#7a5a34' : '#6a4a2a'); d.r(16, k * 8 + 7, 128, 1, '#3a2814'); }
+        for (let k = 0; k < 4; k++) { d.r(10, k * 32 + 4, 8, 16, '#4a3420'); d.r(142, k * 32 + 4, 8, 16, '#4a3420'); } d.l(14, 8, 14, 124, '#a89060', 1); d.l(146, 8, 146, 124, '#a89060', 1);
+        crate(d, 130, 2, 28); d.r(2, 96, 5, 30, '#4a3420'); d.c(5, 94, 5, '#8a6a30'); d.e(60, 40, 10, 6, '#b8a070'); },
+      anim(d, t) { d.c(5, 94, 4, `rgba(255,210,120,${0.6 + 0.3 * Math.sin(t * 6)})`); } },
+  };
+  // 放布景：找事件四個方向裡空地最多的一邊（rect＝格子；front＝事件前面那一格）
+  function place(w, ev, id) {
+    const s = S[id]; if (!s) return;
+    const W = w.W, g = w.grid, ex = ev.tx, ey = ev.ty;
+    const free = (x, y) => x > 0 && y > 0 && x < W - 1 && y < w.H - 1 && (g[y * W + x] || (s.pier && w.deco[y * W + x] === 2)) && !(w.deco[y * W + x] && w.deco[y * W + x] !== 2 && w.deco[y * W + x] !== 15);
+    const special = (x, y) => w.chap.evs.some(e => e.tx === x && e.ty === y) || (w.boss && x >= w.boss.x && x < w.boss.x + w.boss.w && y >= w.boss.y && y < w.boss.y + w.boss.h) || (x === Math.floor(w.start.x + 4) && y === Math.floor(w.start.y + 4));
+    const opts = [[ex - (s.w >> 1), ey - s.h, ex, ey + 1], [ex - s.w, ey - (s.h >> 1), ex + 1, ey], [ex + 1, ey - (s.h >> 1), ex - 1, ey], [ex - (s.w >> 1), ey + 1, ex, ey - 1]];
+    let best = null;
+    for (const [sx, sy, fx, fy] of opts) {
+      if (!free(fx, fy)) continue; let n = 0;
+      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) if (free(sx + x, sy + y) && !special(sx + x, sy + y)) n++;
+      if (!best || n > best.n) best = { sx, sy, n };
+    }
+    if (!best || best.n < s.w * s.h * 0.5) return;
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      const X = best.sx + x, Y = best.sy + y, i = Y * W + X; if (!free(X, Y) || special(X, Y)) continue;
+      if (s.m[y][x] === '#') { g[i] = 0; w.deco[i] = SCENE_DECO; } else if (s.pier && w.deco[i] === 2) { g[i] = 1; w.deco[i] = 15; }
+    }
+    w.chap.scenes.push({ id, sx: best.sx, sy: best.sy });
+  }
+  const helper = (g, X, Y) => { const d = H(g), o = { X, Y }; for (const k in d) { const f = d[k]; o[k] = k === 'p' ? (pts, c) => f(pts.map(([x, y]) => [x + X, y + Y]), c) : k === 'l' ? (a, b, c2, e, col, lw) => f(a + X, b + Y, c2 + X, e + Y, col, lw) : (x, y, ...r) => f(x + X, y + Y, ...r); } return o; };
+  function paintAll(w) {
+    const c = w.chap; if (!c || !c.scenes.length || !w.canvas) return;
+    const g = w.canvas.getContext('2d');
+    for (const sc of c.scenes) { const s = S[sc.id]; if (!s) continue; const d = helper(g, sc.sx * T, sc.sy * T); g.save(); try { s.paint(d, g); if (s.web) s.web(d); } catch (e) { console.error('[ChapScenes ' + sc.id + ']', e); } g.restore(); }
+  }
+  const onScr = sc => { const s = S[sc.id], x = sc.sx * T, y = sc.sy * T; return s && x + s.w * T > G.cam.x - 200 && x < G.cam.x + VW + 200 && y + s.h * T > G.cam.y - 200 && y < G.cam.y + VH + 200; };
+  function anim(g) {
+    const w = G.world, c = w && w.chap; if (!c || !c.scenes.length) return;
+    for (const sc of c.scenes) { const s = S[sc.id]; if (!s || !s.anim || !onScr(sc)) continue; g.save(); try { s.anim(helper(g, sc.sx * T, sc.sy * T), G.time, sc.sx * T, sc.sy * T, g); } catch (e) { } g.restore(); }
+  }
+  function light(cut, cx, cy) {
+    const w = G.world, c = w && w.chap; if (!c || !c.scenes.length) return;
+    for (const sc of c.scenes) { const s = S[sc.id]; if (!s || !onScr(sc)) continue; for (const [x, y, r, a] of s.lights) cut(sc.sx * T + x - cx, sc.sy * T + y - cy, r * (0.95 + 0.05 * Math.sin(G.time * 7 + x)), a); }
+  }
+  return { place, paintAll, anim, light, S };
+})();
+// 布景畫進底圖：插在地圖色調（maptint.js）前面、美術鋪地板（artui.js）後面，所以布景不會被地板蓋掉，又會跟地圖一起被調色
+(() => {
+  const L = Hook.m.worldCanvas = Hook.m.worldCanvas || [], f = w => { try { ChapScenes.paintAll(w); } catch (e) { console.error('[ChapScenes]', e); } };
+  const i = L.findIndex(h => /MapTint/.test(h.toString())); if (i >= 0) L.splice(i, 0, f); else L.push(f);
+})();
+Hook.on('drawWorld', g => ChapScenes.anim(g));
+Hook.on('light', (cut, cx, cy) => ChapScenes.light(cut, cx, cy));

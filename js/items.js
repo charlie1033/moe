@@ -13,6 +13,9 @@ function wpick(list, wf) {
   return list[list.length - 1];
 }
 const RARITY_NAME = { normal: '普通', magic: '魔法', rare: '稀有', unique: '傳奇' };
+// v2.17.4 顯示用的稀有度：套裝（item.set）一律算 'set'（綠色，class c-set），其他照 rarity
+function itemRarityKey(it) { return it && it.set ? 'set' : it && it.rarity; }
+function itemColor(it) { return RARITY_COLOR[itemRarityKey(it)] || RARITY_COLOR[it && it.rarity] || '#d8d8d8'; }
 
 // ---------- 詞綴骰值 ----------
 function eligibleAffixes(item, type) {
@@ -144,7 +147,7 @@ function randomItem(ilvl, bonus = 1) {
   const pU = 0.006 * bonus, pR = 0.07 * bonus, pM = 0.30 * Math.min(bonus, 2);
   if (r < pU) {
     // v2.17 世界規則專屬傳奇（u.wr）只在帶那條規則的夜掉，而且那一夜掉傳奇時有 30% 是它
-    const pool = UNIQUES.filter(u => !u.boss && (!u.wr || (typeof wrFlag === 'function' && wrFlag(u.wr))) && BASE_BY_ID[u.base].lvl <= ilvl + 3);
+    const pool = UNIQUES.filter(u => !u.boss && !u.noDrop && (!u.wr || (typeof wrFlag === 'function' && wrFlag(u.wr))) && BASE_BY_ID[u.base].lvl <= ilvl + 3);
     const wrp = pool.filter(u => u.wr);
     if (wrp.length && Math.random() < 0.3) return makeUnique(pick(wrp).id, ilvl);
     if (pool.length) return makeUnique(pick(pool).id, ilvl);
@@ -294,7 +297,7 @@ function applyCurrency(cur, item) {
     } else item.mods.forEach(m => { const a = AFFIX_BY_ID[m.id]; m.v = rollValue(a, a.tiers.length - m.tier, base); });
     return null;
   }
-  if (item.rarity === 'unique') return '傳奇物品只能用神聖石';
+  if (item.rarity === 'unique') return item.set ? '套裝物品不能改造（只能用神聖石重骰數值）' : '傳奇物品只能用神聖石';
   switch (cur) {
     case 'aug': if (item.rarity !== 'magic') return '只能用在魔法物品';
       if (item.mods.length >= 2) return '魔法物品最多 2 條詞綴';
@@ -307,7 +310,7 @@ function applyCurrency(cur, item) {
       if (item.rarity === 'magic') nameItem(item); break;
     case 'chance': {
       if (item.rarity !== 'normal') return '只能用在普通物品';
-      const us = UNIQUES.filter(u => u.base === item.base && !u.boss && !u.wr);
+      const us = UNIQUES.filter(u => u.base === item.base && !u.boss && !u.wr && !u.noDrop);
       if (us.length && Math.random() < 0.08) { const keep = item.sockets; Object.assign(item, makeUnique(pick(us).id, item.ilvl), { uid: item.uid, sockets: keep || [] }); return null; }
       item.rarity = Math.random() < 0.25 ? 'rare' : 'magic'; rollMods(item); break;
     }
@@ -544,7 +547,7 @@ function itemTipHTML(item, opts = {}) {
   const cl = 'c-' + (item.set ? 'set' : item.rarity);   // v2.17 套裝用綠色
   let h = `<div class="tip-head ${cl}"><div class="tip-name">${item.name}</div>${item.rarity === 'rare' || item.rarity === 'unique' ? `<div class="tip-base">${base.name}</div>` : ''}</div>`;
   const tierTxt = TIERED_SLOTS.has(base.slot) ? ` · <span style="color:${['#a8a8a8', '#c8c8a0', '#e8d890', '#c8a0ff', '#ff8a8a'][base.tier]}">${BASE_TIER_NAME[base.tier]}基底</span>` : '';
-  h += `<div class="tip-sub">${base.clsName}${base.hands === 2 ? '（雙手）' : ''} · ${RARITY_NAME[item.rarity]}${tierTxt} · 物品等級 ${item.ilvl}</div>`;
+  h += `<div class="tip-sub">${base.clsName}${base.hands === 2 ? '（雙手）' : ''} · ${item.set ? '<span class="c-set">套裝</span>' : RARITY_NAME[item.rarity]}${tierTxt} · 物品等級 ${item.ilvl}</div>`;
   if (loc.phys) {
     h += `<div class="tip-prop">物理傷害：<span class="${loc.physMod ? 'c-mod' : ''}">${loc.phys[0]}–${loc.phys[1]}</span></div>`;
     h += `<div class="tip-prop">每秒攻擊次數：<span class="${loc.apsMod ? 'c-mod' : ''}">${loc.aps.toFixed(2)}</span></div>`;
@@ -563,7 +566,10 @@ function itemTipHTML(item, opts = {}) {
   }
   if (item.mods.length) {
     h += '<div class="tip-sep"></div>';
+    let prevU = false;
     for (const m of item.mods) {
+      if (item.set && prevU && m.type !== 'u') h += '<div class="tip-sep"></div><div class="tip-mod" style="font-size:11px;color:#8a9a90">隨機詞綴</div>';   // v2.17.4 套裝：固定效果和隨機詞綴分開
+      prevU = m.type === 'u';
       const t = STAT_TEXT[m.stat] ? STAT_TEXT[m.stat](m.v, base.def) : m.stat;
       const tag = m.type === 'p' ? `<span class="tip-tier">前綴 T${m.tier}</span>` : m.type === 's' ? `<span class="tip-tier">後綴 T${m.tier}</span>` : '';
       h += `<div class="tip-mod ${m.type === 'u' && FLAG_STATS.has(m.stat) ? 'c-unique' : ''}">${t}${tag}</div>`;

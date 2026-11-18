@@ -106,7 +106,7 @@ const DragItem = {
       if (P.inv[i] !== it) return;
       P.inv[i] = null;
       const pl = G.pl, a = Math.random() * Math.PI * 2;
-      const l = { x: pl.x + Math.cos(a) * 18, y: pl.y + Math.sin(a) * 12 + 8, t: 0, item: it, label: it.name, color: isFlask(it) ? '#d8d8d8' : RARITY_COLOR[it.rarity], dropped: true };
+      const l = { x: pl.x + Math.cos(a) * 18, y: pl.y + Math.sin(a) * 12 + 8, t: 0, item: it, label: it.name, color: isFlask(it) ? '#d8d8d8' : itemColor(it), dropped: true };
       G.loot.push(l);
       Sfx.play('pickup'); UI.msg(`丟下了 ${it.name}${G.world.kind === 'town' ? '（離開營地就會消失）' : '（離開這張地圖就會消失）'}`, '#d8c8a0');
       UI.select(null); UI.refreshInv(); saveGame();
@@ -175,7 +175,7 @@ Object.assign(DragItem, {
         if (P.equip[d.slot] !== d.it) return;
         P.equip[d.slot] = null;
         const pl = G.pl, a = Math.random() * Math.PI * 2;
-        G.loot.push({ x: pl.x + Math.cos(a) * 18, y: pl.y + Math.sin(a) * 12 + 8, t: 0, item: d.it, label: d.it.name, color: RARITY_COLOR[d.it.rarity], dropped: true });
+        G.loot.push({ x: pl.x + Math.cos(a) * 18, y: pl.y + Math.sin(a) * 12 + 8, t: 0, item: d.it, label: d.it.name, color: isFlask(d.it) ? '#d8d8d8' : itemColor(d.it), dropped: true });
         Sfx.play('pickup'); UI.msg(`卸下並丟下了 ${d.it.name}${G.world.kind === 'town' ? '（離開營地就會消失）' : '（離開這張地圖就會消失）'}`, '#d8c8a0');
         UI.hideTip(); UI.select(null); onBuildChanged(); UI.refreshInv(); saveGame();
       };

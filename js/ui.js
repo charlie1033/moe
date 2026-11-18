@@ -495,7 +495,7 @@ const UI = {
       }
     }
     onBuildChanged();
-    Sfx.play("equip"); burst(G.pl.x, G.pl.y - 14, RARITY_COLOR[it.rarity] || "#e8d8a8", 10, 70);   // v2.5.1 裝備音效
+    Sfx.play("equip"); burst(G.pl.x, G.pl.y - 14, itemColor(it) || "#e8d8a8", 10, 70);   // v2.5.1 裝備音效
     return slot;
   },
   // v1.4：分解只能在商人那裡，分解會得到材料（I–V 級，看裝備基底階級）
@@ -934,7 +934,7 @@ const UI = {
     G.shop.forEach((e, i) => {
       if (e.sold) return;
       let icon, name, color;
-      if (e.item) { icon = isFlask(e.item) ? flaskIconURL(e.item.type, 64) : itemIconURL(BASE_BY_ID[e.item.base], 64); name = e.item.name; color = RARITY_COLOR[e.item.rarity]; }
+      if (e.item) { icon = isFlask(e.item) ? flaskIconURL(e.item.type, 64) : itemIconURL(BASE_BY_ID[e.item.base], 64); name = e.item.name; color = isFlask(e.item) ? RARITY_COLOR[e.item.rarity] : itemColor(e.item); }
       else if (e.gem) { icon = supportIconURL(e.gem, 64); name = `輔助寶石：${SUPPORTS[e.gem].name}`; color = '#3fd8b8'; }
       else if (e.respec) { icon = flaskIconURL('respec', 64, '#b890ff'); name = `遺忘藥水（重置點數 +${e.respec}）`; color = '#c8b0ff'; }
       else { icon = currencyIconURL(e.cur, 64); name = `${CURRENCY[e.cur].name} ×${e.qty}`; color = CURRENCY[e.cur].color; }
@@ -947,7 +947,7 @@ const UI = {
     h += `<div class="csec2">買回（最近賣掉的 ${bb.length}/10 件）</div>`;
     h += bb.length ? '<div class="bbgrid">' + bb.map((e, j) => {
       const it = e.item, icon = isFlask(it) ? flaskIconURL(it.type, 64) : itemIconURL(BASE_BY_ID[it.base], 64), ok = canPay(e.price);
-      return `<div class="bbitem" data-bb="${j}"><img src="${icon}"><div class="bbn c-${it.rarity}">${it.name}</div><div class="sprice ${ok ? '' : 'c-bad'}">${this.priceText(e.price)}</div><button data-bbuy="${j}" ${ok ? '' : 'disabled'}>買回</button></div>`;
+      return `<div class="bbitem" data-bb="${j}"><img src="${icon}"><div class="bbn c-${isFlask(it) ? it.rarity : itemRarityKey(it)}">${it.name}</div><div class="sprice ${ok ? '' : 'c-bad'}">${this.priceText(e.price)}</div><button data-bbuy="${j}" ${ok ? '' : 'disabled'}>買回</button></div>`;
     }).join('') + '</div>' : '<div class="ihint">還沒有賣過東西。賣掉的東西會先放在這裡，買錯了可以買回來（離開遊戲也會保留）。</div>';
     $('#shopBody').innerHTML = h;
     $('#shopBody').querySelectorAll('[data-bbuy]').forEach(b => b.onclick = () => this.buyBack(+b.dataset.bbuy));

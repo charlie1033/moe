@@ -15,7 +15,11 @@
 //       ↑ 深層（第 11 夜起）：黃色精英 0.3%、看守者 3% 掉一件（從深層件裡抽：這兩套＋大白的掌印）
 //  資料：套裝物品＝rarity 'unique'＋item.set＝套裝代號＋item.uniqueId＝套件代號（套件登記在 UNIQUE_BY_ID，不進 UNIQUES，
 //    所以不會被當一般傳奇隨機掉，也不進傳奇收藏冊）。底材跟著物品等級升到最高可用階（setBestBase，深層傳奇也用）。
-//  對外：SETS、SET_PIECES、makeSetItem(套件代號, 物品等級)、setCounts(P)、setBestBase(底材, 物品等級)
+//  v2.17.4：套裝另外骰 4 條一般詞綴（前後綴照稀有裝備規則；說明裡跟固定效果分開），不能用通貨改造（items.js 擋），
+//    只能用神聖石重骰數值；舊存檔的套裝讀檔時補骰（setUpgradeOld）。件數只算「不同的套件」，
+//    戴第一百三十八枚指環（SET_RING_ID，資料在 sets6.js）時每一套有穿的 +1（兩枚不疊加），說明顯示「身上 5（+1）/ 6」。
+//    六件套裝（2／4／6 件）四套在 sets6.js。
+//  對外：SETS、SET_PIECES、makeSetItem(套件代號, 物品等級)、setCounts(P)、setBestBase(底材, 物品等級)、setRingBonus(P)、setAddAffixes(物品)
 // =============================================================
 RARITY_COLOR.set = '#5ad08a';
 const SET_PIECES = {
@@ -70,17 +74,34 @@ function setBestBase(baseId, ilvl) {
   return best;
 }
 function setRebase(it, b) { if (!b || b.id === it.base) return; it.base = b.id; it.implicit = b.implicit.map(x => ({ stat: x.stat, v: x.v })); }
+const SET_RING_ID = 'u_ring138';   // v2.17.4 第一百三十八枚指環（資料在 sets6.js）：身上有穿的每一套都多算 1 件，兩枚不疊加
+function setRingBonus(P) { return P && P.equip && Object.values(P.equip).some(it => it && it.uniqueId === SET_RING_ID) ? 1 : 0; }
+// v2.17.4 套裝另外骰 4 條一般詞綴（照部位、物品等級，前後綴各最多 3 條，跟稀有裝備同一套規則）
+const SET_AFFIX_N = 4;
+function setRandCount(it) { return (it.mods || []).filter(m => m.type === 'p' || m.type === 's').length; }
+function setAddAffixes(it) { for (let i = setRandCount(it); i < SET_AFFIX_N; i++) if (!addRandomAffix(it)) break; return it; }
 function makeSetItem(pid, ilvl) {
   const p = SET_PIECES[pid]; if (!p || !UNIQUE_BY_ID[pid]) return null;
   ilvl = Math.max(1, Math.round(ilvl || 1));
   const it = makeUnique(pid, ilvl); it.set = p.set; setRebase(it, setBestBase(p.base, ilvl));
-  return it;
+  return setAddAffixes(it);
 }
+// 件數：同一套「不同的套件」各算 1 件（同一件穿兩個不會算兩件）；戴著第一百三十八枚指環時，有穿的每一套 +1（最多到滿）
+function setWornIds(P, sid) { return new Set(P && P.equip ? Object.values(P.equip).filter(x => x && x.set === sid).map(x => x.uniqueId) : []); }
 function setCounts(P) {
   const n = {}; if (!P || !P.equip) return n;
-  for (const k in P.equip) { const it = P.equip[k]; if (it && it.set && SETS[it.set]) n[it.set] = (n[it.set] || 0) + 1; }
+  const plus = setRingBonus(P);
+  for (const k in P.equip) { const it = P.equip[k]; if (it && it.set && SETS[it.set] && n[it.set] === undefined) n[it.set] = Math.min(SETS[it.set].pieces.length, setWornIds(P, it.set).size + plus); }
   return n;
 }
+// 舊存檔：v2.17.4 以前撿到的套裝沒有隨機詞綴，讀檔時補骰 4 條（身上、背包、倉庫）
+function setUpgradeOld(P) {
+  let eq = false; const fix = it => { if (it && it.set && it.rarity === 'unique' && !isStack(it) && setRandCount(it) === 0) { setAddAffixes(it); return true; } return false; };
+  if (P) { for (const k in P.equip || {}) eq = fix(P.equip[k]) || eq; (P.inv || []).forEach(fix); }
+  if (G.stash) for (const t of G.stash.tabs || []) (t || []).forEach(fix);
+  return eq;
+}
+Hook.on('start', P => { if (setUpgradeOld(P)) onBuildChanged(); });
 // 套裝效果的旗標（效果本身在 seteffects.js）
 Hook.on('stats', (S, P) => {
   const n = setCounts(P);
@@ -89,8 +110,10 @@ Hook.on('stats', (S, P) => {
 // 物品說明：套裝名、穿了幾件、各門檻
 ITEM_TIP_EXTRA.push(it => {
   const S0 = it.set && SETS[it.set]; if (!S0) return '';
-  const P = G.P, worn = new Set(P ? Object.values(P.equip || {}).filter(x => x && x.set === it.set).map(x => x.uniqueId) : []), n = worn.size;
-  let h = `<div class="tip-sep"></div><div class="tip-mod c-set">套裝：${S0.name}（身上 ${n} / ${S0.pieces.length} 件）</div>`;
+  const P = G.P, worn = setWornIds(P, it.set), n0 = worn.size, L = S0.pieces.length;
+  const plus = n0 > 0 && n0 < L ? setRingBonus(P) : 0, n = n0 + plus;   // v2.17.4 第一百三十八枚指環多算的那一件
+  let h = `<div class="tip-sep"></div><div class="tip-mod c-set">套裝：${S0.name}（身上 ${n0}${plus ? '<span style="color:#ffb070">（+1）</span>' : ''} / ${L} 件）</div>`;
+  if (plus) h += `<div class="tip-mod" style="font-size:11px;color:#ffb070">（+1）是「${UNIQUE_BY_ID[SET_RING_ID] ? UNIQUE_BY_ID[SET_RING_ID].name : '戒指'}」多算的那一件</div>`;
   h += `<div class="tip-mod" style="font-size:12px">${S0.pieces.map(k => `<span style="color:${worn.has(k) ? '#9af0b8' : '#6a7a70'}">${SET_PIECES[k].name}</span>`).join('、')}</div>`;
   for (const [need, , text] of S0.bonus) h += `<div class="tip-mod" style="color:${n >= need ? '#7aff9a' : '#6a6a6a'}">（${need} 件）${text}</div>`;
   return h;

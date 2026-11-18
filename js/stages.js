@@ -6,6 +6,7 @@
 //     障礙物不會擋死路（放完會檢查每個地方都走得到，河流會自動留橋）
 //  ④ v2.14.4 房間的直角削圓、直牆隨機凹凸（organicEdges）；東西卡在牆裡會自動移到最近的空地
 //  ③ 角色腳下顯示小小的生命條和魔力條
+//  ⑤ 主線第 1～10 夜有手工地圖（chapmaps.js）的區用固定地形，進區橫幅的副標換成那一區的開場白（w.intro）
 // =============================================================
 const BIOME = {
   bone: { open: 0.05, dens: 0.6, kinds: [[5, 2], [7, 3]] },
@@ -210,8 +211,10 @@ buildWorldCanvas = function (w) {
 // ① 小關卡
 const _genMapStage = genMap;
 genMap = function (tier) {
-  const w = _genMapStage(tier);
-  try { biomeApply(w); } catch (e) { }
+  // 主線第 1～10 夜有手工地圖就用固定地形（chapmaps.js，不跑隨機開闊、障礙物、河流）；沒有資料的區照舊隨機生成
+  const cm = G._stagePlan && typeof ChapterMaps !== 'undefined' ? ChapterMaps.build(tier, G._stagePlan.i) : null;
+  const w = cm || _genMapStage(tier);
+  if (!cm) try { biomeApply(w); } catch (e) { }
   if (G._stagePlan) { w.stage = { i: G._stagePlan.i, n: G._stagePlan.n }; w.name += `（第 ${w.stage.i} / ${w.stage.n} 區）`; }
   return w;
 };
@@ -240,7 +243,8 @@ enterMap = function (tier) {
   if (w0.stage) {
     const B = stageBonus(w0.stage.n);
     if (B.q || B.r) { w0.mm = Object.assign({}, w0.mm, { q: (w0.mm.q || 0) + B.q, r: (w0.mm.r || 0) + B.r }); w0.stageBonus = B; }
-    UI.banner(w0.name.replace(/（.*$/, ''), `這一夜有 ${w0.stage.n} 區，最後一區有看守者${B.q ? `｜掉落數量 +${B.q}%、稀有度 +${B.r}%` : ''}`, '#ffcf70');
+    const sub = `這一夜有 ${w0.stage.n} 區，最後一區有看守者${B.q ? `｜掉落數量 +${B.q}%、稀有度 +${B.r}%` : ''}`;
+    UI.banner(w0.name.replace(/（.*$/, ''), w0.intro || sub, '#ffcf70'); if (w0.intro) UI.msg(sub, '#ffcf70');   // 手工地圖：副標是這一區的開場白
   }
 };
 function nextStage() {
@@ -254,7 +258,8 @@ function nextStage() {
   populate(w); stageFixup(w);
   G.mins.forEach(m => { m.x = G.pl.x + rnd(-30, 30); m.y = G.pl.y + rnd(-30, 30); });
   w.flowT = 0; Sfx.play('portal');
-  UI.banner(`第 ${w.stage.i} / ${w.stage.n} 區`, w.stage.i === w.stage.n ? '看守者就在這一區' : '找到出口的門，前往下一區', '#ffcf70');
+  const sub = w.stage.i === w.stage.n ? '看守者就在這一區' : '找到出口的門，前往下一區';
+  UI.banner(w.intro ? w.name.replace(/^第 \d+ 夜之夢・/, '') : `第 ${w.stage.i} / ${w.stage.n} 區`, w.intro || sub, '#ffcf70'); if (w.intro) UI.msg(sub, '#ffcf70');   // 手工地圖：標題是區域名、副標是開場白
   saveGame();
 }
 // 出口的門：按 F

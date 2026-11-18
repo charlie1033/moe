@@ -1621,7 +1621,7 @@ function autoEquipPickup(it) {
   if (slot === 'offhand') { if (b.cls === 'quiver' ? !(w && w.cls === 'bow') : (w && w.hands === 2)) return false; }
   if (slot === 'weapon' && off) { if (off.cls === 'quiver' ? b.cls !== 'bow' : b.hands === 2) return false; }
   P.equip[slot] = it; onBuildChanged(); Sfx.play('equip');
-  UI.msg(`自動裝備：${it.name}`, RARITY_COLOR[it.rarity]);
+  UI.msg(`自動裝備：${it.name}`, itemColor(it));
   return true;
 }
 // v1.9.1：珠寶、通貨、材料走過去就自動撿；裝備、藥劑、技能／輔助寶石、碎片、鑰匙還是要點一下
