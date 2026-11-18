@@ -330,6 +330,15 @@ const MOE_DEV = {
       const A = atlasOf(P); for (let t = 11; t <= 30; t++) A.got['n' + t] = true; atlasPreset(P, 'boss'); T.ok(atlasUsed(P) === 20 && A.pts.boss_life === 3, '打王大卡沒配點');
       T.ok(atlasMaxPts() >= 46, '點數上限還是不夠點滿');
     },
+    '劇情跟著看守者的抉擇變': T => {
+      const P = T.hero('warrior', 30, 8); P.wardens.first = {};
+      T.ok(STORY.sparrow2.pages[0].includes('打倒'), '沒選過時應該是原本的文字');
+      P.wardens.first.beast = 'free'; T.ok(STORY.sparrow2.pages[0].includes('回來了') && STORY.are2.pages[0].includes('小狗') && STORY.boss_beast.pages[0].includes('小白狗'), '放走大白後劇情沒變');
+      P.wardens.first.beast = 'name'; T.ok(STORY.sparrow2.pages[1].includes('名字'), '和解後劇情沒變');
+      P.wardens.first.b_swamp = 'free'; T.ok(STORY.yin2.journal.text.includes('回到了茵身邊'), '日誌文字沒變');
+      T.ok(!STORY.sparrow3.pages[0].includes('放在你手上'), '小雀之三還在重複送王冠');
+      P.wardens.first = {};
+    },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
       T.hero('summoner', 60, 21);
