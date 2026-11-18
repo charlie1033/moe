@@ -106,7 +106,7 @@ function render() {
     }
     // 地上的物品：用跟背包一樣的圖示（art.js），下面有一圈淡淡的光
     const bob = Math.sin(G.time * 3 + l.x * 0.1) * 1.5;
-    const icon = isFlask(l.item) ? flaskIcon(l.item.type, 64) : l.item ? itemIcon(BASE_BY_ID[l.item.base], 64)
+    const icon = isFlask(l.item) ? flaskIcon(l.item.type, 64) : l.item ? itemIconOf(l.item, 64)
       : l.gem ? supportIcon(l.gem, 48) : l.skill ? skillIcon(l.skill, 48) : l.cur ? currencyIcon(l.cur, 48) : l.stackItem ? (l.stackItem.stack === 'cur' ? currencyIcon(l.stackItem.key, 48) : null) : l.mat ? matIcon(l.mat.slice(0, l.mat.lastIndexOf("_")), +l.mat.slice(l.mat.lastIndexOf("_") + 1), 48) : null;
     if (icon) {
       const rc = l.item ? itemColor(l.item) : l.gem ? SUPPORTS[l.gem].color : l.skill ? '#ffd27a' : '#e8d8a8';
@@ -437,7 +437,7 @@ function drawPlayer(g, pl) {
   const bob = moving ? Math.round(Math.sin(pl.walk) * 1.5) : 0;
   const pst = plAilState(pl);
   // v2.5.1 身上的裝備：副手（盾／箭袋／法器）、頭盔、胸甲顯示在角色身上
-  const EQ = G.P.equip, eqIcon = (it, px) => { const b = it && BASE_BY_ID[it.base]; return b ? itemIcon(b, px) : null; };
+  const EQ = G.P.equip, eqIcon = (it, px) => it && BASE_BY_ID[it.base] ? itemIconOf(it, px) : null;
   const offB = EQ.offhand && BASE_BY_ID[EQ.offhand.base];
   // v2.5.1 接口：如果有 js\paperdoll.js（依裝備畫的分層像素人物，Higgsfield 美術工作階段負責），就交給它畫
   //   drawPaperDoll 回傳 { w, h }（畫好了）或 false（沒畫，照下面原本的方式）。它會自己畫身體、裝備和武器。

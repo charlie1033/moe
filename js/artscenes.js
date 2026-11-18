@@ -88,7 +88,14 @@ const NPC_SCALE = { girl: 0.8, flv_kid: 0.74, flv_gnome: 0.64, flv_dwarf: 0.82, 
     const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
     if (flip) { g.translate(w, 0); g.scale(-1, 1); }
     g.drawImage(im, 0, 0, w, h);
-    if (recol) {   // 夢魘首領：同一張圖，壓暗再整個換成夢魘的色調
+    if (recol === 'white') {   // v2.19 換成白色（營地的大白：狼的圖染成白狗）：先去色、再提亮，最後照原圖形狀裁一次
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalCompositeOperation = 'saturation'; g.globalAlpha = 0.92; g.fillStyle = '#808080'; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'screen'; g.globalAlpha = 0.55; g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'destination-in'; g.globalAlpha = 1;
+      if (flip) { g.translate(w, 0); g.scale(-1, 1); }
+      g.drawImage(im, 0, 0, w, h);
+    } else if (recol) {   // 夢魘首領：同一張圖，壓暗再整個換成夢魘的色調
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.globalCompositeOperation = 'source-atop'; g.globalAlpha = 0.28; g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
       g.globalCompositeOperation = 'color'; g.globalAlpha = 0.7; g.fillStyle = recol; g.fillRect(0, 0, w, h);
@@ -108,7 +115,9 @@ const NPC_SCALE = { girl: 0.8, flv_kid: 0.74, flv_gnome: 0.64, flv_dwarf: 0.82, 
     // 只有冰凍／冰緩（每個顏色都換成同一色）才染色；主題換色（PAL_TINT）是給舊像素圖用的，新圖本來就各有顏色
     const tv = tint ? Object.values(tint) : [], tc = tv.length > 1 && tv.every(v => v === tv[0]) ? tv[0] : null;
     // 首領帶著一整組不同顏色（夢魘首領）→ 挑最鮮豔的那個顏色重新上色
-    const recol = !tc && BOSSY[name] && tv.length ? tv.slice().sort((a, b) => sat(b) - sat(a))[0] : null;
+    // v2.19 一般怪帶著一組顏色、其中有接近白色的主色（營地的大白）→ 整隻染白
+    const lum = hex => { const n = parseInt(String(hex).slice(1, 7), 16) || 0; return (n >> 16) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11; };
+    const recol = !tc && BOSSY[name] && tv.length ? tv.slice().sort((a, b) => sat(b) - sat(a))[0] : !tc && tint && tint.G && lum(tint.G) > 225 && sat(tint.G) < 24 ? 'white' : null;   // 只看身體主色 G
     const key = `${name}|${scale}|${tc || ''}|${recol || ''}|${flash ? 1 : 0}`;
     let s = cache.get(key);
     if (!s) {

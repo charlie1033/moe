@@ -304,7 +304,7 @@ const UI = {
     if (isFlask(it)) return `<img src="${flaskIconURL(it.type, 64)}"><span class="iname c-${it.rarity}">${FLASKS[it.type].name.slice(0, 4)}</span><span class="ftier">${it.tier}</span>`;
     const b = BASE_BY_ID[it.base];
     const socks = (it.sockets || []).map(k => `<i style="background:${k ? JEWELS[parseJewel(k).type].color : 'transparent'}"></i>`).join('');
-    return `<img src="${itemIconURL(b, 64)}"><span class="iname c-${it.set ? 'set' : it.rarity}">${it.name.length > 6 ? it.name.slice(0, 6) : it.name}</span>${socks ? `<span class="sdots">${socks}</span>` : ''}`;
+    return `<img src="${itemIconOfURL(it, 64)}"><span class="iname c-${it.set ? 'set' : it.rarity}">${it.name.length > 6 ? it.name.slice(0, 6) : it.name}</span>${socks ? `<span class="sdots">${socks}</span>` : ''}`;
   },
   refreshInv() {
     const P = G.P; if (!P) return;
@@ -647,7 +647,7 @@ const UI = {
           ? `<span class="gsock sup ${fits ? '' : 'bad'}" data-drop="sup:${i}:${k}" data-gem="link:${i}:${k}" style="--c:${SUPPORTS[cur].color}"><img src="${supportIconURL(cur, 48)}"></span>`
           : `<span class="gsock sup empty" data-drop="sup:${i}:${k}"></span>`;
       }
-      const gearIcon = gear ? (isFlask(gear) ? '' : `<img src="${itemIconURL(BASE_BY_ID[gear.base], 64)}">`) : `<span class="gslabel">${gname}</span>`;
+      const gearIcon = gear ? (isFlask(gear) ? '' : `<img src="${itemIconOfURL(gear, 64)}">`) : `<span class="gslabel">${gname}</span>`;
       h += `<div class="gearrow ${sid ? '' : 'empty'}">
         <div class="gearbox ${gear ? 'r-' + gear.rarity : ''}" title="${gear ? gear.name : '沒有裝備（寶石還是可以放）'}">${gearIcon}<b class="gkey">${skillKeyNames()[i]}</b></div>
         <span class="gsock skill ${sid ? (err ? 'bad' : '') : 'empty'}" data-drop="skill:${i}" ${sid ? `data-gem="slot:${i}"` : ''}>${sid ? `<img src="${skillIconURL(sid, 64)}">` : '技能'}</span>
@@ -943,7 +943,7 @@ const UI = {
     G.shop.forEach((e, i) => {
       if (e.sold) return;
       let icon, name, color;
-      if (e.item) { icon = isFlask(e.item) ? flaskIconURL(e.item.type, 64) : itemIconURL(BASE_BY_ID[e.item.base], 64); name = e.item.name; color = isFlask(e.item) ? RARITY_COLOR[e.item.rarity] : itemColor(e.item); }
+      if (e.item) { icon = isFlask(e.item) ? flaskIconURL(e.item.type, 64) : itemIconOfURL(e.item, 64); name = e.item.name; color = isFlask(e.item) ? RARITY_COLOR[e.item.rarity] : itemColor(e.item); }
       else if (e.gem) { icon = supportIconURL(e.gem, 64); name = `輔助寶石：${SUPPORTS[e.gem].name}`; color = '#3fd8b8'; }
       else if (e.respec) { icon = flaskIconURL('respec', 64, '#b890ff'); name = `遺忘藥水（重置點數 +${e.respec}）`; color = '#c8b0ff'; }
       else { icon = currencyIconURL(e.cur, 64); name = `${CURRENCY[e.cur].name} ×${e.qty}`; color = CURRENCY[e.cur].color; }
@@ -955,7 +955,7 @@ const UI = {
     const bb = P.buyback || [];
     h += `<div class="csec2">買回（最近賣掉的 ${bb.length}/10 件）</div>`;
     h += bb.length ? '<div class="bbgrid">' + bb.map((e, j) => {
-      const it = e.item, icon = isFlask(it) ? flaskIconURL(it.type, 64) : itemIconURL(BASE_BY_ID[it.base], 64), ok = canPay(e.price);
+      const it = e.item, icon = isFlask(it) ? flaskIconURL(it.type, 64) : itemIconOfURL(it, 64), ok = canPay(e.price);
       return `<div class="bbitem" data-bb="${j}"><img src="${icon}"><div class="bbn c-${isFlask(it) ? it.rarity : itemRarityKey(it)}">${it.name}</div><div class="sprice ${ok ? '' : 'c-bad'}">${this.priceText(e.price)}</div><button data-bbuy="${j}" ${ok ? '' : 'disabled'}>買回</button></div>`;
     }).join('') + '</div>' : '<div class="ihint">還沒有賣過東西。賣掉的東西會先放在這裡，買錯了可以買回來（離開遊戲也會保留）。</div>';
     $('#shopBody').innerHTML = h;

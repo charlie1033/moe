@@ -26,7 +26,7 @@ UI.uniqHTML = function () {
   for (const sl of UNIQ_SLOT_ORDER) {
     const us = UNIQUES.filter(u => BASE_BY_ID[u.base] && BASE_BY_ID[u.base].slot === sl); if (!us.length) continue;
     h += `<div class="spg">${UNIQ_SLOT_NAME[sl]}</div><div class="sprow uq">`;
-    for (const u of us) { const n = have(u.id).length; h += `<div class="spc big uqc ${n ? '' : 'empty'}" data-uq="${u.id}" style="--c:#e8803a"><img src="${itemIconURL(BASE_BY_ID[u.base], 64)}" draggable="false">${n ? `<b>${n}</b>` : ''}<span>${u.name}</span></div>`; }
+    for (const u of us) { const n = have(u.id).length; h += `<div class="spc big uqc ${n ? '' : 'empty'}" data-uq="${u.id}" style="--c:#e8803a"><img src="${itemIconOfURL({ uniqueId: u.id, base: u.base }, 64)}" draggable="false">${n ? `<b>${n}</b>` : ''}<span>${u.name}</span></div>`; }
     h += '</div>';
   }
   return h;

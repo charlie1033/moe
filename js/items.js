@@ -629,3 +629,9 @@ function canEquip(item) {
   for (const [k, n] of [['str', '力量'], ['dex', '敏捷'], ['int', '智慧']]) if (req[k] && G.S[k] + itemOwnAttr(item, k) < req[k]) return `${n}不足（需要 ${req[k]}）`;
   return null;
 }
+// v2.19.2 傳奇、套裝、信物有自己的圖示（美術 CC0 暫代圖，代號＝uniqueId；ArtStyle.cell 查得到就用，沒有才用底材圖）
+function itemIconOf(it, px = 48) {
+  const id = it && it.uniqueId, c = id && typeof ArtStyle !== 'undefined' && ArtStyle.cell ? ArtStyle.cell(id) : null;
+  return c || itemIcon(BASE_BY_ID[it.base], px);
+}
+const itemIconOfURL = (it, px = 48) => artURL(itemIconOf(it, px));

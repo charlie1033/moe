@@ -44,7 +44,7 @@ const DragItem = {
       if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) < 7) return;
       d.moved = true; UI.hideTip();
       const g = document.createElement('img'); g.className = 'dragghost';
-      g.src = isFlask(d.it) ? flaskIconURL(d.it.type, 64) : itemIconURL(BASE_BY_ID[d.it.base], 64);
+      g.src = isFlask(d.it) ? flaskIconURL(d.it.type, 64) : itemIconOfURL(d.it, 64);
       document.body.appendChild(g); d.ghost = g;
       d.tg = this.targets(d.it);
       // 拖起來的那格變暗；可以放的格子淡淡反白（不能穿的，例如屬性不夠，就標紅）
@@ -141,7 +141,7 @@ Object.assign(DragItem, {
     if (!d.moved) {
       if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) < 7) return;
       d.moved = true; UI.hideTip();
-      const g = document.createElement('img'); g.className = 'dragghost'; g.src = itemIconURL(BASE_BY_ID[d.it.base], 64);
+      const g = document.createElement('img'); g.className = 'dragghost'; g.src = itemIconOfURL(d.it, 64);
       document.body.appendChild(g); d.ghost = g;
       document.querySelector(`#doll .eslot[data-slot="${d.slot}"]`).classList.add('dragsrc');
       document.querySelectorAll('#invgrid .icell').forEach(c => { const x = G.P.inv[+c.dataset.i]; if (!x) c.classList.add('dropok'); else if (this.fitsSlot(x, d.slot)) c.classList.add(canEquip(x) ? 'dropbad' : 'dropok'); });

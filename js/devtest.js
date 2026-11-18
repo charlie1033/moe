@@ -562,7 +562,7 @@ const MOE_DEV = {
       Hook.m.terrainChanged = Hook.m.terrainChanged.filter(h => h !== f);
       T.ok(n === 1 && dirty.join() === '1,0', '標記重畫的塊不對：' + dirty.join(' '));
       T.ok(w._terrainVer === tv + 1 && ev && ev.x0 === 40 && ev.y1 === 11, '沒發 terrainChanged 或版本沒加');
-      const p0 = WorldChunks.painted; render(); worldChunk(w, 1, 0); T.ok(WorldChunks.painted - p0 <= 2 && !w.chunks.get(1).dirty, '重畫的塊太多或沒重畫');
+      const p0 = WorldChunks.painted; worldChunk(w, 1, 0); T.ok(WorldChunks.painted - p0 === 1 && !w.chunks.get(1).dirty, '重畫的塊太多或沒重畫');   // 不呼叫 render（玩家位置不同時會順便畫別的塊）
       const tv2 = w._terrainVer; T.ok(worldRepaint(w) === w.chunks.size && w._terrainVer === tv2, '設定切換（全部重畫）不對');
     },
     '小地圖：大地圖用附近、可以切換整張': T => {
@@ -667,6 +667,23 @@ const MOE_DEV = {
     '開始畫面：沒有角色時沒有繼續': T => {
       if (G.state === 'play') backToTitle(); const old = window.loadIndex; window.loadIndex = () => ({ chars: [] });
       try { TitleScreen.open(); T.ok(!document.querySelector('#title [data-ts="cont"]') && document.querySelectorAll('#title .ts-menu button').length === 4, '沒有角色卻有繼續'); } finally { window.loadIndex = old; TitleScreen.destroy(); }
+    },
+    '開始畫面：六個人圍著營火、畫一格很快': T => {
+      if (G.state === 'play') backToTitle();
+      TitleScreen.open(); for (let i = 0; i < 30; i++) TitleScreen.tick(1 / 60);
+      const st = TitleScreen.state(), cls = st.seats.map(s => s.split('@')[0]);
+      T.ok(st.seats.length === 6 && new Set(cls).size === 6, '圍坐的人數或職業不對：' + st.seats);
+      const last = TitleScreen.last; T.ok(!last || st.seats.includes(last.cls + '@R'), '最近玩的角色沒坐在最顯眼的位置');
+      T.ok(TitleScreen.ms < 8, '開始畫面一格太慢：' + TitleScreen.ms.toFixed(1) + 'ms');
+      let n = 0; while (TitleScreen.state().flare <= 0 && n++ < 1200) TitleScreen.tick(1 / 60);
+      T.ok(TitleScreen.state().flare > 0, '沒有人往火裡丟柴');
+      TitleScreen.destroy(); T.ok(!TitleScreen.alive && !TitleScreen.shown, '關掉後迴圈沒停');
+    },
+    '傳奇、套裝用自己的圖示': T => {
+      const P = T.hero('warrior', 40, 8); P.inv[0] = makeUnique('u_fuse', 40); P.inv[1] = makeSetItem('set_dabai_collar', 40);
+      const want = ['u_fuse', 'set_dabai_collar'].map(id => ArtStyle.cell(id)); if (want.some(c => !c)) return;   // 美術關掉時跳過
+      UI.toggle('inv', true); UI.refreshInv(); const imgs = [...document.querySelectorAll('#inv img')].map(i => i.src);
+      T.ok(want.every(c => imgs.includes(artURL(c))), '背包裡的傳奇或套裝沒用自己的圖示'); UI.toggle('inv', false);
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');

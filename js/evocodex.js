@@ -33,7 +33,7 @@ const EvoCodex = {
     if (all) { for (const t of G.stash.tabs || []) for (const it of t || []) nw = this.note(it) || nw; for (const it of (G.stash.spec && G.stash.spec.uniq) || []) nw = this.note(it) || nw; }
     return nw;
   },
-  icon(u) { return `<img src="${itemIconURL(BASE_BY_ID[u.base], 64)}" alt="">`; },
+  icon(u) { return `<img src="${itemIconOfURL({ uniqueId: u.id, base: u.base }, 64)}" alt="">`; },
   // 技能頁每一列旁邊的小方格
   cell(sid) {
     const u = this.bySkill(sid); if (!u) return '';

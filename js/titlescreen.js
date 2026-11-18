@@ -1,196 +1,224 @@
 // =============================================================
-//  v2.19.1 開始畫面（遊戲一打開、在角色清單之前）
-//  玩家看到：一整片用遊戲引擎即時畫的「夢之門前的營地」，從黃昏慢慢變成夜晚（約 80 秒到最暗，再慢慢回到黃昏）：
-//    ・天空：晚霞漸層、慢慢飄的雲、夕陽西沉、星星一顆顆亮起、月亮、偶爾一顆流星；遠景兩層山影（有視差）和一道瀑布
-//    ・地面：遊戲自己的地形和水面（水面倒映天空）、立體樹和石柱（stackprops.js）、倒塌的石門／營火／帳篷（chapscenes.js 的布景）、
-//      地圖色調、黑暗＋光源（營火、夢之門、帳篷），火星往上飄、螢火蟲、夢之門發光旋轉
-//    ・上次玩的角色（角色清單裡最近玩的那個）用遊戲畫角色的同一套函式站在夢之門前，偶爾回頭看營火；沒有角色時是隨機職業的剪影
-//    ・左上「夢疑 MOE」標誌（沿用選角畫面的金色牌匾）＋副標，左邊文字選單：繼續（有角色才有）、選擇角色、建立新角色、設定、製作人員；右下版本號
-//    ・鏡頭緩慢左右平移；第一次點擊後播營地音樂（music.js 讀 TitleScreen.playing()）
+//  v2.19.2 開始畫面（遊戲一打開、在角色清單之前）
+//  玩家看到：拉近的一堆營火，六個職業的主角圍坐在火邊，像一張像素插畫
+//    ・營火：AI 畫的營火（ARTWORK ev_campfire：石圈、木柴、紫色夢煙，整張微微伸縮）＋疊上即時的像素火（經典火焰演算法，
+//      暗紅→橘→黃→白，火舌會跳）、火星往上飄、煙往右飄
+//    ・火光把附近照成暖橘色，往外漸暗成深藍黑的夜；上方一點點星星；四周是樹和石頭的暗影（stackprops.js 的立體樹）
+//    ・地面：遊戲的地板貼圖（getFloorTile 金色草原）＋火堆周圍一圈泥土
+//    ・六個人用遊戲畫角色的同一套函式（drawPlayer），坐在地上（腿那段壓扁成 1/3 往前伸＝屈膝坐），身體朝火：朝火那側亮、背側暗；
+//      最前面兩個是背對鏡頭的剪影（邊緣一圈火光）。有存檔時用玩家各職業最近玩的角色（裝備外觀），
+//      最近玩的那個坐在火堆右邊最顯眼的位置；沒有的職業用預設外觀
+//    ・小動作：大家會呼吸；左邊的人每 8～13 秒往前傾、往火裡丟一根柴（火星噴一下、火變大）；
+//      召喚師外側趴著一隻白色靈狼（遊戲的狼圖用 tint.G 染白，同營地的大白），身體跟著呼吸起伏
+//    ・左上「夢疑 MOE」標誌＋副標，左邊文字選單：繼續（有角色才有）、選擇角色、建立新角色、設定、製作人員；右下版本號
+//    ・第一次點擊後播營地音樂（music.js 讀 TitleScreen.playing()）
 //  規則：「選擇角色」「建立新角色」只是把開始畫面藏起來，露出原本的角色清單（左上多一顆「回到開始畫面」）；
-//        進入遊戲（Hook 'start'，含 MOE_DEV.hero）→ 停掉迴圈、丟掉地圖分塊和畫布（destroy）；backToTitle 回來時看到角色清單，可以按左上鈕再打開
-//  效能：畫面寬度（邏輯 540 高）只用到 2 塊地圖分塊；每格約 1～3 毫秒；設定頁開著或分頁在背景時不畫。TitleScreen.ms＝最近一格花幾毫秒
-//  資料：不存任何東西（只讀角色清單 loadIndex／loadChar）
+//        進入遊戲（Hook 'start'，含 MOE_DEV.hero）→ 停掉迴圈、丟掉畫布（destroy）；backToTitle 回來時看到角色清單，可以按左上鈕再打開
+//  畫法：整個畫面畫在 300 列高的小畫布上（1 個世界像素＝2 格），瀏覽器用像素放大貼滿螢幕；地面和樹只在換尺寸時畫一次
+//        火堆固定在畫面右邊（距右邊約 0.62 個畫面高、至少 62% 寬），手機橫向也不會被左邊選單蓋到
+//  效能：每格約 0.5～1 毫秒；設定頁開著、分頁在背景、手機直向時不畫。TitleScreen.ms＝最近一格花幾毫秒
+//  資料：不存任何東西（只讀角色清單 loadIndex／loadChar）。測試用：TitleScreen.tick(dt) 手動畫一格、TitleScreen.state() 看誰坐哪、丟柴進度
 // =============================================================
 const TitleScreen = (() => {
-  const LH = 540, HZ = 205, Z = 1.4, CYCLE = 160;
-  // 取景用的小地圖（40×9，~ 水、. 地）＋障礙物位置（格式同 chapmaps：T 樹、o 岩石、I 石柱、w 灌木、t 枯樹、m 巨菇；「字母 x,y」）
-  const MAP = [
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~.~~~~~~........~~~~~~~~~~~...~~~~~~',
-    '~~~.....................................',
-    '........................................',
-  ].concat(Array(4).fill('.'.repeat(40)));
-  const PROPS = 'T6,3 T20,3 I21,4 I28,3 T30,3 T36,3 T1,4 w4,4 T9,4 w29,4 o37,4 T39,4 o2,5 w8,5 T28,6 t0,6 w13,6 o24,6 w36,6 T39,6 w1,7 m6,7 T10,7 w27,7 T30,8 T3,8 o14,8 w22,8 T37,8 T19,8';
-  const SCENES = [{ id: 'ruin', sx: 11, sy: 2 }, { id: 'camp', sx: 16, sy: 5 }, { id: 'tent', sx: 31, sy: 5 }];
-  const GATE = { x: 798, y: 124 }, HERO = { x: 712, y: 176 }, FIRE = { x: 16 * 32 + 80, y: 5 * 32 + 46 };
-  const DUSK = ['#2a1f4a', '#5a3466', '#b0507a', '#ee8a5e', '#ffc77e'], NIGHT = ['#04050f', '#0b1030', '#1a1c46', '#2c2856', '#3e3460'];
-  const rgb = c => [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16)), DR = DUSK.map(rgb), NR = NIGHT.map(rgb);
-  const mixA = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k), css = (a, al = 1) => `rgba(${a[0] | 0},${a[1] | 0},${a[2] | 0},${al})`;
+  const ROWS = 300, Z = 2, LEG = 22, SW = 80, SH = 82, CUT = 58;
+  const ORDER = ['warrior', 'samurai', 'ranger', 'druid', 'mage', 'summoner'];
+  // 座位（世界像素，火堆底部中心＝0,0；y＝坐的那根木頭）；f＝面向（1 右、-1 左）；sil＝背對鏡頭的剪影（y 依畫面底邊算）
+  const SEATS = { R: { x: 64, y: 8, f: -1 }, BL: { x: -31, y: -27, f: 1 }, BR: { x: 33, y: -29, f: -1 }, L: { x: -64, y: 6, f: 1, toss: 1 }, FL: { x: -44, f: 1, sil: 1 }, FR: { x: 46, f: -1, sil: 1 } };
+  // 周圍的樹和石頭（格子座標，火堆在 (12, 8)；字母同 chapmaps：T 樹、o 岩石、w 灌木、t 枯樹）
+  const PROPS = 'T3,5 T5,4 T7,5 T9,4 w10,5 T15,4 T17,5 o15,6 T18,7 T18,9 w16,10 T4,10 T6,11 o8,9 t2,7';
+  const OX = 12 * 32, OY = 8 * 32;
+  const FC = ['#5a160a', '#8e240e', '#c63a12', '#ea5e18', '#f88624', '#ffa83a', '#ffc858', '#ffe08a', '#fff2c4'], FCR = FC.map(c => [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16))), FW = 40, FH = 56;
   const R = (a, b) => a + Math.random() * (b - a), cl = (v, a, b) => Math.max(a, Math.min(b, v));
-  let root = null, cv, g, dk, dg, hc, hg, raf = 0, shown = false, T = 0, last = 0, LW = 960, Q = 1, N = 0, camX = 0, music = false, hot = -1;
-  let w = null, P = null, S = null, sil = false, pl = null, gparts = [], fx = [], stars = [], clouds = [], mtn = null, shoot = null, shootAt = 7, waterPath = null, setOpen = false;
-  const IMG = {};
-  // ---------- 一次做好的小圖 ----------
-  function soft(col, inner = 0.35) { const k = 'g' + col + inner; if (IMG[k]) return IMG[k]; const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, col); gr.addColorStop(inner, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return (IMG[k] = c); }
-  function moon() { if (IMG.moon) return IMG.moon; const c = document.createElement('canvas'); c.width = c.height = 40; const x = c.getContext('2d'); x.fillStyle = '#f4ecd0'; x.beginPath(); x.arc(20, 20, 13, 0, 7); x.fill(); x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(27, 15, 12, 0, 7); x.fill(); return (IMG.moon = c); }
-  function cloud(seed, top, bot) {   // 像素雲：低解析度畫幾團圓再放大 3 倍
-    const c = document.createElement('canvas'), W = 70, H = 22; c.width = W; c.height = H; const x = c.getContext('2d'); let s = seed;
-    const rr = () => (s = (s * 9301 + 49297) % 233280) / 233280;
-    const blobs = Array.from({ length: 7 }, (_, i) => [8 + i * 9 + rr() * 6, 13 - rr() * 5 - (i > 1 && i < 5 ? 3 : 0), 5 + rr() * 5]);
-    x.fillStyle = bot; for (const [bx, by, br] of blobs) { x.beginPath(); x.arc(bx, by + 2, br, 0, 7); x.fill(); }
-    x.fillStyle = top; for (const [bx, by, br] of blobs) { x.beginPath(); x.arc(bx, by - 1, br * 0.82, 0, 7); x.fill(); }
-    x.globalCompositeOperation = 'destination-out'; x.fillRect(0, 17, W, 5);
-    return c;
+  let root = null, cv, g, raf = 0, shown = false, T = 0, last = 0, CW = 640, CH = 340, FX = 420, FY = 204, BOT = 68, music = false, hot = -1, setOpen = false;
+  let cast = [], fw = null, ground = null, trees = null, stars = [], fAcc = 0, sparks = [], smoke = [], toss = null, tossAt = 4, flare = 0, fk = 1;
+  const IMG = {}, art = k => { if (IMG[k] !== undefined) return IMG[k]; const s = typeof ARTWORK !== 'undefined' && ARTWORK.img[k]; if (!s) return (IMG[k] = null); const im = new Image(); im.src = s; return (IMG[k] = im); };
+  const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const TMP = canvas(SW * Z, LEG * Z);
+  const heat = new Float32Array(FW * FH), fcv = canvas(FW, FH), fimg = fcv.getContext('2d').createImageData(FW, FH);
+  // ---------- 借用遊戲的畫圖函式：暫時把 G 指向開始畫面的東西，畫完馬上還原（同步執行，不影響遊戲本身） ----------
+  function withG(c, fn) {
+    const sv = { world: G.world, P: G.P, S: G.S, pl: G.pl, time: G.time, cam: G.cam, keys: input.keys, joy: input.joy, stk: CFG.stackProps };
+    G.world = fw; G.P = c ? c.P : null; G.S = c ? c.S : null; G.pl = null; G.time = T + (c ? c.ph : 0); G.cam = { x: OX - FX / Z, y: OY - FY / Z }; input.keys = {}; input.joy = null; CFG.stackProps = true;
+    try { fn(); } catch (e) { console.error('[TitleScreen]', e); } finally { Object.assign(G, { world: sv.world, P: sv.P, S: sv.S, pl: sv.pl, time: sv.time, cam: sv.cam }); input.keys = sv.keys; input.joy = sv.joy; CFG.stackProps = sv.stk; }
   }
-  function mountains() {   // 兩層山影（黃昏版、夜晚版各一張，畫的時候交叉淡入）；近的那層有一道瀑布的位置
-    const Wd = LW + 260, mk = (top, amp, f, col, rim, seed) => {
-      const c = document.createElement('canvas'); c.width = Wd; c.height = HZ + 2; const x = c.getContext('2d'), ys = [];
-      for (let i = 0; i <= Wd; i += 3) ys.push(Math.round((top + Math.sin(i * f + seed) * amp + Math.sin(i * f * 2.7 + seed * 3) * amp * 0.45 + Math.sin(i * f * 7.1 + seed) * amp * 0.12) / 2) * 2);
-      x.fillStyle = col; x.beginPath(); x.moveTo(0, HZ + 2); ys.forEach((y, k) => { x.lineTo(k * 3, y); x.lineTo(k * 3 + 3, y); }); x.lineTo(Wd, HZ + 2); x.fill();
-      if (rim) { x.fillStyle = rim; ys.forEach((y, k) => x.fillRect(k * 3, y, 3, 2)); }
-      return { c, ys };
-    };
-    const far = [mk(HZ - 72, 26, 0.006, '#6e4c7c', 'rgba(255,170,140,0.45)', 1), mk(HZ - 72, 26, 0.006, '#1c1a36', null, 1)];
-    const near = [mk(HZ - 38, 18, 0.011, '#3c2a4a', 'rgba(255,140,110,0.5)', 4), mk(HZ - 38, 18, 0.011, '#0d0c1e', null, 4)];
-    const fx0 = Math.round(Wd * 0.56 / 3);
-    return { far, near, fall: fx0 * 3, fallTop: near[0].ys[fx0] + 4 };
+  function buildWorld() {   // 只給立體樹用的小世界（沒有地圖分塊）
+    const W = 24, H = 14, deco = new Uint8Array(W * H);
+    for (const p of PROPS.split(' ')) { const [x, y] = p.slice(1).split(',').map(Number); deco[y * W + x] = CH_DECO[p[0]]; }
+    fw = { kind: 'map', title: true, W, H, deco, grid: new Uint8Array(W * H).fill(1), theme: THEMES.find(t => t.id === 'grass') || THEMES[0], tier: 1, mlvl: 1, rooms: [], others: [], name: '開始畫面' };
   }
-  // ---------- 場景資料 ----------
-  function buildWorld() {
-    const H = MAP.length, W = MAP[0].length, grid = new Uint8Array(W * H), deco = new Uint8Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const ch = MAP[y][x], i = y * W + x; if (ch === '.') grid[i] = 1; else if (CH_DECO[ch]) deco[i] = CH_DECO[ch]; }
-    for (const p of PROPS.split(' ')) { const [x, y] = p.slice(1).split(',').map(Number), i = y * W + x; grid[i] = 0; deco[i] = CH_DECO[p[0]]; }
-    for (const s of SCENES) { const d = ChapScenes.S[s.id]; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) { const i = (s.sy + y) * W + s.sx + x; grid[i] = 1; deco[i] = 0; } }
-    const theme = THEMES.find(t => t.id === 'grass') || THEMES[0];
-    w = { kind: 'map', title: true, W, H, grid, deco, theme, tier: 1, mlvl: 1, grade: 1, mm: aggMods([]), rooms: [], others: [], name: '開始畫面',
-      chap: { key: 'title', evs: [], packs: [], dCells: [], open: true, boss: null, scenes: SCENES.map(s => Object.assign({}, s)) } };
-    buildWorldCanvas(w);
-    waterPath = new Path2D(); for (let i = 0; i < W * H; i++) if (deco[i] === 2) waterPath.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS);
+  // ---------- 誰坐哪裡 ----------
+  function pickCast() {
+    let list = []; try { list = (loadIndex().chars || []).slice().sort((a, b) => (b.time || 0) - (a.time || 0)); } catch (e) { }
+    const by = {}; for (const c of list) if (CLASSES[c.cls] && !by[c.cls]) by[c.cls] = c;
+    const cls = ORDER.filter(k => CLASSES[k]), hero = list[0] && CLASSES[list[0].cls] ? list[0].cls : pick(cls);
+    const rest = cls.filter(k => k !== hero && k !== 'summoner').sort((a, b) => (by[b] ? by[b].time || 1 : 0) - (by[a] ? by[a].time || 1 : 0)), seatOf = { [hero]: 'R' };
+    if (hero !== 'summoner' && cls.includes('summoner')) seatOf.summoner = 'BR';
+    const free = ['BL', 'L', 'FR', 'FL', 'BR'].filter(s => !Object.values(seatOf).includes(s));
+    rest.forEach((k, i) => { if (free[i]) seatOf[k] = free[i]; });
+    cast = Object.keys(seatOf).map(k => {
+      let p = null; if (by[k]) try { p = loadChar(by[k].id); } catch (e) { }
+      if (!p || p.cls !== k) p = { cls: k, equip: {}, name: '' }; p.equip = p.equip || {};
+      const wb = p.equip.weapon && BASE_BY_ID[p.equip.weapon.base], s = SEATS[seatOf[k]];
+      return { P: p, S: { weapon: { cls: wb ? wb.cls : 'none', hands: wb ? wb.hands : 1 }, poiseT: 0 }, seat: s, ph: R(0, 9), a: canvas(SW * Z, SH * Z), b: s.sil ? canvas(SW * Z, SH * Z) : null,
+        pl: { x: SW / 2, y: CUT + LEG - 8.8, r: 11, facing: s.f, act: -1, aim: 0, walk: 0, flash: 0, cd: {}, heal: [], fl: [] }, pet: k === 'summoner' && !s.sil };
+    });
+    return list[0] || null;
   }
-  function pickHero() {   // 上次玩的角色（清單裡時間最近的）；沒有就隨機職業剪影
-    let c = null; try { c = (loadIndex().chars || []).slice().sort((a, b) => (b.time || 0) - (a.time || 0))[0] || null; } catch (e) { }
-    let p = null; if (c) try { p = loadChar(c.id); } catch (e) { }
-    sil = !p || !CLASSES[p.cls];
-    P = sil ? { cls: (c && CLASSES[c.cls]) ? c.cls : pick(Object.keys(CLASSES)), equip: {}, name: '' } : p;
-    P.equip = P.equip || {};
-    const wb = P.equip.weapon && BASE_BY_ID[P.equip.weapon.base];
-    S = { weapon: { cls: wb ? wb.cls : 'none', hands: wb ? wb.hands : 1 }, poiseT: 0 };
-    pl = { x: 100, y: 112, r: 11, facing: 1, act: -1, aim: 0, walk: 0, flash: 0, cd: {}, heal: [], fl: [] };
-    return c;
+  // ---------- 光：朝火那側暖亮、背側暗（在每個人自己的小畫布上，用 source-atop 只染到人身上） ----------
+  function light(x, w, h, wx, wy) {
+    const dx = -wx, dy = -10 - wy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, cx = w / 2, cy = h * 0.55, L = w * 0.3;
+    const amb = cl((d - 30) / 170, 0.08, 0.4), gr = x.createLinearGradient(cx - ux * L, cy - uy * L, cx + ux * L, cy + uy * L), gw = x.createLinearGradient(cx - ux * L, cy - uy * L, cx + ux * L, cy + uy * L);
+    gr.addColorStop(0, `rgba(8,7,26,${amb + 0.5})`); gr.addColorStop(0.55, `rgba(8,7,26,${amb})`); gr.addColorStop(1, `rgba(8,7,26,${amb * 0.2})`);
+    gw.addColorStop(0, 'rgba(255,140,60,0)'); gw.addColorStop(0.45, 'rgba(255,140,60,0.03)'); gw.addColorStop(1, `rgba(255,150,70,${0.44 * fk})`);
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = gr; x.fillRect(0, 0, w, h); x.fillStyle = gw; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'source-over';
   }
-  function makeSky() {
-    stars = Array.from({ length: 150 }, () => ({ x: Math.random(), y: R(4, HZ - 40) * (Math.random() < 0.6 ? 0.6 : 1), s: Math.random() < 0.15 ? 2 : 1, th: R(0.12, 0.85), ph: R(0, 6), sp: R(1, 3) }));
-    clouds = Array.from({ length: 7 }, (_, i) => ({ x: R(-100, LW + 100), y: R(18, HZ - 90), v: R(3, 9), k: R(2.2, 3.4), d: cloud(i * 977 + 13, '#ffcfae', '#a8607e'), n: cloud(i * 977 + 13, '#1e2040', '#10122a') }));
+  function paintSeat(c) {
+    const s = c.seat, x = c.a.getContext('2d'), W = c.a.width, H = c.a.height, f = s.f;
+    x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, W, H); x.imageSmoothingEnabled = false; x.setTransform(Z, 0, 0, Z, 0, 0);
+    withG(c, () => drawPlayer(x, c.pl));
+    // 坐在地上：把腿（腰以下那段）壓扁成 1/3 高、往前伸，看起來像盤腿／屈膝坐著
+    const t = TMP.getContext('2d'); t.clearRect(0, 0, TMP.width, TMP.height); t.drawImage(c.a, 0, CUT * Z, W, LEG * Z, 0, 0, W, LEG * Z);
+    x.clearRect(0, CUT, SW, SH);
+    if (!s.sil) { x.save(); x.setTransform(Z, 0, 0, Z, 0, 0); x.drawImage(TMP, 0, 0, W, LEG * Z, f * 4 - SW * 0.06, CUT - 1, SW * 1.12, LEG * 0.36);
+      x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(10,8,20,0.3)'; x.fillRect(0, CUT + 2, SW, 8); x.restore(); }
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    if (!s.sil) return light(x, W, H, s.x, s.y - 20);
+    const y = c.b.getContext('2d'); y.clearRect(0, 0, W, H); y.drawImage(c.a, 0, 0);   // 剪影：深色本體＋往火那邊偏一點的橘色邊
+    y.globalCompositeOperation = 'source-atop'; y.fillStyle = `rgba(255,150,64,${0.75 * fk})`; y.fillRect(0, 0, W, H); y.globalCompositeOperation = 'source-over';
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#0b0911'; x.fillRect(0, 0, W, H); x.globalCompositeOperation = 'source-over';
   }
-  // ---------- 每一格 ----------
-  const toS = (x, y) => [(x - camX) * Z, HZ + y * Z];
-  function withG(fn) {   // 借用遊戲的畫圖函式：這一格暫時把 G 指向開始畫面的場景，畫完馬上還原（同步執行，不影響遊戲本身）
-    const sv = { world: G.world, P: G.P, S: G.S, pl: G.pl, time: G.time, cam: G.cam, parts: G.parts, keys: input.keys, joy: input.joy };
-    G.world = w; G.P = P; G.S = S; G.pl = null; G.time = T; G.cam = { x: camX, y: 0 }; G.parts = gparts; input.keys = {}; input.joy = null;
-    try { fn(); } catch (e) { console.error('[TitleScreen]', e); } finally { Object.assign(G, { world: sv.world, P: sv.P, S: sv.S, pl: sv.pl, time: sv.time, cam: sv.cam, parts: sv.parts }); input.keys = sv.keys; input.joy = sv.joy; }
+  const shadowAt = (x, y, rx, ry, a) => { g.fillStyle = `rgba(6,4,10,${a})`; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); };
+  function drawSeat(c) {
+    const s = c.seat; let dx = 0, dy = 0;
+    if (s.toss && toss) { const k = toss.t < 0.35 ? toss.t / 0.35 : toss.t > 0.9 ? Math.max(0, 1 - (toss.t - 0.9) / 0.5) : 1; dx = Math.round(3 * k) * s.f; dy = Math.round(k); }
+    if (c.pet) drawPet(c);
+    paintSeat(c);
+    const X = s.x - SW / 2 + dx, Y = s.y + 3 - CUT + dy;
+    if (!s.sil) shadowAt(s.x + s.f * 3, s.y + 6, 16, 4, 0.45);
+    if (c.b) g.drawImage(c.b, X + Math.sign(-s.x), Y - 1, SW, SH);
+    g.drawImage(c.a, X, Y, SW, SH);
   }
-  function drawSky(dt) {
-    const sk = DR.map((d, i) => mixA(d, NR[i], N)), n = 30;
-    for (let i = 0; i < n; i++) { const k = i / (n - 1) * 4, j = Math.min(3, k | 0); g.fillStyle = css(mixA(sk[j], sk[j + 1], k - j)); g.fillRect(0, Math.floor(i * HZ / n), LW, Math.ceil(HZ / n) + 1); }
-    for (const s of stars) { const a = cl((N - s.th) / 0.15, 0, 1) * (0.65 + 0.35 * Math.sin(T * s.sp + s.ph)); if (a > 0.03) { g.globalAlpha = a; g.fillStyle = '#fff6e0'; g.fillRect(Math.round(s.x * LW), Math.round(s.y), s.s, s.s); } }
-    g.globalAlpha = 1;
-    const sx = LW * 0.5 - (camX - 220) * 0.05, sy = HZ - 78 + N * 150;   // 夕陽
-    if (N < 0.75) { g.globalAlpha = 1 - N / 0.75; g.drawImage(soft('rgba(255,180,110,0.55)', 0.1), sx - 110, sy - 110, 220, 220); g.fillStyle = '#ffdc96'; g.beginPath(); g.arc(sx, sy, 22, 0, 7); g.fill(); g.fillStyle = '#fff0c0'; g.beginPath(); g.arc(sx - 4, sy - 4, 14, 0, 7); g.fill(); g.globalAlpha = 1; }
-    const ma = cl((N - 0.3) / 0.3, 0, 1); if (ma > 0) { g.globalAlpha = ma * 0.5; g.drawImage(soft('rgba(200,210,255,0.5)', 0.05), LW * 0.9 - 40, 6, 80, 80); g.globalAlpha = ma; g.drawImage(moon(), Math.round(LW * 0.9 - 20), 26); g.globalAlpha = 1; }
-    if (shoot) { shoot.t += dt; const p = shoot.t / 0.9, x = shoot.x + p * 260, y = shoot.y + p * 90; if (p >= 1) shoot = null; else { const gr = g.createLinearGradient(x - 80, y - 28, x, y); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, `rgba(255,250,230,${0.9 * (1 - p) * cl(N * 1.6, 0.3, 1)})`); g.strokeStyle = gr; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 80, y - 28); g.lineTo(x, y); g.stroke(); } }
-    else if ((shootAt -= dt) <= 0) { shoot = { x: R(LW * 0.35, LW * 0.8), y: R(10, 70), t: 0 }; shootAt = R(7, 16); }
-    g.imageSmoothingEnabled = false;
-    for (const c of clouds) { c.x += c.v * dt; if (c.x > LW + 60) c.x = -c.d.width * c.k - 40; const x = Math.round(c.x - (camX - 220) * 0.1), cw = c.d.width * c.k, ch = c.d.height * c.k; g.globalAlpha = 0.9 * (1 - N * 0.8); g.drawImage(c.d, x, c.y, cw, ch); g.globalAlpha = 0.7 * N; g.drawImage(c.n, x, c.y, cw, ch); }
-    g.globalAlpha = 1;
-    for (const [L, par] of [[mtn.far, 0.2], [mtn.near, 0.4]]) { const x = -130 - (camX - 220) * par; g.drawImage(L[0].c, x, 0); g.globalAlpha = N; g.drawImage(L[1].c, x, 0); g.globalAlpha = 1; }
-    const fxX = -130 - (camX - 220) * 0.4 + mtn.fall;   // 瀑布
-    g.fillStyle = `rgba(150,180,230,${0.5 - N * 0.25})`; g.fillRect(fxX, mtn.fallTop, 7, HZ - mtn.fallTop);
-    g.fillStyle = `rgba(235,245,255,${0.55 - N * 0.3})`; for (let k = 0; k < 6; k++) { const y = mtn.fallTop + ((T * 40 + k * 23) % (HZ - mtn.fallTop)); g.fillRect(fxX + (k % 3) * 2, y, 2, 6); }
-    g.globalAlpha = 0.35 - N * 0.15; g.drawImage(soft('rgba(230,240,255,0.8)', 0.2), fxX - 22, HZ - 18, 50, 26); g.globalAlpha = 1;
+  // 召喚師的靈狼：白色的狼（遊戲的狼圖染白，同營地的「大白」），趴在召喚師外側（腳藏在草裡），呼吸時微微起伏、身上一層淡淡的藍光
+  function drawPet(c) {
+    const s = c.seat, sp = typeof getSprite === 'function' && getSprite('wolf', 2, { G: '#f2f2f2', B: '#e0e0e0' }); if (!sp || !sp.r) return;
+    const im = s.f < 0 ? sp.l : sp.r, k = 0.44, w = sp.w * k, h = sp.h * k, PW = 40, PH = 16;
+    if (!c.p) c.p = canvas(PW * Z, PH * Z);
+    const x = c.p.getContext('2d'), br = Math.sin((T + c.ph) * 1.6) * 0.4;
+    x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, c.p.width, c.p.height); x.setTransform(Z, 0, 0, Z, 0, 0); x.imageSmoothingEnabled = true;
+    x.drawImage(im, PW / 2 - w / 2, PH + h * 0.3 - h - br, w, h + br);
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    const px = s.x - s.f * 28, py = s.y + 4;
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(30,36,70,0.25)'; x.fillRect(0, 0, c.p.width, c.p.height); x.globalCompositeOperation = 'source-over';
+    light(x, c.p.width, c.p.height, px, py - 8);
+    shadowAt(px, py, 15, 3, 0.45);
+    g.drawImage(c.p, px - PW / 2, py - PH, PW, PH);
   }
-  function drawGate(x, y) {   // 夢之門：石框＋會轉的漩渦
-    const s = (a, b, c, d, col) => { g.fillStyle = col; g.fillRect(x + a, y + b, c, d); };
-    g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, y + 30, 34, 9, 0, 0, 7); g.fill();
-    s(-34, -36, 12, 66, '#5e5868'); s(22, -36, 12, 66, '#5e5868'); s(-34, -36, 3, 66, '#7a7486'); s(22, -36, 3, 66, '#7a7486'); s(-38, 26, 20, 6, '#4a4452'); s(18, 26, 20, 6, '#4a4452');
-    g.strokeStyle = '#6a6476'; g.lineWidth = 10; g.beginPath(); g.ellipse(x, y - 36, 28, 22, 0, Math.PI, 0); g.stroke(); g.strokeStyle = '#8a8496'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y - 39, 30, 24, 0, Math.PI, 0); g.stroke();
-    g.save(); g.beginPath(); g.ellipse(x, y - 6, 21, 33, 0, 0, 7); g.clip();
-    const gr = g.createRadialGradient(x, y - 6, 2, x, y - 6, 34); gr.addColorStop(0, '#f0e0ff'); gr.addColorStop(0.25, '#9a70f0'); gr.addColorStop(1, '#1a0c3a'); g.fillStyle = gr; g.fillRect(x - 22, y - 40, 44, 68);
-    g.globalCompositeOperation = 'lighter'; g.lineWidth = 2;
-    for (let k = 0; k < 5; k++) { const a0 = T * 1.6 + k * Math.PI * 2 / 5; g.strokeStyle = k % 2 ? 'rgba(160,200,255,0.5)' : 'rgba(210,160,255,0.55)'; g.beginPath(); for (let i = 0; i < 16; i++) { const r = 3 + i * 1.6, a = a0 + i * 0.32; g.lineTo(x + Math.cos(a) * r, y - 6 + Math.sin(a) * r * 1.55); } g.stroke(); }
-    g.restore();
-  }
-  function drawHero() {
-    const flip = (T % 15) > 10.5 ? -1 : 1; pl.facing = flip;
-    hg.setTransform(1, 0, 0, 1, 0, 0); hg.clearRect(0, 0, hc.width, hc.height); hg.imageSmoothingEnabled = false;
-    drawPlayer(hg, pl);
-    if (sil) { hg.globalCompositeOperation = 'source-atop'; hg.fillStyle = 'rgba(12,8,22,0.92)'; hg.fillRect(0, 0, hc.width, hc.height); hg.globalCompositeOperation = 'source-over'; }
-    const k = 1.2; g.drawImage(hc, HERO.x - pl.x * k, HERO.y - pl.y * k - 2, hc.width * k, hc.height * k);   // 主角稍微放大一點，站在畫面裡比較顯眼
+  // ---------- 營火 ----------
+  function fireBase() {   // AI 畫的營火（營地那堆：石圈、木柴、橘火、往上冒的紫色夢煙），整張微微上下伸縮，像火在跳
+    const im = art('ev_campfire');
+    if (im && im.width) { const w = 48, h = im.height * w / im.width, fl = 1 + Math.sin(T * 9) * 0.02 + Math.sin(T * 23) * 0.01;
+      g.save(); g.imageSmoothingEnabled = true; g.translate(0, 17); g.scale(1, fl); g.drawImage(im, -w / 2, -h, w, h); g.restore(); }
+    else { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; g.fillStyle = '#6a6a70'; g.fillRect(Math.round(Math.cos(a) * 18) - 3, Math.round(Math.sin(a) * 8) - 3, 6, 5); } g.fillStyle = '#4a2a14'; g.fillRect(-12, -4, 24, 4); }
+    g.fillStyle = `rgba(255,${110 + Math.round(40 * Math.sin(T * 7))},40,${0.55 * fk})`;   // 木柴縫裡的炭火
+    for (let i = 0; i < 6; i++) if (Math.sin(T * 5 + i * 2.1) > -0.2) g.fillRect(-9 + i * 3.5, -2 + (i % 2), 1.5, 1);
   }
   function spawn(dt) {
-    if (Math.random() < dt * 9) fx.push({ x: FIRE.x + R(-7, 7), y: FIRE.y - 6, vx: R(-8, 8), vy: R(-55, -30), t: 0, dur: R(1.2, 2.4), c: Math.random() < 0.5 ? '#ffb050' : '#ff7a30', s: 2, wob: R(0, 6) });
-    if (Math.random() < dt * 7) { const a = R(0, 6.28); fx.push({ x: GATE.x + Math.cos(a) * 30, y: GATE.y - 6 + Math.sin(a) * 40, tx: GATE.x, ty: GATE.y - 6, t: 0, dur: R(0.8, 1.4), c: Math.random() < 0.5 ? '#c8a0ff' : '#90c8ff', s: 2 }); }
-    while (fx.filter(p => p.fly).length < 14) fx.push({ fly: 1, x: R(camX, camX + LW / Z), y: R(80, 270), t: 0, dur: 1e9, c: '#d8ff80', s: 2, ph: R(0, 6), vx: R(-8, 8), vy: R(-5, 5) });
-    for (const p of fx) { p.t += dt; if (p.fly) { p.vx += R(-20, 20) * dt; p.vy += R(-20, 20) * dt; p.vx = cl(p.vx, -12, 12); p.vy = cl(p.vy, -8, 8); p.x += p.vx * dt; p.y = cl(p.y + p.vy * dt, 70, 280); if (p.x < camX - 20 || p.x > camX + LW / Z + 20) p.t = p.dur; } else if (p.tx) { const k = dt * 2.2; p.x += (p.tx - p.x) * k; p.y += (p.ty - p.y) * k; } else { p.x += (p.vx + Math.sin(T * 3 + p.wob) * 10) * dt; p.y += p.vy * dt; } }
-    fx = fx.filter(p => p.t < p.dur);
-    for (const p of gparts) { p.t += dt; p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; }
-    gparts = gparts.filter(p => p.t < p.dur).slice(-80);
+    for (fAcc += dt; fAcc > 1 / 40; fAcc -= 1 / 40) fireStep();
+    if (Math.random() < dt * 8) sparks.push({ x: R(-5, 5), y: R(-16, -8), vx: R(-8, 8), vy: -R(28, 52), t: 0, d: R(1.2, 2.6), ph: R(0, 6) });
+    if (Math.random() < dt * 5) smoke.push({ x: R(-3, 3), y: -24 - 8 * flare, vx: R(2, 6), vy: -R(8, 13), t: 0, d: R(2.6, 4.2), s: R(2, 3) });
+    for (const p of sparks) { p.t += dt; p.x += (p.vx + Math.sin(T * 4 + p.ph) * 10) * dt; p.y += p.vy * dt; p.vy *= 1 - dt * 0.3; }
+    for (const p of smoke) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.s += dt * 3; }
+    sparks = sparks.filter(p => p.t < p.d); smoke = smoke.filter(p => p.t < p.d);
+    // 丟柴：左邊的人往前傾 → 柴飛進火裡 → 火星噴一下、火變大
+    if (toss) {
+      toss.t += dt;
+      if (toss.t >= 0.85 && !toss.hit) { toss.hit = 1; flare = 1; for (let i = 0; i < 26; i++) sparks.push({ x: R(-6, 6), y: R(-12, -4), vx: R(-22, 22), vy: -R(40, 85), t: 0, d: R(0.8, 2), ph: R(0, 6) }); if (typeof Sfx !== 'undefined' && music) try { Sfx.play('hit'); } catch (e) { } }
+      if (toss.t > 1.5) toss = null;
+    } else if ((tossAt -= dt) <= 0 && cast.some(c => c.seat.toss)) { toss = { t: 0 }; tossAt = R(8, 13); }
+    flare = Math.max(0, flare - dt * 0.7);
+    fk = 0.92 + 0.05 * Math.sin(T * 11) + 0.03 * Math.sin(T * 23 + 1) + flare * 0.25;
   }
+  const px = (x, y, s, col) => { g.fillStyle = col; g.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, s, s); };
+  function drawStick() {
+    if (!toss || toss.t < 0.35 || toss.hit) return;
+    const s = SEATS.L, u = (toss.t - 0.35) / 0.5, x = s.x + 14 + (-2 - s.x - 14) * u, y = s.y - 16 + (-6 - s.y + 16) * u - Math.sin(u * Math.PI) * 20, a = u * 6;
+    for (let i = -6; i <= 6; i++) px(x + Math.cos(a) * i, y + Math.sin(a) * i, 2, i >= 5 ? '#f0c888' : i <= -5 ? '#4a2c14' : i % 3 ? '#a87444' : '#7a4e28');
+  }
+  // 火焰：經典的像素火（每格往上傳熱、隨機冷卻、左右飄），36×48 個世界像素，底部的熱度中間高兩邊低 → 一條條會跳的火舌
+  function fireStep() {
+    const W = FW, H = FH, wd = 7.5 + flare * 3, top = 1 + flare * 0.3;
+    for (let x = 0; x < W; x++) { const u = (x - W / 2 + 0.5) / wd; heat[(H - 1) * W + x] = Math.exp(-u * u) * (0.8 + Math.random() * 0.35) * top; }
+    for (let y = 1; y < H; y++) for (let x = 0; x < W; x++) {
+      const src = y * W + x, r = Math.random(), dx = r < 0.25 ? -1 : r > 0.75 ? 1 : 0, dst = src - W + dx;
+      heat[dst] = Math.max(0, heat[src] - Math.random() * 0.05 * (1 - flare * 0.35));
+    }
+    const d = fimg.data;
+    for (let i = 0; i < W * H; i++) { const h = heat[i], k = h < 0.15 ? -1 : Math.min(FC.length - 1, ((h - 0.15) / 0.85 * FC.length) | 0), o = i * 4;
+      if (k < 0) { d[o + 3] = 0; continue; } const c = FCR[k]; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = k === 0 ? 120 : k === 1 ? 210 : 255; }
+    fcv.getContext('2d').putImageData(fimg, 0, 0);
+  }
+  function drawFlames() { g.drawImage(fcv, -FW / 2, -FH - 1, FW, FH); }
+  // ---------- 一次畫好的地面、樹（換尺寸時） ----------
+  function prerender() {
+    ground = canvas(CW, CH); let x = ground.getContext('2d'); x.imageSmoothingEnabled = false; x.setTransform(Z, 0, 0, Z, FX, FY);
+    const th = THEMES.find(t => t.id === 'grass') || THEMES[0], x0 = Math.floor(-FX / Z / 32) - 1, y0 = Math.floor(-FY / Z / 32) - 1;
+    for (let ty = y0; ty < y0 + CH / Z / 32 + 3; ty++) for (let tx = x0; tx < x0 + CW / Z / 32 + 3; tx++) x.drawImage(getFloorTile(th, hash2(tx + 40, ty + 40) % 6), tx * 32, ty * 32);
+    for (let y = -34; y < 36; y++) for (let xx = -64; xx < 64; xx++) {   // 火堆周圍踩出來的泥土（邊緣碎碎的）＋中間一圈灰
+      const e = (xx / 58) ** 2 + ((y - 2) / 30) ** 2, n = hash2(xx + 300, y + 300) % 100 / 100; if (e > 1 + n * 0.25 - 0.12) continue;
+      x.fillStyle = e < 0.22 ? (n < 0.5 ? '#2a2420' : '#332c26') : n < 0.15 ? '#5a4a36' : n < 0.55 ? '#46382a' : '#3e3226'; x.fillRect(xx, y, 1, 1);
+    }
+    trees = canvas(CW, CH); x = trees.getContext('2d'); x.imageSmoothingEnabled = false; x.setTransform(Z, 0, 0, Z, FX - OX * Z, FY - OY * Z);
+    withG(null, () => StackProps.draw(x));
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-atop';
+    const gr = x.createRadialGradient(FX, FY, 0, FX, FY, 190 * Z); gr.addColorStop(0, 'rgba(14,8,10,0.5)'); gr.addColorStop(0.3, 'rgba(8,7,22,0.9)'); gr.addColorStop(1, 'rgba(4,5,15,0.97)');
+    x.fillStyle = gr; x.fillRect(0, 0, CW, CH); x.globalCompositeOperation = 'source-over';
+    stars = Array.from({ length: Math.round(CW / 14) }, () => ({ x: R(0, CW) | 0, y: (Math.pow(Math.random(), 1.6) * CH * 0.3) | 0, s: Math.random() < 0.15 ? 2 : 1, ph: R(0, 6), sp: R(0.8, 2.4) }));
+  }
+  // ---------- 每一格 ----------
   function draw(dt) {
-    camX = HERO.x - 0.64 * LW / Z + Math.sin(T * 0.07) * 34;
-    const bob = Math.sin(T * 0.23) * 1.5;
-    g.setTransform(Q, 0, 0, Q, 0, 0); g.imageSmoothingEnabled = false;
-    drawSky(dt);
-    const wx0 = Math.max(0, Math.floor(camX)), wx1 = Math.min(w.W * TS, Math.ceil(camX + LW / Z) + 2), vis = (LH - HZ) / Z + 4;
-    g.save(); g.beginPath(); g.rect(0, HZ, LW, LH - HZ); g.clip();
-    g.setTransform(Q * Z, 0, 0, Q * Z, -camX * Q * Z, (HZ + bob) * Q);
-    withG(() => {
-      worldDraw(g, w, wx0, 0, wx1, Math.min(w.H * TS, vis));
-      // 水面倒映天空（只畫在水的格子上）
-      g.save(); g.clip(waterPath); g.setTransform(Q, 0, 0, Q, 0, 0);
-      const sk = DR.map((d, i) => mixA(d, NR[i], N));
-      for (let i = 0; i < 24; i++) { const k = 4 - i / 23 * 2.6, j = Math.min(3, k | 0); g.fillStyle = css(mixA(sk[j], sk[j + 1], k - j), 0.55 - i * 0.012); g.fillRect(0, HZ + i * 8, LW, 8); }
-      g.globalCompositeOperation = 'lighter';
-      for (let k = 0; k < 18; k++) { const x = ((k * 173 + T * (6 + k % 4)) % (LW + 60)) - 30, y = HZ + 4 + (k * 29) % 84; g.fillStyle = `rgba(255,220,190,${0.12 + 0.1 * Math.sin(T * 2 + k)})`; g.fillRect(x, y, 10 + k % 3 * 6, 1); }
-      for (const [o, col] of [[FIRE, '255,150,60'], [GATE, '170,130,255']]) { const sx = (o.x - camX) * Z; for (let k = 0; k < 8; k++) { g.fillStyle = `rgba(${col},${(0.22 + 0.1 * Math.sin(T * 5 + k)) * (0.4 + N * 0.6)})`; g.fillRect(sx - 8 + Math.sin(T * 3 + k) * 4, HZ + 8 + k * 9, 16 - k, 2); } }
-      g.restore();
-      StackProps.draw(g);
-      ChapScenes.anim(g);
-      drawGate(GATE.x, GATE.y);
-      drawHero();
-    });
-    g.restore(); g.setTransform(Q, 0, 0, Q, 0, 0);
-    // 黑暗＋光
-    dg.globalCompositeOperation = 'source-over'; dg.clearRect(0, 0, LW, LH);
-    const dkGr = dg.createLinearGradient(0, HZ, 0, LH); dkGr.addColorStop(0, `rgba(8,6,20,${0.12 + 0.45 * N})`); dkGr.addColorStop(1, `rgba(6,4,14,${0.32 + 0.6 * N})`); dg.fillStyle = dkGr; dg.fillRect(0, HZ, LW, LH - HZ);
-    dg.globalCompositeOperation = 'destination-out';
-    const fl = 0.94 + 0.06 * Math.sin(T * 11) + 0.03 * Math.sin(T * 23);
-    const LIGHTS = [[FIRE, 125 * fl, 0.95, '#ff9a40'], [GATE, 95, 0.8, '#9a70ff'], [{ x: HERO.x, y: HERO.y - 10 }, 55, 0.45, null], [{ x: 31 * 32 + 80, y: 5 * 32 + 78 }, 70, 0.5, '#ffc070'], [{ x: 11 * 32 + 60, y: 2 * 32 + 70 }, 60, 0.35, '#c8a0ff']];
-    for (const [o, r, a] of LIGHTS) { const [x, y] = toS(o.x, o.y + bob / Z); dg.globalAlpha = a; dg.drawImage(soft('#000', 0.45), x - r * Z, y - r * Z, r * Z * 2, r * Z * 2); }
-    dg.globalAlpha = 1; g.drawImage(dk, 0, 0, LW, LH);
-    g.save(); g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
-    for (const [o, r, a, c] of LIGHTS) if (c) { const [x, y] = toS(o.x, o.y + bob / Z); g.globalAlpha = a * (0.3 + 0.35 * N); g.drawImage(soft(c), x - r * Z, y - r * Z * 0.75, r * Z * 2, r * Z * 1.5); }
-    g.setTransform(Q * Z, 0, 0, Q * Z, -camX * Q * Z, (HZ + bob) * Q); g.imageSmoothingEnabled = false;
-    for (const p of fx.concat(gparts)) { const k = p.fly ? (0.4 + 0.6 * Math.max(0, Math.sin(T * 2.4 + p.ph))) * (0.25 + 0.75 * N) : 1 - p.t / p.dur; if (k <= 0.02) continue; g.globalAlpha = k; g.fillStyle = p.c || p.color; g.fillRect(Math.round(p.x), Math.round(p.y), p.s || 2, p.s || 2); }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false; g.globalCompositeOperation = 'source-over';
+    g.drawImage(ground, 0, 0);
+    // 夜：離火越遠越暗（橢圓，地面是斜看的）
+    g.save(); g.translate(FX, FY - 6 * Z); g.scale(1, 0.6);
+    const rad = (138 + 5 * Math.sin(T * 9) + 3 * Math.sin(T * 21)) * Z * (1 + flare * 0.1), dk = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+    dk.addColorStop(0, 'rgba(6,6,20,0)'); dk.addColorStop(0.18, 'rgba(6,6,20,0.06)'); dk.addColorStop(0.4, 'rgba(6,6,20,0.5)'); dk.addColorStop(0.65, 'rgba(5,6,19,0.86)'); dk.addColorStop(1, 'rgba(4,5,16,0.97)');
+    g.fillStyle = dk; g.fillRect(-CW * 2, -CH * 4, CW * 4, CH * 8); g.restore();
+    const sky = g.createLinearGradient(0, 0, 0, CH * 0.35); sky.addColorStop(0, 'rgba(10,14,40,0.9)'); sky.addColorStop(1, 'rgba(10,14,40,0)'); g.fillStyle = sky; g.fillRect(0, 0, CW, CH * 0.35);
+    for (const s of stars) { g.globalAlpha = 0.35 + 0.35 * Math.sin(T * s.sp + s.ph); g.fillStyle = '#e8ecff'; g.fillRect(s.x, s.y, s.s, s.s); }
+    g.globalAlpha = 1; g.drawImage(trees, 0, 0);
+    g.save(); g.globalCompositeOperation = 'lighter'; g.translate(FX, FY - 4 * Z); g.scale(1, 0.62);   // 地面的暖光
+    const wl = g.createRadialGradient(0, 0, 0, 0, 0, 110 * Z); wl.addColorStop(0, `rgba(255,130,40,${0.42 * fk})`); wl.addColorStop(0.5, `rgba(210,90,30,${0.16 * fk})`); wl.addColorStop(1, 'rgba(160,60,20,0)');
+    g.fillStyle = wl; g.fillRect(-110 * Z, -110 * Z, 220 * Z, 220 * Z); g.restore();
+    g.setTransform(Z, 0, 0, Z, FX, FY);
+    const back = cast.filter(c => !c.seat.sil).sort((a, b) => a.seat.y - b.seat.y), front = cast.filter(c => c.seat.sil);
+    for (const c of back) if (c.seat.y < 0) drawSeat(c);
+    fireBase();
+    for (const c of back) if (c.seat.y >= 0) drawSeat(c);
+    drawStick(); drawFlames();
+    for (const p of smoke) { const k = p.t / p.d, s = Math.round(p.s * 2) / 2; g.globalAlpha = 0.16 * (1 - k) * Math.min(1, p.t * 3); g.fillStyle = k < 0.25 ? '#9a7a62' : '#4a4658'; g.fillRect(Math.round(p.x * 2) / 2 - s / 2, Math.round(p.y * 2) / 2 - s / 2, s, s); }
+    g.globalAlpha = 1;
+    for (const c of front) drawSeat(c);
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const fg = g.createRadialGradient(0, -14, 0, 0, -14, 44); fg.addColorStop(0, `rgba(255,160,60,${0.38 * fk})`); fg.addColorStop(0.5, `rgba(255,110,40,${0.12 * fk})`); fg.addColorStop(1, 'rgba(255,100,30,0)'); g.fillStyle = fg; g.fillRect(-44, -58, 88, 88);
+    for (const p of sparks) { const k = p.t / p.d; g.globalAlpha = 1 - k; px(p.x, p.y, k < 0.3 ? 1 : 0.5, k < 0.45 ? '#ffe39a' : '#ff8a3a'); }
     g.restore();
-    const hz = g.createLinearGradient(0, HZ - 6, 0, HZ + 34), hc0 = mixA(mixA(DR[4], NR[4], N), [255, 255, 255], 0.1);   // 地平線的霧
-    hz.addColorStop(0, css(hc0, 0)); hz.addColorStop(0.25, css(hc0, 0.45 - N * 0.2)); hz.addColorStop(1, css(hc0, 0)); g.fillStyle = hz; g.fillRect(0, HZ - 6, LW, 40);
   }
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     if (G.state === 'play') return destroy();
     if (!shown || (typeof Pause !== 'undefined' && Pause.open) || document.hidden || (IS_TOUCH && innerHeight > innerWidth)) return;   // 手機直向時蓋著「請轉成橫向」，不用畫
-    T += dt; N = 0.5 - 0.5 * Math.cos(T * Math.PI * 2 / CYCLE);
-    const t0 = performance.now(); spawn(dt); draw(dt); api.ms = performance.now() - t0; api.frames++;
+    tick(dt);
   }
+  function tick(dt) { T += dt; const t0 = performance.now(); spawn(dt); draw(dt); api.ms = performance.now() - t0; api.frames++; }
   function resize() {
     if (!cv) return;
-    const vw = Math.max(1, root.clientWidth || innerWidth), vh = Math.max(1, root.clientHeight || innerHeight);
-    const nl = Math.max(640, Math.round(LH * vw / vh)); Q = Math.min(2, vh * (devicePixelRatio || 1) / LH);
-    cv.width = Math.round(nl * Q); cv.height = Math.round(LH * Q);
-    if (nl !== LW || !mtn) { LW = nl; mtn = mountains(); dk.width = LW; dk.height = LH; }
+    const d = devicePixelRatio || 1, vw = Math.max(1, (root.clientWidth || innerWidth) * d), vh = Math.max(1, (root.clientHeight || innerHeight) * d), P = Math.max(1, vh / ROWS);
+    const w = Math.round(vw / P), h = Math.round(vh / P); if (w === CW && h === CH && ground) return;
+    CW = cv.width = w; CH = cv.height = h;
+    FY = Math.round(CH * 0.6); FX = Math.round(Math.max(CW * 0.62, CW - CH * 0.62)); BOT = (CH - FY) / Z;
+    SEATS.FL.y = Math.round(BOT + 3); SEATS.FR.y = Math.round(BOT + 5);   // 前面兩個背影只露出頭和肩膀
+    prerender();
   }
   // ---------- 畫面（DOM） ----------
   const ver = () => { try { return JSON.parse(document.getElementById('bootList').textContent).v; } catch (e) { return ''; } };
@@ -205,11 +233,9 @@ const TitleScreen = (() => {
       <div class="ts-sub">一次又一次入夢，直到你想起怎麼醒來</div><nav class="ts-menu"></nav></div><div class="ts-ver">v${ver()}</div>
       <div class="ts-cred"><div class="ts-card"><div class="ts-ct">夢疑 MOE</div><div class="ts-cv">版本 v${ver()}</div>
       <p><b>企劃</b>使用者</p><p><b>程式與美術協作</b>Claude</p><p><b>美術生成</b>Higgsfield</p><p><b>背景音樂、音效</b>遊戲內即時合成</p>
-      <p><b>像素素材</b>（皆為 CC0 公眾領域，謝謝作者們）<br>0x72 DungeonTileset II（作者 0x72）<br>Dungeon Crawl Stone Soup 圖塊<br>Animated Wild Animals（作者 ScratchIO）</p>
+      <p><b>像素素材</b>（皆為 CC0 1.0 公眾領域，謝謝作者們）<br>Dungeon Crawl Stone Soup 32×32 圖塊<br>（Crawl Stone Soup 團隊與 rltiles 的美術貢獻者；部分傳奇、套裝圖示由它裁切、放大、換色而成）<br>opengameart.org/content/dungeon-crawl-32x32-tiles<br>0x72 DungeonTileset II（作者 0x72）<br>Animated Wild Animals（作者 ScratchIO）</p>
       <button data-ts="credx">關閉</button></div></div>`;
-    cv = root.querySelector('#tsCv'); g = cv.getContext('2d');
-    dk = document.createElement('canvas'); dg = dk.getContext('2d');
-    hc = document.createElement('canvas'); hc.width = 200; hc.height = 150; hg = hc.getContext('2d');
+    cv = root.querySelector('#tsCv'); g = cv.getContext('2d'); CW = CH = 0; ground = null;
     if (!root._ts) { root._ts = 1;   // 開始畫面關掉再打開時，root 還是同一個：事件只接一次
     root.addEventListener('click', e => { const b = e.target.closest('[data-ts]'); if (b) act(b.dataset.ts); else if (e.target.closest('.ts-cred') && !e.target.closest('.ts-card')) act('credx'); });
     root.addEventListener('pointerdown', () => { if (!music && typeof Sfx !== 'undefined') { try { Sfx.init(); music = true; } catch (e) { } } });
@@ -240,18 +266,18 @@ const TitleScreen = (() => {
   function open() {
     if (typeof G !== 'undefined' && G.state === 'play') return;
     if (!root || !cv) build();
-    if (!w) { buildWorld(); makeSky(); }
-    api.last = pickHero();
+    if (!fw) buildWorld();
+    api.last = pickCast();
     root.querySelector('.ts-menu').innerHTML = menuHTML(api.last); hot = -1;
     root.classList.add('show'); root.classList.remove('cred'); shown = true; resize();
     if (!raf) { last = 0; raf = requestAnimationFrame(frame); }
   }
   function hide() { shown = false; if (root) root.classList.remove('show'); if (raf) cancelAnimationFrame(raf); raf = 0; }
-  function destroy() {   // 進遊戲：停掉迴圈、丟掉地圖分塊和所有畫布
-    hide(); if (w) { try { worldDropChunks(w); } catch (e) { } } w = null; P = S = pl = null; fx = []; gparts = []; mtn = null; waterPath = null;
-    if (root) { root.innerHTML = ''; } removeEventListener('resize', resize); cv = g = dk = dg = hc = hg = null; for (const k in IMG) delete IMG[k];
+  function destroy() {   // 進遊戲：停掉迴圈、丟掉所有畫布
+    hide(); fw = null; cast = []; heat.fill(0); sparks = []; smoke = []; toss = null; ground = trees = null;
+    if (root) { root.innerHTML = ''; } removeEventListener('resize', resize); cv = g = null; for (const k in IMG) delete IMG[k];
   }
-  const api = { ms: 0, frames: 0, last: null, open, hide, destroy, seek: t => { T = t; }, get shown() { return shown; }, get alive() { return !!raf; }, playing: () => shown && music && G.state !== 'play' };
+  const api = { ms: 0, frames: 0, last: null, open, hide, destroy, seek: t => { T = t; }, tick: (dt = 1 / 60) => { if (shown && g) tick(dt); }, state: () => ({ toss: toss ? toss.t : -1, tossAt, flare, seats: cast.map(c => c.P.cls + '@' + Object.keys(SEATS).find(k => SEATS[k] === c.seat)) }), get shown() { return shown; }, get alive() { return !!raf; }, playing: () => shown && music && G.state !== 'play' };
   return api;
 })();
 Hook.on('start', () => TitleScreen.destroy());
