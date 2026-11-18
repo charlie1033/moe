@@ -32,6 +32,11 @@ const TitleScreen = (() => {
   let root = null, cv, g, raf = 0, shown = false, T = 0, last = 0, CW = 640, CH = 340, FX = 420, FY = 204, BOT = 68, music = false, hot = -1, setOpen = false;
   let cast = [], fw = null, ground = null, trees = null, stars = [], fAcc = 0, sparks = [], smoke = [], toss = null, tossAt = 4, flare = 0, fk = 1;
   const IMG = {}, art = k => { if (IMG[k] !== undefined) return IMG[k]; const s = typeof ARTWORK !== 'undefined' && ARTWORK.img[k]; if (!s) return (IMG[k] = null); const im = new Image(); im.src = s; return (IMG[k] = im); };
+  // v2.19.3 插畫背景（Gemini 畫的兩張，每次開遊戲隨機一張）：插畫用 <img> 鋪滿（object-fit:cover、object-position 70% 50%），
+  //   畫布變透明、只在上面疊會動的東西：火光閃爍、火星往上飄、螢火蟲。圖載不到時照舊用程式畫的營火場景
+  //   fx、fy＝火堆在圖上的位置（0～1）；fw＝火堆大約佔圖寬的比例（決定火星的大小）
+  const ARTS = [{ src: 'img/title_a.jpg', fx: 0.645, fy: 0.705, fw: 0.15 }, { src: 'img/title_b.jpg', fx: 0.655, fy: 0.6, fw: 0.13 }];
+  let artI = null, artOn = false, flies = [];
   const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
   const TMP = canvas(SW * Z, LEG * Z);
   const heat = new Float32Array(FW * FH), fcv = canvas(FW, FH), fimg = fcv.getContext('2d').createImageData(FW, FH);
@@ -176,6 +181,7 @@ const TitleScreen = (() => {
   }
   // ---------- 每一格 ----------
   function draw(dt) {
+    if (artOn) return drawArt(dt);
     g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false; g.globalCompositeOperation = 'source-over';
     g.drawImage(ground, 0, 0);
     // 夜：離火越遠越暗（橢圓，地面是斜看的）
@@ -203,6 +209,34 @@ const TitleScreen = (() => {
     for (const p of sparks) { const k = p.t / p.d; g.globalAlpha = 1 - k; px(p.x, p.y, k < 0.3 ? 1 : 0.5, k < 0.45 ? '#ffe39a' : '#ff8a3a'); }
     g.restore();
   }
+  // 插畫模式：把圖上的 (0～1) 位置換成畫布座標（跟 CSS 的 object-fit:cover、object-position:70% 50% 一樣算）
+  function artMap() {
+    const im = root.querySelector(".ts-art"), vw = root.clientWidth || innerWidth || CW, vh = root.clientHeight || innerHeight || CH, iw = im.naturalWidth || 16, ih = im.naturalHeight || 9;
+    const s = Math.max(vw / iw, vh / ih), dw = iw * s, dh = ih * s, ox = (vw - dw) * 0.7, oy = (vh - dh) * 0.5, k = CW / vw;
+    return (u, v) => [(ox + u * dw) * k, (oy + v * dh) * k, dw * k];
+  }
+  function drawArt(dt) {
+    if (!(CW > 2 && CH > 2)) return;   // 視窗大小還是 0（背景分頁）時先不畫
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, CW, CH);
+    const M = artMap(), [fx, fy, dw] = M(artI.fx, artI.fy), fr = dw * artI.fw;
+    // 火光：一圈暖光跟著火忽明忽暗
+    g.globalCompositeOperation = 'lighter';
+    const a = 0.16 + 0.07 * Math.sin(T * 9) + 0.05 * Math.sin(T * 23) + 0.18 * flare, rg = g.createRadialGradient(fx, fy - fr * 0.25, 0, fx, fy - fr * 0.25, fr * 1.6);
+    rg.addColorStop(0, `rgba(255,150,60,${a})`); rg.addColorStop(0.4, `rgba(255,110,40,${a * 0.45})`); rg.addColorStop(1, 'rgba(255,90,30,0)');
+    g.fillStyle = rg; g.fillRect(fx - fr * 1.7, fy - fr * 1.9, fr * 3.4, fr * 3.4);
+    // 火星（跟程式畫的版本共用同一組粒子，單位換算成這張圖上火堆的大小）
+    const u = fr / 60; g.setTransform(u, 0, 0, u, fx, fy - fr * 0.18);
+    for (const p of sparks) { const q = p.t / p.d; g.globalAlpha = 1 - q; px(p.x, p.y * 1.6, q < 0.3 ? 1.5 : 1, q < 0.45 ? '#ffe39a' : '#ff8a3a'); }
+    // 螢火蟲：慢慢飄、一閃一閃
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    for (const f of flies) {
+      f.x += f.vx * dt + Math.sin(T * 0.7 + f.ph) * 0.0006; f.y += f.vy * dt + Math.cos(T * 0.9 + f.ph) * 0.0005;
+      if (f.x < 0.3 || f.x > 0.99) f.vx *= -1; if (f.y < 0.2 || f.y > 0.92) f.vy *= -1;
+      const [x, y] = M(f.x, f.y), b = Math.max(0, Math.sin(T * f.sp * 2 + f.ph));
+      g.globalAlpha = 0.25 + 0.75 * b; g.fillStyle = 'rgba(190,255,120,0.35)'; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); g.fillStyle = '#e8ff9a'; g.fillRect(Math.round(x), Math.round(y), 1, 1);
+    }
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  }
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
@@ -229,13 +263,15 @@ const TitleScreen = (() => {
   function build() {
     root = document.getElementById('title');
     if (!root) { root = document.createElement('div'); root.id = 'title'; document.body.appendChild(root); }
-    root.innerHTML = `<canvas id="tsCv"></canvas><div class="ts-shade"></div><div class="ts-left"><div class="tp-wrap ts-logo"><div class="tplaque"></div><div class="title">夢疑 <span class="title-en"><i>M</i><i>O</i><i>E</i></span></div></div>
+    root.innerHTML = `<img class="ts-art" alt=""><canvas id="tsCv"></canvas><div class="ts-shade"></div><div class="ts-left"><div class="tp-wrap ts-logo"><div class="tplaque"></div><div class="title">夢疑 <span class="title-en"><i>M</i><i>O</i><i>E</i></span></div></div>
       <div class="ts-sub">一次又一次入夢，直到你想起怎麼醒來</div><nav class="ts-menu"></nav></div><div class="ts-ver">v${ver()}</div>
       <div class="ts-cred"><div class="ts-card"><div class="ts-ct">夢疑 MOE</div><div class="ts-cv">版本 v${ver()}</div>
       <p><b>企劃</b>使用者</p><p><b>程式與美術協作</b>Claude</p><p><b>美術生成</b>Higgsfield</p><p><b>背景音樂、音效</b>遊戲內即時合成</p>
       <p><b>像素素材</b>（皆為 CC0 1.0 公眾領域，謝謝作者們）<br>Dungeon Crawl Stone Soup 32×32 圖塊<br>（Crawl Stone Soup 團隊與 rltiles 的美術貢獻者；部分傳奇、套裝圖示由它裁切、放大、換色而成）<br>opengameart.org/content/dungeon-crawl-32x32-tiles<br>0x72 DungeonTileset II（作者 0x72）<br>Animated Wild Animals（作者 ScratchIO）</p>
       <button data-ts="credx">關閉</button></div></div>`;
     cv = root.querySelector('#tsCv'); g = cv.getContext('2d'); CW = CH = 0; ground = null;
+    artI = ARTS[Math.floor(Math.random() * ARTS.length)]; artOn = false; const im = root.querySelector('.ts-art'); im.onload = () => { artOn = true; root.classList.add('art'); }; im.onerror = () => { artOn = false; root.classList.remove('art'); }; im.src = artI.src;
+    flies = Array.from({ length: 16 }, () => ({ x: R(0.32, 0.98), y: R(0.25, 0.9), ph: R(0, 6), sp: R(0.4, 1.1), vx: R(-0.006, 0.006), vy: R(-0.004, 0.004) }));
     if (!root._ts) { root._ts = 1;   // 開始畫面關掉再打開時，root 還是同一個：事件只接一次
     root.addEventListener('click', e => { const b = e.target.closest('[data-ts]'); if (b) act(b.dataset.ts); else if (e.target.closest('.ts-cred') && !e.target.closest('.ts-card')) act('credx'); });
     root.addEventListener('pointerdown', () => { if (!music && typeof Sfx !== 'undefined') { try { Sfx.init(); music = true; } catch (e) { } } });
@@ -277,7 +313,7 @@ const TitleScreen = (() => {
     hide(); fw = null; cast = []; heat.fill(0); sparks = []; smoke = []; toss = null; ground = trees = null;
     if (root) { root.innerHTML = ''; } removeEventListener('resize', resize); cv = g = null; for (const k in IMG) delete IMG[k];
   }
-  const api = { ms: 0, frames: 0, last: null, open, hide, destroy, seek: t => { T = t; }, tick: (dt = 1 / 60) => { if (shown && g) tick(dt); }, state: () => ({ toss: toss ? toss.t : -1, tossAt, flare, seats: cast.map(c => c.P.cls + '@' + Object.keys(SEATS).find(k => SEATS[k] === c.seat)) }), get shown() { return shown; }, get alive() { return !!raf; }, playing: () => shown && music && G.state !== 'play' };
+  const api = { ms: 0, frames: 0, last: null, open, hide, destroy, seek: t => { T = t; }, tick: (dt = 1 / 60) => { if (shown && g) tick(dt); }, state: () => ({ art: artOn && artI ? artI.src : null, toss: toss ? toss.t : -1, tossAt, flare, seats: cast.map(c => c.P.cls + '@' + Object.keys(SEATS).find(k => SEATS[k] === c.seat)) }), get shown() { return shown; }, get alive() { return !!raf; }, playing: () => shown && music && G.state !== 'play' };
   return api;
 })();
 Hook.on('start', () => TitleScreen.destroy());
