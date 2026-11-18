@@ -47,8 +47,9 @@ function monAddMods(m, n) {
   }
 }
 function prophMergeList() {
-  const g = G.mons.filter(m => m.guardian && !m.dead && !m.boss);
-  return g.length >= 2 ? { list: g, who: '守護者' } : { list: G.mons.filter(m => !m.dead && !m.boss && m.rarity === 'rare' && !m.hidden), who: '黃色精英' };
+  const here = m => typeof BigMap === 'undefined' || BigMap.here(m);   // v2.19 大地圖：只合這一區的
+  const g = G.mons.filter(m => m.guardian && !m.dead && !m.boss && here(m));
+  return g.length >= 2 ? { list: g, who: '守護者' } : { list: G.mons.filter(m => !m.dead && !m.boss && m.rarity === 'rare' && !m.hidden && here(m)), who: '黃色精英' };
 }
 function visionProphecy(ev) {
   const w = G.world, mg = prophMergeList(), canMerge = mg.list.length >= 2;

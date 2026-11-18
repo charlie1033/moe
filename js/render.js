@@ -56,8 +56,7 @@ function render() {
   g.translate(-Math.round(cx), -Math.round(cy));
   // 地圖
   const sx = Math.max(0, Math.floor(cx)), sy = Math.max(0, Math.floor(cy));
-  const sw = Math.min(w.canvas.width - sx, VW + 2), sh = Math.min(w.canvas.height - sy, VH + 2);
-  if (sw > 0 && sh > 0) g.drawImage(w.canvas, sx, sy, sw, sh, sx, sy, sw, sh);
+  worldDraw(g, w, sx, sy, Math.min(w.W * TS, sx + VW + 2), Math.min(w.H * TS, sy + VH + 2));   // v2.19 分塊畫：只貼看得到的幾塊（game.js）
   // 城鎮裝飾
   if (w.kind === 'town') drawTownDeco(g, w);
   if (w.portal) { if (w.kind === 'town' && w.fireGate) txt(g, `${TOWN_TEXT.device}（營火・新的夢）`, w.portal.x, w.portal.y - 46, 12, '#ffcf60', 'center'); else drawPortal(g, w.portal.x, w.portal.y, w.kind === 'town' ? '#ffcf60' : '#70b0ff', w.kind === 'town' ? `${TOWN_TEXT.device}（新的夢）` : w.portal.toHub ? `前往新營地：${HUB_BY_ID[w.portal.toHub].name}` : `回到${(HUB_BY_ID[G.P && G.P.hub] || {}).name || '營地'}`); }   // v2.8.13 營地的夢之門＝中間的營火
@@ -853,12 +852,19 @@ function drawHUD(g) {
   if (G.fps && CFG.fps) txt(g, `${G.fps} FPS`, VW - 8, VH - 74, 10, '#9fd09f', 'right');
   if (w.mini && CFG.minimap !== 'off') {
     const s = (w.kind === 'town' ? 3 : 2) * ({ small: 0.5, normal: 1, large: 1.5 }[CFG.minimap] || 1);
-    const mw = w.W * s, mh = w.H * s, mx = VW - mw - 10, my = 10;
+    // v2.19 大地圖：「附近」＝以玩家為中心的捲動小地圖（只顯示 90×60 格）；設定「自動」時地圖寬超過 120 格才用附近
+    const near = CFG.miniView === 'near' || (CFG.miniView !== 'full' && w.W > 120);
+    const vw = near ? Math.min(w.W, 90) : w.W, vh = near ? Math.min(w.H, 60) : w.H;
+    const ox = near ? clamp(Math.round(pl.x / TS - vw / 2), 0, w.W - vw) : 0, oy = near ? clamp(Math.round(pl.y / TS - vh / 2), 0, w.H - vh) : 0;
+    const mw = vw * s, mh = vh * s, mx = VW - mw - 10, my = 10, bx = mx - ox * s, by = my - oy * s;   // bx, by：整張小地圖左上角（可能在框外）
+    G.mmView = { x: mx, y: my, w: mw, h: mh, ox, oy, s, near, wd: w };
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(mx - 3, my - 3, mw + 6, mh + 6);
-    g.drawImage(w.mini, mx, my, mw, mh);
-    if (w.boss && w.explored[(w.boss.y + (w.boss.h >> 1)) * w.W + w.boss.x + (w.boss.w >> 1)]) txt(g, '☠', mx + (w.boss.x + w.boss.w / 2) * s, my + (w.boss.y + w.boss.h / 2) * s, 12, '#ff7050', 'center');
-    if (w.portal) { g.fillStyle = '#70b0ff'; g.fillRect(mx + w.portal.x / TS * s - 2, my + w.portal.y / TS * s - 2, 4, 4); }
-    Hook.emit('drawMinimap', g, mx, my, s);   // v2.15.3 小地圖上的事件、精英怪（minimapmarks.js）
-    g.fillStyle = '#ffffff'; g.fillRect(mx + pl.x / TS * s - 2, my + pl.y / TS * s - 2, 4, 4);
+    g.drawImage(w.mini, ox, oy, vw, vh, mx, my, mw, mh);
+    g.save(); if (near) { g.beginPath(); g.rect(mx - 3, my - 3, mw + 6, mh + 6); g.clip(); }
+    if (w.boss && w.explored[(w.boss.y + (w.boss.h >> 1)) * w.W + w.boss.x + (w.boss.w >> 1)]) txt(g, '☠', bx + (w.boss.x + w.boss.w / 2) * s, by + (w.boss.y + w.boss.h / 2) * s, 12, '#ff7050', 'center');
+    if (w.portal) { g.fillStyle = '#70b0ff'; g.fillRect(bx + w.portal.x / TS * s - 2, by + w.portal.y / TS * s - 2, 4, 4); }
+    g.restore();
+    Hook.emit('drawMinimap', g, bx, by, s);   // v2.15.3 小地圖上的事件、精英怪（minimapmarks.js；框的位置看 G.mmView）
+    g.fillStyle = '#ffffff'; g.fillRect(bx + pl.x / TS * s - 2, by + pl.y / TS * s - 2, 4, 4);
   }
 }

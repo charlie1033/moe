@@ -19,6 +19,7 @@ const CFG_DEFAULT = {
   uiScale: 100,        // 面板大小 %
   quest: true,         // 左邊的任務提示
   minimap: 'normal',   // 小地圖：off／small／normal／large
+  miniView: 'auto',    // v2.19 小地圖範圍：auto（地圖寬超過 120 格用附近）／full 整張／near 附近（以玩家為中心捲動）
   targetBar: true,     // 上方的怪物資訊列
   msgLog: true,        // 左下角的訊息
   autoPick: true,      // 珠寶、通貨走過去自動撿
@@ -156,6 +157,7 @@ const Pause = {
       body += row('面板大小', rng('uiScale', 80, 130), '背包、角色、技能等視窗的大小');
       body += row('任務提示', chk('quest'), '畫面左邊的任務框');
       body += row('小地圖', sel('minimap', [['normal', '一般'], ['large', '大'], ['small', '小'], ['off', '不顯示']]));
+      body += row('小地圖範圍', sel('miniView', [['auto', '自動'], ['full', '整張'], ['near', '附近']]), '「附近」只顯示你周圍、跟著你捲動；「自動」在大地圖時用附近');
       body += row('怪物資訊列', chk('targetBar'), '畫面上方顯示正在打的怪物');
       body += row('訊息', chk('msgLog'), '左下角的撿到東西、任務等訊息');
       body += row('自動撿取', chk('autoPick'), '珠寶、通貨走過去就撿');
@@ -213,7 +215,7 @@ const Pause = {
     if (a === 'fullscreen') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => UI.msg('這個瀏覽器不允許全螢幕', '#ff9a9a')); setTimeout(() => this.render(), 300); return; }
     if (a === 'test') { Sfx.init(); ['swing', 'hit', 'crit', 'kill', 'coin', 'rare'].forEach((n, i) => setTimeout(() => { Sfx.last[n] = 0; Sfx.play(n); }, i * 260)); return; }
     if (a === 'reset') {
-      const groups = { display: ['shake', 'hitstop', 'dmgNum', 'lowLife', 'particles', 'showNormal', 'fps'], sound: ['sound', 'vol', 'volCombat', 'volLoot', 'volUi'], ui: ['uiScale', 'quest', 'minimap', 'targetBar', 'msgLog', 'autoPick'], loot: ['showNormal', 'lootMagic', 'lootFlask', 'lootMinTier', 'lootScarOnly'] };
+      const groups = { display: ['shake', 'hitstop', 'dmgNum', 'lowLife', 'particles', 'showNormal', 'fps'], sound: ['sound', 'vol', 'volCombat', 'volLoot', 'volUi'], ui: ['uiScale', 'quest', 'minimap', 'miniView', 'targetBar', 'msgLog', 'autoPick'], loot: ['showNormal', 'lootMagic', 'lootFlask', 'lootMinTier', 'lootScarOnly'] };
       if (this.tab === 'keys') { CFG.keys = {}; CFG.swapMouse = false; } else for (const k of groups[this.tab]) CFG[k] = CFG_DEFAULT[k];
       saveCfg(); applyCfg(); return this.render();
     }

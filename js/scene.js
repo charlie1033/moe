@@ -114,7 +114,8 @@ function paintWorldDetail(g, w) {
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || w.grid[y * W + x] === 0;
   const SMOOTH = typeof ArtUI !== 'undefined' && ArtUI.smoothWalls && ArtUI.smoothWalls(w);   // v2.16 圓滑牆：牆和陰影改由美術層畫，這裡不畫方格陰影
   const ao = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, 'rgba(0,0,0,0.42)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(rx, ry, rw, rh); };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const RC = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H };   // v2.19 分塊畫：只跑這一塊的格子
+  for (let y = RC.y0; y < RC.y1; y++) for (let x = RC.x0; x < RC.x1; x++) {
     const px = x * TS, py = y * TS;
     if (!solid(x, y)) {
       // 牆邊的陰影（環境遮蔽），讓地板跟牆分開

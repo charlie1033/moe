@@ -9,16 +9,18 @@
 // =============================================================
 const MINI_EV_COLOR = { abyss: '#b070ff', essence: '#9ae8ff', vision: '#ffe9a0', chest: '#ffd36a', tide: '#7ad8ff', rite: '#ff7a90', mist: '#a8c8c0' };
 Hook.on('drawMinimap', (g, mx, my, s) => {
-  const w = G.world, pl = G.pl; if (w) G.mmBox = { x: mx, y: my, w: w.W * s, h: w.H * s, wd: w };   // v2.18.2 狀態列排在小地圖下方（core.js StatusLines）
-  if (!w || w.kind === 'town') return;
+  const w = G.world, pl = G.pl; if (!w) return;
+  const V = G.mmView && G.mmView.wd === w ? G.mmView : { x: mx, y: my, w: w.W * s, h: w.H * s };   // v2.19 附近模式：框只顯示一部分（render.js）
+  G.mmBox = { x: V.x, y: V.y, w: V.w, h: V.h, wd: w };   // v2.18.2 狀態列排在小地圖下方（core.js StatusLines）
+  if (w.kind === 'town') return;
   const seen = (x, y) => { const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return !w.explored || w.explored[ty * w.W + tx]; };
   const P = (x, y) => [mx + x / TS * s, my + y / TS * s];
   const dot = (x, y, r, col, ring) => { const [px, py] = P(x, y); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill(); if (ring) { g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke(); } };
   const blink = 0.6 + 0.4 * Math.sin(G.time * 5);
   // v2.17.3 小地圖下方：這一區還剩幾隻怪（精英另外算）
   if (w.kind === 'map') {
-    const alive = G.mons.filter(m => !m.dead && !m.boss), el = alive.filter(m => m.rarity && m.rarity !== 'normal').length;
-    const tx = mx + w.W * s, ty = my + w.H * s + 16;
+    const alive = G.mons.filter(m => !m.dead && !m.boss && (typeof BigMap === 'undefined' || BigMap.here(m))), el = alive.filter(m => m.rarity && m.rarity !== 'normal').length;   // v2.19 大地圖：只算你現在這一區
+    const tx = V.x + V.w, ty = V.y + V.h + 16;
     g.save(); g.font = 'bold 12px sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle';
     const bossUp = !alive.length && G.mons.some(m => m.boss && !m.dead);   // v2.18.2 首領巢穴：首領還活著就不寫「清空了」
     const t = alive.length ? `怪物 ${alive.length}${el ? `（精英 ${el}）` : ''}` : bossUp ? '首領還在' : '這一區清空了', tw = g.measureText(t).width;
@@ -26,6 +28,7 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
     g.fillStyle = alive.length ? '#e8d8b8' : bossUp ? '#ff9a70' : '#9fe0a0'; g.fillText(t, tx - 2, ty);
     g.restore();
   }
+  g.save(); g.beginPath(); g.rect(V.x - 3, V.y - 3, V.w + 6, V.h + 6); g.clip();   // v2.19 框外的標記不畫
   // 事件
   for (const ev of w.events || []) {
     if (!seen(ev.x, ev.y)) continue;
@@ -51,4 +54,5 @@ Hook.on('drawMinimap', (g, mx, my, s) => {
     if (m.guardian) { g.globalAlpha = 0.55 + 0.45 * blink; dot(m.x, m.y, Math.max(4.5, s * 2.6), '#ff8a30', true); g.globalAlpha = 1; }   // v2.18.2 守護者的點畫大一點
     else dot(m.x, m.y, Math.max(1.5, s * 0.8), m.rarity === 'rare' ? '#ffd84a' : '#7aa8ff');
   }
+  g.restore();
 });

@@ -12,7 +12,7 @@
   const _enter = enterMap; enterMap = function (tier) { const r = _enter(tier); Hook.emit('enterMap', tier); return r; };
   const _build = onBuildChanged; onBuildChanged = function (...a) { const r = _build(...a); Hook.emit('build'); return r; };
   const _draw = drawStageExtras; drawStageExtras = function (g) { _draw(g); Hook.emit('drawWorld', g); };
-  const _bwc = buildWorldCanvas; buildWorldCanvas = function (w) { const r = _bwc(w); Hook.emit('worldCanvas', w); return r; };   // v2.12.1 地圖底圖畫好之後（要畫進底圖、只畫一次的東西）
+  const _bwc = buildWorldCanvas; buildWorldCanvas = function (w) { if (!w || !w._chunkRect) return worldReset(w); const r = _bwc(w); Hook.emit('worldCanvas', w); return r; };   // v2.12.1 地圖底圖畫好之後；v2.19 分塊畫：平常呼叫只清掉分塊，畫每一塊時（worldChunk）才跑整串包裝和 'worldCanvas'
   const _hud = drawHUD; drawHUD = function (g) { const r = _hud.apply(this, arguments); Hook.emit('drawHUD', g); return r; };   // v2.13.9 畫面下方介面全部畫完之後（美術外框也畫完了）
   const _cast = castSkill; castSkill = function (sid, c) { const r = _cast.apply(this, arguments); Hook.emit('cast', sid, c); return r; };   // v2.16.2 放完技能之後（技能型傳奇用）
   const _cs = computeStats; computeStats = function (P) { const S = _cs(P); Hook.emit('stats', S, P); return S; };   // v2.17 能力算好之後（套裝、首領傳奇、爬塔贈禮用）

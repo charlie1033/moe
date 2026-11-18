@@ -2,7 +2,7 @@
 //  章節手工地圖（引擎）：主線第 1～10 夜每一區用固定地形，第 11 夜以後照舊隨機
 //  玩家看到：同一夜同一區每次進去地形、障礙物、劇情事件、布景、區域首領的位置都一樣；怪物照舊隨機放在固定的房間裡
 //    ・封住的通道（D）：一開始是發光的封印牆，完成打開它的劇情事件後震動＋粒子，變成路
-//      打開時不整張重畫底圖：進圖畫底圖時（'worldCanvas'）先用「D 已打開」的格子在另一張畫布畫一次，只留 D 和四周兩格（牆邊陰影會多出一格）存成小圖（_dPatch），打開時直接貼上
+//      打開時不整張重畫底圖：v2.19 起底圖分塊畫，只把蓋到 D 的那幾塊標記重畫（worldRepaint，下次畫到時才畫）
 //    ・進每一區時橫幅副標是那一區的 intro（stages.js 讀 w.intro）
 //    ・劇情點、布景周圍 5 格內不放怪：隨機的怪群、p 標記、守護者放好之後整群搬到別的房間（伏擊自己的怪、區域首領不算）
 //    ・首領之門離劇情點至少 4 格、不壓在布景上（第 3 區有劇情點時用）
@@ -10,6 +10,8 @@
 //        存在 CHAPTER_MAPS['夜-區']；後加的蓋掉先加的。格式見 D:\POE系統 的章節地圖規格
 //  地圖物件：一般欄位跟 game.js 的 genMap 一樣，另外 w.chap = { key, evs:[{n,id,part,kind,x,y,tx,ty,done,amb…}], packs, dCells, open, boss:{x,y,dead}, scenes:[…] }
 //        （全是純資料，dreamkeep.js「沒打完的夢」會整份存起來，D 的開關跟著 grid 一起還原）
+//        v2.19 大地圖（bigmap.js）把三區的 w.chap 合成一份：座標換成大地圖的、ev.key／ev.r（哪一區）、區域首領改成 bosses:[{x,y,dead,key,r}]；
+//        生某一區的怪時 'stage' 掛鉤看到的 w.chap 是只有那一區 packs、bosses 的暫時版本（evs、scenes 是整張的）
 //  角色存檔：P.chapEv = { 事件id: true, 'id#片': true }、P.chapBoss = { 首領id: true }（舊存檔在 'start' 自動補）
 //  接點：stages.js 的 genMap 包裝裡呼叫 ChapterMaps.build(tier, 區)（沒資料回傳 null＝照舊隨機）；Hook 'start'、'stage'、'drawWorld'
 //  另外：chapevents.js（互動、獎勵、日誌、任務面板）、chapart.js（地上標記、人物）、chapscenes.js（布景）、chapboss.js（區域首領）
@@ -35,8 +37,9 @@ const ChapterMaps = {
       if (e.kind === 'ambush' && e.after) STORY['chev_' + e.id + '#after'] = { title: e.title || jt, pages: pages(e.after), journal: { title: jt, text: e.journal || '' } };
     }
   },
-  def(w) { return w && w.chap ? CHAPTER_MAPS[w.chap.key] : null; },
-  evDef(w, ev) { const d = this.def(w); return d && d.events && d.events[ev.n]; },
+  // v2.19 大地圖：一張圖有三區的資料，事件、區域首領各自帶 key（'夜-區'）；沒給 key＝舊存檔的單區圖
+  def(w, key) { return w && w.chap ? CHAPTER_MAPS[key || w.chap.key] : null; },
+  evDef(w, ev) { const d = this.def(w, ev && ev.key); return d && d.events && d.events[ev.n]; },
   // 一夜的劇情單位（日誌、任務面板用）：一般事件 1 個算 1 個；收集算 1 個（底下有幾片）；綁劇情的區域首領如果事件不存在，也算 1 個
   units(tier) {
     const out = [], seen = {};
@@ -113,20 +116,17 @@ const ChapterMaps = {
     const c = w && w.chap; if (!c || c.open || !c.dCells.length) return false;
     c.open = true;
     for (const i of c.dCells) { w.grid[i] = 1; w.deco[i] = 0; }
+    // v2.19 分塊畫：只把蓋到 D 的那幾塊標記重畫（下次畫到時才畫），小地圖補 D 和四周一格
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (const i of c.dCells) { const x = i % w.W, y = Math.floor(i / w.W); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    worldRepaint(w, x0, y0, x1, y1);
     if (w === G.world) {
-      const pt = _dPatch.get(w); _dPatch.delete(w);
-      if (pt && w.canvas && w.miniG && w.explored) {   // 只貼 D 和四周兩格（小地圖補 D 和四周一格）
-        const g = w.canvas.getContext('2d'); g.save(); g.beginPath();
-        for (const i of c.dCells) g.rect((i % w.W - 2) * TS, (Math.floor(i / w.W) - 2) * TS, 5 * TS, 5 * TS);
-        g.clip(); g.drawImage(pt.cv, pt.x0 * TS, pt.y0 * TS); g.restore();
+      if (w.miniG && w.explored) {
         const seen = {};
         for (const i of c.dCells) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           const x = i % w.W + dx, y = Math.floor(i / w.W) + dy, j = y * w.W + x;
           if (x < 0 || y < 0 || x >= w.W || y >= w.H || seen[j] || !w.explored[j]) continue; seen[j] = 1; w.miniG.clearRect(x, y, 1, 1); paintMini(w, x, y);
         }
-      } else {
-        const ex = w.explored; buildWorldCanvas(w);
-        if (ex && ex.length === w.W * w.H) { w.explored = ex; for (let i = 0; i < ex.length; i++) if (ex[i]) paintMini(w, i % w.W, Math.floor(i / w.W)); }
       }
       if (!quiet) {
         G.shake = Math.max(G.shake, 9); Sfx.play('portal');
@@ -179,23 +179,6 @@ Hook.on('drawWorld', g => {
 Hook.on('light', (cut, cx, cy) => {
   const w = G.world, c = w && w.chap; if (!c || c.open || !c.dCells.length) return;
   for (let k = 0; k < c.dCells.length; k += 3) { const i = c.dCells[k], x = (i % w.W) * TS + 16 - cx, y = Math.floor(i / w.W) * TS + 16 - cy; if (x > -80 && x < VW + 80 && y > -80 && y < VH + 80) cut(x, y, 60, 0.35); }
-});
-// 封住的通道的「打開後」小圖：底圖畫好時，用 D 已打開的格子在另一張畫布整張畫一次（跟整張重畫的結果一模一樣），只留 D 四周兩格
-//   代價是進圖時多畫一次底圖（約 40 毫秒，在換區的時候），打開通道時只要貼小圖（不到 1 毫秒）；小圖存在 WeakMap，不會進存檔
-const _dPatch = new WeakMap();
-Hook.on('worldCanvas', w => {
-  const c = w && w.chap; if (!c || c.open || !c.dCells.length || w._dSub || !w.canvas) return;
-  _dPatch.delete(w);
-  const W = w.W, grid = w.grid.slice(), deco = w.deco.slice();
-  for (const i of c.dCells) { grid[i] = 1; deco[i] = 0; }
-  const sub = Object.assign({}, w, { grid, deco, _dSub: true, chap: Object.assign({}, c, { open: true }) });
-  try { buildWorldCanvas(sub); } catch (e) { console.error('[ChapterMaps D]', e); return; }
-  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
-  for (const i of c.dCells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x - 2); y0 = Math.min(y0, y - 2); x1 = Math.max(x1, x + 2); y1 = Math.max(y1, y + 2); }
-  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W - 1, x1); y1 = Math.min(w.H - 1, y1);
-  const cv = document.createElement('canvas'); cv.width = (x1 - x0 + 1) * TS; cv.height = (y1 - y0 + 1) * TS;
-  cv.getContext('2d').drawImage(sub.canvas, x0 * TS, y0 * TS, cv.width, cv.height, 0, 0, cv.width, cv.height);
-  _dPatch.set(w, { x0, y0, cv });
 });
 // 劇情點、布景周圍 5 格內不放怪；首領之門離劇情點至少 4 格（排在 bossroom.js 放門和守護者、上面放 p 怪群之後）
 Hook.on('stage', w => {

@@ -1,7 +1,7 @@
 // =============================================================
 //  v2.8.4 地圖改版
-//  ① 每一夜分成 3～5 個小關卡（區域）：前面幾區打完走到出口的門（按 F）進下一區，最後一區才有看守者
-//     區數越多，打倒看守者時的額外獎勵越好
+//  ① 每一夜分成 3～6 個區域，v2.19 起接成一整張無縫大地圖（bigmap.js：沒有門，走過去就到下一區），最後一區才有看守者
+//     區數越多，打倒看守者時的額外獎勵越好；舊存檔（一區一張圖）出口的門還在，按 F 會換成大地圖從下一區接著玩
 //  ② 每個場景有自己的地形：森林有河和樹、沼澤有水塘、熔岩洞窟有岩漿池、沙漠和草原比較開闊……
 //     障礙物不會擋死路（放完會檢查每個地方都走得到，河流會自動留橋）
 //  ④ v2.14.4 房間的直角削圓、直牆隨機凹凸（organicEdges）；東西卡在牆裡會自動移到最近的空地
@@ -200,46 +200,45 @@ function drawDeco(g, t, x, y, s, w) {
 const _buildWCStage = buildWorldCanvas;
 buildWorldCanvas = function (w) {
   _buildWCStage(w);
-  if (!w.deco || !w.canvas) return;
+  const R = w._chunkRect; if (!w.deco || !R) return;   // v2.19 分塊畫：只畫這一塊涵蓋的格子（game.js worldChunk）
   const g = w.canvas.getContext('2d');
-  for (let y = 0; y < w.H; y++) for (let x = 0; x < w.W; x++) {
+  for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) {
     const t = w.deco[y * w.W + x]; if (!t) continue;
     g.drawImage(getFloorTile(w.theme, hash2(x, y) % 6), x * TS, y * TS);
     if (!(typeof StackProps !== "undefined" && StackProps.handles(t))) drawDeco(g, t, x, y, hash2(x, y), w);   // v2.9.5 立體障礙物另外畫
   }
 };
-// ① 小關卡
+// ① 小關卡 → v2.19 無縫大地圖（bigmap.js）：一夜的幾區接成一整張圖；BigMap 失敗才退回舊的單張圖（只有 1 區，首領之門就在這一區）
 const _genMapStage = genMap;
 genMap = function (tier) {
+  const plan = G._stagePlan;
+  if (plan && plan.n > 1 && typeof BigMap !== 'undefined') {
+    try { const bw = BigMap.build(tier, plan.n); if (bw) return bw; } catch (e) { console.error('[BigMap]', e); }
+    plan.n = 1;
+  }
   // 主線第 1～10 夜有手工地圖就用固定地形（chapmaps.js，不跑隨機開闊、障礙物、河流）；沒有資料的區照舊隨機生成
-  const cm = G._stagePlan && typeof ChapterMaps !== 'undefined' ? ChapterMaps.build(tier, G._stagePlan.i) : null;
+  const cm = plan && typeof ChapterMaps !== 'undefined' ? ChapterMaps.build(tier, plan.i) : null;
   const w = cm || _genMapStage(tier);
   if (!cm) try { biomeApply(w); } catch (e) { }
-  if (G._stagePlan) { w.stage = { i: G._stagePlan.i, n: G._stagePlan.n }; w.name += `（第 ${w.stage.i} / ${w.stage.n} 區）`; }
+  if (plan) { w.stage = { i: plan.i, n: plan.n }; w.name += `（第 ${w.stage.i} / ${w.stage.n} 區）`; }
   return w;
 };
 // v2.8.5 主線章節固定 3 區；深層夢境（刷圖）4～6 區，區數越多整張圖的掉落數量和稀有度越高（不再固定多掉東西）
 function stageCountFor(tier) { return tier >= DEEP_TIER ? rint(4, 6) : 3; }
 const stageBonus = n => ({ q: Math.max(0, n - 3) * 15, r: Math.max(0, n - 3) * 10 });
-// 障礙物上的怪物挪到旁邊的空地；不是最後一區：拿掉看守者、出口放一扇門
+// 障礙物上的怪物挪到旁邊的空地（大地圖每生一區的怪都會跑一次；mapevents.js 接在後面放事件、發 'stage'）
 function stageFixup(w) {
   for (const m of G.mons) if (solidAt(m.x, m.y)) {
     const tx = Math.floor(m.x / TS), ty = Math.floor(m.y / TS);
     out: for (let r = 1; r < 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = tx + dx, y = ty + dy; if (x > 0 && y > 0 && x < w.W && y < w.H && w.grid[y * w.W + x]) { m.x = x * TS + 16; m.y = y * TS + 16; break out; } }
-  }
-  if (w.stage && w.stage.i < w.stage.n) {
-    G.mons = G.mons.filter(m => !m.boss);
-    const r = w.boss; w.exitRoom = r; w.boss = null;
-    spawnPack((r.x + r.w / 2) * TS, (r.y + r.h / 2) * TS, w);
-    w.gate = { x: (r.x + r.w / 2) * TS, y: (r.y + r.h / 2) * TS };
   }
 }
 const _enterMapStage = enterMap;
 enterMap = function (tier) {
   G._stagePlan = { i: 1, n: stageCountFor(tier) };
   try { _enterMapStage(tier); } finally { G._stagePlan = null; }
-  stageFixup(G.world);
   const w0 = G.world;
+  if (w0.regions) BigMap.enter(w0, 1, true); else stageFixup(w0);   // 大地圖：進圖時只生第 1 區的怪
   if (w0.stage) {
     const B = stageBonus(w0.stage.n);
     if (B.q || B.r) { w0.mm = Object.assign({}, w0.mm, { q: (w0.mm.q || 0) + B.q, r: (w0.mm.r || 0) + B.r }); w0.stageBonus = B; }
@@ -247,22 +246,20 @@ enterMap = function (tier) {
     UI.banner(w0.name.replace(/（.*$/, ''), w0.intro || sub, '#ffcf70'); if (w0.intro) UI.msg(sub, '#ffcf70');   // 手工地圖：副標是這一區的開場白
   }
 };
+// 換到下一區：大地圖＝把人移到下一區的入口（測試用）；v2.18.2 舊存檔（一區一張圖、出口有門）＝蓋一張新的大地圖，從下一區的入口接著玩
 function nextStage() {
-  const old = G.world, st = old.stage; if (!st || st.i >= st.n) return;
-  G._stagePlan = { i: st.i + 1, n: st.n };
+  const old = G.world, st = old && old.stage; if (!st || st.i >= st.n) return;
+  if (old.regions) return goRegion(st.i + 1);
+  G._stagePlan = { i: 1, n: st.n };
   let w; try { w = genMap(old.tier); } finally { G._stagePlan = null; }
-  w.mm = old.mm; if (old.bt) { w.bt = old.bt; if (st.i + 1 === st.n) w.bt.el = 0; }   // 懸賞跟著走（速攻從最後一區開始算，只算人在地圖裡的時間）
+  w.mm = old.mm; if (old.bt) w.bt = old.bt;
   const mins = G.mins; resetEntities(); G.mins = mins;
-  G.world = w; buildWorldCanvas(w);
-  const s = w.start; G.pl.x = (s.x + s.w / 2) * TS; G.pl.y = (s.y + s.h / 2) * TS;
-  populate(w); stageFixup(w);
-  G.mins.forEach(m => { m.x = G.pl.x + rnd(-30, 30); m.y = G.pl.y + rnd(-30, 30); });
-  w.flowT = 0; Sfx.play('portal');
-  const sub = w.stage.i === w.stage.n ? '看守者就在這一區' : '找到出口的門，前往下一區';
-  UI.banner(w.intro ? w.name.replace(/^第 \d+ 夜之夢・/, '') : `第 ${w.stage.i} / ${w.stage.n} 區`, w.intro || sub, '#ffcf70'); if (w.intro) UI.msg(sub, '#ffcf70');   // 手工地圖：標題是區域名、副標是開場白
+  G.world = w; buildWorldCanvas(w); w.flowT = 0; Sfx.play('portal');
+  if (w.regions) { for (const r of w.regions) if (r.i <= st.i) r.act = r.seen = true; goRegion(st.i + 1); }
+  else { const s = w.start; G.pl.x = (s.x + s.w / 2) * TS; G.pl.y = (s.y + s.h / 2) * TS; populate(w); stageFixup(w); G.mins.forEach(m => { m.x = G.pl.x + rnd(-30, 30); m.y = G.pl.y + rnd(-30, 30); }); }
   saveGame();
 }
-// 出口的門：按 F
+// 出口的門：只剩 v2.18.2 舊存檔的「沒打完的夢」會有（按 F 接著玩下一區）
 // v2.18.2 離開一區前的提醒：只算黃裝、傳奇、套裝（首領之門 bossroom.js 也用這個）
 const valuableLeft = () => G.loot.filter(l => !l.gone && l.item && (l.item.set || l.item.rarity === 'rare' || l.item.rarity === 'unique')).length;
 Interact.add('gate', (pl, w) => w.gate ? [{ ref: w.gate, label: `前往第 ${w.stage.i + 1} 區` }] : null, () => {

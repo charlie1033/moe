@@ -142,23 +142,126 @@ function genTown(hubId) {
     npcs: hub.npcs.map(n => Object.assign({}, n, { x: n.at[0] * TS, y: n.at[1] * TS })) };
 }
 
-// 整張地圖先畫好存起來，之後每格直接貼
-function buildWorldCanvas(w) {
-  const c = document.createElement('canvas'); c.width = w.W * TS; c.height = w.H * TS;
-  const g = c.getContext('2d');
-  const th = w.theme;
-  for (let y = 0; y < w.H; y++) for (let x = 0; x < w.W; x++) {
-    const solid = w.grid[y * w.W + x] === 0;
-    if (!solid) g.drawImage(getFloorTile(th, hash2(x, y) % 6), x * TS, y * TS); // 地板：6 種變化（scene.js）
-    else { g.fillStyle = th.wall; g.fillRect(x * TS, y * TS, TS, TS); }
-  }
-  paintWorldDetail(g, w); // 牆面、牆邊陰影、地上小東西（scene.js）
-  w.canvas = c;
-  // 小地圖
+// ---------- 地圖底圖：v2.19 分塊畫（地圖可以大到 400×300 格以上，手機不黑屏） ----------
+//  ・地圖切成 CHUNK＝32 格（1024×1024 像素）一塊，看得到的塊才畫，存在 w.chunks（Map，不進存檔）
+//  ・平常 w.canvas 是代表物件 { width: W*TS, height: H*TS, chunked: true }（只能讀寬高，不能拿來畫）
+//  ・畫一塊時：w.canvas 暫時指向那一塊的畫布，ctx 已經 translate(-w._chunkPx.x, -w._chunkPx.y)（畫布左上角＝世界像素 _chunkPx.x, _chunkPx.y）
+//    → 用世界座標畫就會落在這塊、超出的被裁掉；w._chunkRect＝{ x0, y0, x1, y1 } 這塊涵蓋的格子（各往外多 2 格，x1、y1 不含，已夾在地圖內）
+//    w._chunkPx＝{ x, y, w, h } 這張畫布在世界座標的像素範圍＝這塊（右邊、下邊的塊比較小）四邊各多 CHUNK_PAD＝32 像素；
+//    多的 32 像素不會顯示：畫布邊緣的反鋸齒誤差落在看不到的地方（塊與塊接起來才沒有縫），而且「從旁邊 32 像素內拿像素來補」的美術效果（削角、牆加高）拿得到
+//  ・buildWorldCanvas(w)：換了地圖 → 丟掉所有塊、重建小地圖（各模組的包裝和 'worldCanvas' 只在畫一塊時才跑，見 core-end.js）
+//  ・worldRepaint(w, x0, y0, x1, y1)：這幾格（含 x1、y1）的地形變了 → 涵蓋的塊下次用到時重畫，_terrainVer +1、發 'terrainChanged'(w, rect)
+//    worldRepaint(w)：不給範圍＝只是外觀變了（設定切換、貼圖晚載好）→ 全部塊下次用到時重畫，不算地形變動
+//  ・同時最多留 20 塊（手機 12 塊，WorldChunks.limit()），離玩家最遠的先丟；玩家附近 3×3 塊在沒畫新塊的畫面預先畫（每格最多 1 塊）
+const CHUNK = 32, CHUNK_PX = CHUNK * TS, CHUNK_PAD = 32;
+const WorldChunks = {
+  worlds: new Set(), max: 0, painted: 0, ms: 0, last: 0, peak: 0, frame: 0,
+  limit() { return this.max || (typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? 12 : 20); },
+  count() { let n = 0; for (const w of this.worlds) n += w.chunks ? w.chunks.size : 0; return n; },
+  bytes() { let b = 0; for (const w of this.worlds) if (w.chunks) for (const k of w.chunks.values()) b += k.c.width * k.c.height * 4; return b; },
+};
+function worldEnsure(w) {
+  if (!w.chunks) Object.defineProperty(w, 'chunks', { value: new Map(), writable: true, configurable: true, enumerable: false });
+  if (!w._chunkRect && !(w.canvas && w.canvas.chunked && w.canvas.width === w.W * TS && w.canvas.height === w.H * TS)) w.canvas = { width: w.W * TS, height: w.H * TS, chunked: true };
+}
+function worldDropChunks(w) {
+  if (w.chunks) for (const k of w.chunks.values()) k.c.width = k.c.height = 0;   // 寬高設 0：Safari 才會馬上還記憶體
+  if (w.chunks) w.chunks.clear();
+  WorldChunks.worlds.delete(w);
+}
+function worldReset(w) {
+  if (!w) return;
+  worldDropChunks(w); w._chunkRect = null; w._chunkPx = null; worldEnsure(w);
+  w._terrainVer = (w._terrainVer || 0) + 1;
+  // 小地圖（每格 1 像素，400×300 格也只有 12 萬像素）
   const mc = document.createElement('canvas'); mc.width = w.W; mc.height = w.H;
   w.mini = mc; w.miniG = mc.getContext('2d');
   w.explored = new Uint8Array(w.W * w.H);
   if (w.kind === 'town') w.explored.fill(1), paintMiniAll(w);
+  if (typeof Hook !== 'undefined') Hook.emit('terrainChanged', w, null);
+}
+// 把地圖的一個範圍畫進畫布 c（c 的左上角＝世界像素 ox, oy；rect＝要畫的格子）。worldChunk 用它；測試也用它畫「整張」來比對
+function worldPaintInto(w, c, ox, oy, rect) {
+  c.width = c.width;   // 清空並重設畫筆狀態（每塊都從全新的狀態開始，跟以前整張畫一樣）
+  const g = c.getContext('2d'); g.translate(-ox, -oy);
+  w.canvas = c; w._chunkRect = rect; w._chunkPx = { x: ox, y: oy, w: c.width, h: c.height };
+  try { buildWorldCanvas(w); } catch (e) { console.error('[worldChunk]', e); }
+  finally { w._chunkRect = null; w._chunkPx = null; w.canvas = { width: w.W * TS, height: w.H * TS, chunked: true }; }
+}
+function worldEvict() {
+  const lim = WorldChunks.limit(), pl = G.pl;
+  while (WorldChunks.count() >= lim) {
+    let ww = null, wk = 0, wd = -1;
+    for (const ow of WorldChunks.worlds) for (const [key, k] of ow.chunks) {
+      const d = ow !== G.world || !pl ? 1e12 - k.t : Math.hypot((k.cx + 0.5) * CHUNK_PX - pl.x, (k.cy + 0.5) * CHUNK_PX - pl.y);
+      if (d > wd) { wd = d; ww = ow; wk = key; }
+    }
+    if (!ww) return;
+    const k = ww.chunks.get(wk); k.c.width = k.c.height = 0; ww.chunks.delete(wk);
+    if (!ww.chunks.size) WorldChunks.worlds.delete(ww);
+  }
+}
+// 回傳 (cx, cy) 那一塊的畫布（四邊各多 CHUNK_PAD 像素；沒有或要重畫就現畫）
+function worldChunk(w, cx, cy) {
+  worldEnsure(w);
+  const key = cy * 4096 + cx; let k = w.chunks.get(key);
+  if (k && !k.dirty) { k.t = WorldChunks.frame; return k.c; }
+  if (!k) {
+    worldEvict();
+    const c = document.createElement('canvas');
+    const cw = Math.max(1, Math.min(CHUNK_PX, w.W * TS - cx * CHUNK_PX)), ch = Math.max(1, Math.min(CHUNK_PX, w.H * TS - cy * CHUNK_PX));
+    c.width = cw + CHUNK_PAD * 2; c.height = ch + CHUNK_PAD * 2;
+    k = { c, cx, cy, t: 0 }; w.chunks.set(key, k); WorldChunks.worlds.add(w);
+  }
+  const t0 = performance.now(), x0 = cx * CHUNK, y0 = cy * CHUNK;
+  worldPaintInto(w, k.c, x0 * TS - CHUNK_PAD, y0 * TS - CHUNK_PAD, { x0: Math.max(0, x0 - 2), y0: Math.max(0, y0 - 2), x1: Math.min(w.W, x0 + CHUNK + 2), y1: Math.min(w.H, y0 + CHUNK + 2) });
+  k.dirty = false; k.t = WorldChunks.frame;
+  const ms = performance.now() - t0; WorldChunks.painted++; WorldChunks.ms += ms; WorldChunks.last = ms;
+  WorldChunks.peak = Math.max(WorldChunks.peak, WorldChunks.count());
+  return k.c;
+}
+// 標記重畫（見上面的說明）；回傳標記了幾塊
+function worldRepaint(w, x0, y0, x1, y1) {
+  if (!w || !w.chunks) return 0;
+  let n = 0;
+  if (x0 === undefined) { for (const k of w.chunks.values()) { k.dirty = true; n++; } return n; }
+  const ax = Math.floor((Math.min(x0, x1) - 2) / CHUNK), bx = Math.floor((Math.max(x0, x1) + 2) / CHUNK);
+  const ay = Math.floor((Math.min(y0, y1) - 2) / CHUNK), by = Math.floor((Math.max(y0, y1) + 2) / CHUNK);
+  for (const k of w.chunks.values()) if (k.cx >= ax && k.cx <= bx && k.cy >= ay && k.cy <= by) { k.dirty = true; n++; }
+  w._terrainVer = (w._terrainVer || 0) + 1;
+  if (typeof Hook !== 'undefined') Hook.emit('terrainChanged', w, { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) });
+  return n;
+}
+// render.js：把世界像素 [x0,x1)×[y0,y1) 這一片貼到 g（g 已經是世界座標）；這一格沒畫新塊的話，預先畫玩家附近 3×3 裡缺的一塊
+function worldDraw(g, w, x0, y0, x1, y1) {
+  WorldChunks.frame++;
+  const before = WorldChunks.painted;
+  if (x1 > x0 && y1 > y0) for (let cy = Math.floor(y0 / CHUNK_PX); cy <= Math.floor((y1 - 1) / CHUNK_PX); cy++) for (let cx = Math.floor(x0 / CHUNK_PX); cx <= Math.floor((x1 - 1) / CHUNK_PX); cx++) {
+    const c = worldChunk(w, cx, cy), ox = cx * CHUNK_PX - CHUNK_PAD, oy = cy * CHUNK_PX - CHUNK_PAD;
+    const ax = Math.max(x0, cx * CHUNK_PX), ay = Math.max(y0, cy * CHUNK_PX), bx = Math.min(x1, (cx + 1) * CHUNK_PX, w.W * TS), by = Math.min(y1, (cy + 1) * CHUNK_PX, w.H * TS);
+    if (bx > ax && by > ay) g.drawImage(c, ax - ox, ay - oy, bx - ax, by - ay, ax, ay, bx - ax, by - ay);
+  }
+  if (WorldChunks.painted === before && G.pl) worldPrefetch(w, Math.floor(G.pl.x / CHUNK_PX), Math.floor(G.pl.y / CHUNK_PX));
+}
+function worldPrefetch(w, pcx, pcy) {
+  const nx = Math.ceil(w.W / CHUNK), ny = Math.ceil(w.H / CHUNK);
+  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    const cx = pcx + dx, cy = pcy + dy; if (cx < 0 || cy < 0 || cx >= nx || cy >= ny) continue;
+    const k = w.chunks && w.chunks.get(cy * 4096 + cx);
+    if (!k || k.dirty) { worldChunk(w, cx, cy); return true; }
+  }
+  return false;
+}
+// 畫一塊：地板、牆、牆面細節（只畫 w._chunkRect 裡的格子）；不在畫塊的時候呼叫＝換了地圖，清掉所有塊
+function buildWorldCanvas(w) {
+  if (!w._chunkRect) return worldReset(w);
+  const g = w.canvas.getContext('2d'), th = w.theme, R = w._chunkRect;
+  for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) {
+    const solid = w.grid[y * w.W + x] === 0;
+    if (!solid) g.drawImage(getFloorTile(th, hash2(x, y) % 6), x * TS, y * TS); // 地板：6 種變化（scene.js）
+    else { g.fillStyle = th.wall; g.fillRect(x * TS, y * TS, TS, TS); }
+  }
+  paintWorldDetail(g, w); // 牆面、牆邊陰影、地上小東西（scene.js；美術工作階段會改成只跑 w._chunkRect）
 }
 function paintMiniAll(w) { for (let y = 0; y < w.H; y++) for (let x = 0; x < w.W; x++) paintMini(w, x, y); }
 function paintMini(w, x, y) {
@@ -329,6 +432,7 @@ function spawnPack(cx, cy, w) {
   }
 }
 function populate(w) {
+  if (w.regions) return;   // v2.19 大地圖：每一區的怪等玩家走近才生（bigmap.js）
   const rc = r => ({ x: (r.x + r.w / 2) * TS, y: (r.y + r.h / 2) * TS });
   for (const r of w.others) {
     const packs = r.w * r.h > 80 ? 2 : 1;
@@ -1767,7 +1871,7 @@ function update(dt) {
   if (w.kind === 'map') { w.flowT -= dt; if (w.flowT <= 0) { updateFlow(); w.flowT = 0.3; } }
   // 怪物
   for (const m of G.mons) {
-    if (m.dead) continue;
+    if (m.dead || m.zz) continue;   // v2.19 大地圖：離你很遠的怪凍結不更新（bigmap.js 每 0.2 秒設 m.zz）
     m.flash -= dt; m.chill -= dt;
     tickAilments(m, dt);
     if (m.dead || m.frozen > 0) continue; // 冰凍中完全不能動

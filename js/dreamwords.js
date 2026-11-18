@@ -77,7 +77,7 @@ Hook.on('stage', w => {
     if (!w.mm._dwq) w.mm = Object.assign({}, w.mm, { q: (w.mm.q || 0) + 20, _dwq: true });
     for (const m of G.mons) if (!m.dead && !m._dwl) { m._dwl = true; m.maxLife = Math.round(m.maxLife * 1.1); m.life = m.maxLife; }
   }
-  if (a.id === 'glen') a.glenStage = null;
+  if (a.id === 'glen' && !w.regions) a.glenStage = null;   // v2.19 大地圖：一區算一次，看的是人在第幾區（下面的 update）
 });
 // 新的一夜（沒選夢話）→ 上一夜的失效
 Hook.on('enterMap', () => { const a = DreamWords.act; if (a && a.w0 !== G.world) DreamWords.end(); });
@@ -96,9 +96,10 @@ Hook.on('update', dt => {
   if (!w || w.kind !== 'map' || w.arena) return DW.end();
   const pl = G.pl; if (!pl || G.dead) return;
   if (a.id === 'mo') pl.life = Math.min(G.S.maxLife, pl.life + G.S.maxLife * 0.015 * dt);
-  if (a.id === 'glen' && a.glenStage !== w) {
+  const gk = w.regions ? 'r' + w.stage.i : w;
+  if (a.id === 'glen' && a.glenStage !== gk) {
     const m = G.mons.find(x => !x.dead && !x.boss && x.rarity === 'rare' && x.aggro);
-    if (m) { a.glenStage = w; m.life = Math.min(m.life, m.maxLife * 0.5); G.texts.push({ x: m.x, y: m.y - m.r - 30, txt: '格倫巡邏過了：只剩半血', color: DREAMS.glen.color, size: 12, t: 0, dur: 1.4 }); burst(m.x, m.y, '#c8e0ff', 12, 120); }
+    if (m) { a.glenStage = gk; m.life = Math.min(m.life, m.maxLife * 0.5); G.texts.push({ x: m.x, y: m.y - m.r - 30, txt: '格倫巡邏過了：只剩半血', color: DREAMS.glen.color, size: 12, t: 0, dur: 1.4 }); burst(m.x, m.y, '#c8e0ff', 12, 120); }
   }
   if (a.id === 'sparrow') for (let i = 0, n = G.loot.length; i < n; i++) { const l = G.loot[i];
     if (!l.jewel || l._dw || l.gone) continue; l._dw = true; dropLoot(l.x, l.y, { jewel: l.jewel }); const nl = G.loot[G.loot.length - 1]; if (nl) nl._dw = true; }

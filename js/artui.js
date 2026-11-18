@@ -253,8 +253,10 @@ ArtUI.load();
   // ---- v2.11 小地圖外框（九宮格：四個角照原比例，邊拉長） ----
   function drawMiniFrame(g) {
     const f = ArtUI.IM.hud_mini, w = G.world; if (!f || !w || !w.mini || CFG.minimap === 'off') return;
+    // v2.19 遊戲把小地圖框的位置放在 G.mmView（大地圖時只顯示玩家附近 90×60 格），有就照它畫
+    const V = G.mmView && G.mmView.wd === w ? G.mmView : null;
     const s = (w.kind === 'town' ? 3 : 2) * ({ small: 0.5, normal: 1, large: 1.5 }[CFG.minimap] || 1);
-    const mw = w.W * s, mh = w.H * s, mx = VW - mw - 10, my = 10;
+    const mw = V ? V.w : w.W * s, mh = V ? V.h : w.H * s, mx = V ? V.x : VW - mw - 10, my = V ? V.y : 10;
     ArtUI.nine(g, f, mx - 3, my - 3, mw + 6, mh + 6);
   }
 })();
@@ -326,7 +328,7 @@ ArtUI.load();
     im.onload = () => {
       IM[k] = im;
       // 小屋圖比地圖晚載好（例如直接讀檔進村莊）→ 重畫一次村莊底圖
-      if (k.startsWith('hs_') && typeof G !== 'undefined' && G.world && G.world.hub === 'village') try { buildWorldCanvas(G.world); } catch (e) {}
+      if (k.startsWith('hs_') && typeof G !== 'undefined' && G.world && G.world.hub === 'village') try { if (typeof worldRepaint === 'function') worldRepaint(G.world); else buildWorldCanvas(G.world); } catch (e) {}
     };
     im.src = ARTWORK.img[k];
   }
@@ -390,11 +392,12 @@ ArtUI.load();
   buildWorldCanvas = function (w) {
     const r = prevBuild.apply(this, arguments);
     try {
-      if (w && w.hub === 'village' && ArtUI.on() && w.canvas) {
+      if (w && w.hub === 'village' && ArtUI.on() && w.canvas && typeof w.canvas.getContext === 'function') {   // v2.19 分塊畫：只在畫某一塊、w.canvas 是真畫布時畫（世界座標）
         const g = w.canvas.getContext('2d'); g.imageSmoothingEnabled = true;
         for (const [hx, hy, hw, hh] of [[3, 3, 5, 3], [36, 3, 5, 3], [3, 25, 6, 2], [35, 25, 6, 2], [18, 2, 8, 2]]) {
           const im = IM[HOUSES[hx + ',' + hy]]; if (!im) continue;
-          const bw = hw * TS + 12, bh = bw * im.height / im.width, x0 = hx * TS - 6, foot = (hy + hh) * TS + 6;
+          const bw = hw * TS + 12, bh = bw * im.height / im.width, x0 = hx * TS - 6, foot = (hy + hh) * TS + 6, B = w._chunkPx;
+          if (B && (x0 > B.x + B.w || x0 + bw < B.x || foot < B.y || foot - bh > B.y + B.h)) continue;   // 跟這一塊不相交的房子跳過
           g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x0 + bw / 2, foot - 2, bw * 0.52, 9, 0, 0, Math.PI * 2); g.fill();
           if (hx > 30) { g.save(); g.translate(x0 + bw, 0); g.scale(-1, 1); g.drawImage(im, 0, foot - bh, bw, bh); g.restore(); }   // 右邊的屋子左右翻，村子比較不呆板
           else g.drawImage(im, x0, foot - bh, bw, bh);
@@ -416,7 +419,7 @@ ArtUI.load();
     im.onload = () => {
       SRC[k.slice(4)] = im;
       // 貼圖比地圖晚載好 → 這張地圖重畫一次
-      if (typeof G !== 'undefined' && G.world && G.world.theme && k.startsWith('tex_' + G.world.theme.id + '_')) try { buildWorldCanvas(G.world); } catch (e) {}
+      if (typeof G !== 'undefined' && G.world && G.world.theme && k.startsWith('tex_' + G.world.theme.id + '_')) try { if (typeof worldRepaint === 'function') worldRepaint(G.world); else buildWorldCanvas(G.world); } catch (e) {}
     };
     im.src = ARTWORK.img[k];
   }
@@ -440,19 +443,20 @@ ArtUI.load();
     const id = w && w.theme && w.theme.id, on = ArtUI.on();
     const fl = on && tex(id + '_floor'), wl = on && tex(id + '_wall');
     const W = w.W, H = w.H, solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || w.grid[y * W + x] === 0;
+    const R = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H }, SM = ArtUI.smoothWalls(w);   // v2.19 分塊畫：只跑這一塊；圓滑牆的地圖牆由後面重畫，這裡不畫牆
     if (fl || wl) {
       g.save();
-      if (fl) { g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!solid(x, y)) g.rect(x * TS, y * TS, TS, TS); g.fill(); }
-      if (wl) {   // 牆頂：牆貼圖壓暗
-        g.beginPath(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (solid(x, y)) g.rect(x * TS, y * TS, TS, TS);
+      if (fl) { g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath(); for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) if (!solid(x, y)) g.rect(x * TS, y * TS, TS, TS); g.fill(); }
+      if (wl && !SM) {   // 牆頂：牆貼圖壓暗
+        g.beginPath(); for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) if (solid(x, y)) g.rect(x * TS, y * TS, TS, TS);
         g.fillStyle = g.createPattern(wl, 'repeat'); g.fill(); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fill();
       }
       g.restore();
     }
     prev.apply(this, arguments);
-    if (wl) {   // 牆的正面（下面是地板的牆）：貼圖＋上亮下暗＋頂端亮邊
+    if (wl && !SM) {   // 牆的正面（下面是地板的牆）：貼圖＋上亮下暗＋頂端亮邊
       g.save(); const pat = g.createPattern(wl, 'repeat');
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (solid(x, y) && !solid(x, y + 1)) {
+      for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) if (solid(x, y) && !solid(x, y + 1)) {
         const px = x * TS, top = y * TS + 10, hh = 22;
         g.fillStyle = pat; g.fillRect(px, top, TS, hh);
         const gr = g.createLinearGradient(0, top, 0, top + hh); gr.addColorStop(0, 'rgba(255,255,255,0.10)'); gr.addColorStop(1, 'rgba(0,0,0,0.45)');
@@ -467,17 +471,17 @@ ArtUI.load();
   //   後面還有牆的地方（牆至少兩格厚）：牆的正面往上加高 16px（從 22px 變 38px）
   //   牆頂：靠地板那一側左亮右暗，看起來有厚度；牆腳：地板上多一道比較深的陰影
   function wallDepth(g, w, solid) {
-    const W = w.W, H = w.H, EX = 16;
+    const W = w.W, H = w.H, EX = 16, R = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H }, B = w._chunkPx || { x: 0, y: 0 };   // v2.19 分塊：只跑這一塊；src 的 (0,0) 是世界 (B.x, B.y)
     // 先把畫好的地圖整張複製一份，之後都從這份拿（直接從自己身上拿，每次都會整張複製，大地圖會卡好幾秒）
     const src = document.createElement('canvas'); src.width = g.canvas.width; src.height = g.canvas.height; src.getContext('2d').drawImage(g.canvas, 0, 0);
     g.save();
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) {
       if (!solid(x, y)) continue;
       const px = x * TS, py = y * TS;
       if (!solid(x, y + 1)) {   // 這一格是牆的正面
         if (solid(x, y - 1) && y > 0) {
-          g.drawImage(src, px, py + 12, TS, EX, px, py + 10 - EX, TS, EX);   // 拿正面中間那段往上接
-          g.drawImage(src, px, py + 13, TS, 2, px, py + 10, TS, 2);          // 蓋掉原本在正面中間的亮邊
+          g.drawImage(src, px - B.x, py + 12 - B.y, TS, EX, px, py + 10 - EX, TS, EX);   // 拿正面中間那段往上接
+          g.drawImage(src, px - B.x, py + 13 - B.y, TS, 2, px, py + 10, TS, 2);          // 蓋掉原本在正面中間的亮邊
           const top = py + 10 - EX, gr = g.createLinearGradient(0, top, 0, py + 32);
           gr.addColorStop(0, 'rgba(255,240,220,0.06)'); gr.addColorStop(0.5, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.28)');
           g.fillStyle = gr; g.fillRect(px, top, TS, py + 32 - top);
@@ -927,7 +931,7 @@ ArtUI.load();
   for (const k of ['lava', 'water', 'rift']) {
     const s = ARTWORK.img['liq_' + k]; if (!s) continue;
     const im = new Image();
-    im.onload = () => { SRC[k] = ArtUI.seamless ? ArtUI.seamless(im) : im; if (typeof G !== 'undefined' && G.world && G.world.deco) try { buildWorldCanvas(G.world); } catch (e) { } };
+    im.onload = () => { SRC[k] = ArtUI.seamless ? ArtUI.seamless(im) : im; if (typeof G !== 'undefined' && G.world && G.world.deco) try { if (typeof worldRepaint === 'function') worldRepaint(G.world); else buildWorldCanvas(G.world); } catch (e) { } };
     im.src = s;
   }
   const pat = (g, k, ox, oy) => { const p = g.createPattern(SRC[k], 'repeat'), s = TILE / SRC[k].width; if (p.setTransform) p.setTransform(new DOMMatrix([s, 0, 0, s, ox || 0, oy || 0])); return p; };
@@ -939,14 +943,27 @@ ArtUI.load();
     for (const t in KIND) {
       const k = KIND[t], T = +t; if (!SRC[k]) continue;
       const same = (x, y) => { const v = at(x, y); return v === T || (T === 2 && v === 15); };
-      const cells = []; for (let i = 0; i < W * H; i++) { const v = w.deco[i]; if (v === T || (T === 2 && v === 15)) cells.push(i); }
+      const R = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H };   // v2.19 分塊畫：只看這一塊的格子
+      const cells = []; for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) { const i = y * W + x, v = w.deco[i]; if (v === T || (T === 2 && v === 15)) cells.push(i); }
       if (!cells.length) continue;
       const [inner, rim, drop] = EDGE[k];
       // v2.16 有地板貼圖時：池子也用圓滑輪廓（跟牆同一套），不再是一格一格的方塊
       const fl = ArtUI.contour && w.theme && ArtUI.tex && ArtUI.tex(w.theme.id + '_floor');
       if (fl) {
         g.fillStyle = g.createPattern(fl, 'repeat'); g.beginPath(); for (const i of cells) g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); g.fill();   // 池子格先鋪地板
-        const L = ArtUI.contour(w, same, false); (w._liq || (w._liq = {}))[k] = L;
+        // v2.19 分塊畫：輪廓只算這一塊附近（R），存起來給每格的流動層用；沒分塊時整張算一次、用 _terrainVer 快取
+        let L;
+        if (w._chunkPx) {
+          L = ArtUI.contour(w, same, false, R);
+          const B = w._chunkPx, key = B.x + ',' + B.y, M = w._liqCh || (w._liqCh = new Map());
+          let e = M.get(key); if (!e) M.set(key, e = { x: B.x + 32, y: B.y + 32, w: B.w - 64, h: B.h - 64, L: {} });   // 這一塊自己負責的範圍（四邊各扣掉 32 的重疊）
+          e.L[k] = L;
+        } else {
+          const ver = w._terrainVer || 0, C = w._liqC || (w._liqC = {});
+          L = C[k] && C[k].ver === ver ? C[k].L : null;
+          if (!L) { L = ArtUI.contour(w, same, false); C[k] = { ver, L }; }
+          (w._liq || (w._liq = {}))[k] = L;
+        }
         g.save(); g.strokeStyle = drop; g.lineWidth = 6; g.stroke(L); g.restore();   // 岸上一圈落影
         g.save(); g.clip(L, 'evenodd');
         g.fillStyle = pat(g, k); g.fillRect(0, 0, W * TS, H * TS);
@@ -992,6 +1009,18 @@ ArtUI.load();
       g.beginPath(); let n = 0;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.deco[y * W + x] === T) { g.rect(x * TS, y * TS, TS, TS); n++; }
       if (!n) continue;
+      if (w._liqCh) {   // v2.19 分塊畫：每一塊用自己的池子輪廓，各自只畫自己負責的範圍
+        const [vx, vy] = FLOW[k], vx0 = G.cam.x, vy0 = G.cam.y;
+        for (const e of w._liqCh.values()) {
+          const L = e.L[k]; if (!L || e.x > vx0 + VW || e.y > vy0 + VH || e.x + e.w < vx0 || e.y + e.h < vy0) continue;
+          g.save(); g.beginPath(); g.rect(e.x, e.y, e.w, e.h); g.clip(); g.clip(L, 'evenodd');
+          g.beginPath(); g.rect(Math.max(e.x, vx0), Math.max(e.y, vy0), Math.min(e.x + e.w, vx0 + VW) - Math.max(e.x, vx0), Math.min(e.y + e.h, vy0 + VH) - Math.max(e.y, vy0));
+          g.globalAlpha = k === 'rift' ? 0.3 : 0.38; g.fillStyle = pat(g, k, t * vx, t * vy); g.fill();
+          if (k === 'lava') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2); g.fillStyle = pat(g, k, -t * 3, t * 5); g.fill(); }
+          g.restore();
+        }
+        continue;
+      }
       const L = w._liq && w._liq[k];   // v2.16 圓滑池子：流動層也照輪廓裁，不會畫出方塊
       if (L) { g.save(); g.clip(L, 'evenodd'); g.beginPath(); g.rect(x0 * TS, y0 * TS, (x1 - x0 + 1) * TS, (y1 - y0 + 1) * TS); }
       const [vx, vy] = FLOW[k];
@@ -1017,7 +1046,7 @@ ArtUI.load();
   const R = 18;   // 圓角半徑（格子 32，太小看不出來）
   Hook.on('worldCanvas', w => {
     if (!ArtUI.on() || !w.canvas || !w.grid || w.kind === 'town' || ArtUI.smoothWalls(w)) return;   // 有 AI 貼圖的場景改用 v2.16 的圓滑牆
-    const W = w.W, H = w.H, deco = w.deco;
+    const W = w.W, H = w.H, deco = w.deco, RC = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H }, B = w._chunkPx || { x: 0, y: 0 };   // v2.19 分塊：只跑這一塊；src 的 (0,0) 是世界 (B.x, B.y)
     const wall = (x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x]));
     const g = w.canvas.getContext('2d');
     const src = document.createElement('canvas'); src.width = w.canvas.width; src.height = w.canvas.height; src.getContext('2d').drawImage(w.canvas, 0, 0);
@@ -1027,7 +1056,7 @@ ArtUI.load();
     const GR = new Map(), D = 20;
     const grp = (dx, dy) => { const k = dx + ',' + dy; let o = GR.get(k); if (!o) GR.set(k, o = { p: new Path2D(), dx, dy }); return o.p; };
     const flush = () => {
-      for (const o of GR.values()) { const pt = g.createPattern(src, 'no-repeat'); pt.setTransform(new DOMMatrix([1, 0, 0, 1, -o.dx, -o.dy])); g.fillStyle = pt; g.fill(o.p); }
+      for (const o of GR.values()) { const pt = g.createPattern(src, 'no-repeat'); pt.setTransform(new DOMMatrix([1, 0, 0, 1, B.x - o.dx, B.y - o.dy])); g.fillStyle = pt; g.fill(o.p); }
       GR.clear();
     };
     const corner = (cx, cy, sx, sy, dx, dy, r) => { const p = grp(dx, dy); p.moveTo(cx, cy); p.lineTo(cx, cy + sy * r); p.arcTo(cx, cy, cx + sx * r, cy, r); p.closePath(); };
@@ -1035,7 +1064,7 @@ ArtUI.load();
       const p = grp(dx, dy); p.moveTo(cx, cy);
       p.arc(cx, cy, r, sx > 0 ? (sy > 0 ? 0 : -Math.PI / 2) : (sy > 0 ? Math.PI / 2 : Math.PI), sx > 0 ? (sy > 0 ? Math.PI / 2 : 0) : (sy > 0 ? Math.PI : Math.PI * 1.5)); p.closePath();
     };
-    for (let vy = 1; vy < H; vy++) for (let vx = 1; vx < W; vx++) {
+    for (let vy = Math.max(1, RC.y0); vy <= Math.min(H - 1, RC.y1); vy++) for (let vx = Math.max(1, RC.x0); vx <= Math.min(W - 1, RC.x1); vx++) {
       const tl = wall(vx - 1, vy - 1), tr = wall(vx, vy - 1), bl = wall(vx - 1, vy), br = wall(vx, vy), n = tl + tr + bl + br;
       const cx = vx * TS, cy = vy * TS, r = R + Math.round(rnd(vx, vy, 1) * 4 - 2);
       if (n === 1) {   // 凸角：削那格牆的角，像素從上下那格地板拿
@@ -1049,14 +1078,14 @@ ArtUI.load();
     }
     // 牆面（有磚紋那一段）露在外面的兩端：上角也削圓（像素從旁邊那格拿）→ 一階一階的牆看起來比較像圓滑的岩塊
     const EXT = ArtUI.depth() ? 16 : 0;
-    for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+    for (let y = RC.y0; y < Math.min(H - 1, RC.y1); y++) for (let x = RC.x0; x < RC.x1; x++) {
       if (!wall(x, y) || wall(x, y + 1)) continue;   // 只看牆的正面（下面是地板）
       const px = x * TS, top = y * TS + 10 - (wall(x, y - 1) && y > 0 ? EXT : 0), r = Math.round(R * 0.8 + rnd(x, y, 71) * 4);
       if (!wall(x - 1, y)) corner(px, top, 1, 1, -D, 0, r);
       if (!wall(x + 1, y)) corner(px + TS, top, -1, 1, D, 0, r);
     }
     // 長直牆邊：隨機凸出一點小弧（從旁邊那格牆，拿一個半橢圓伸進地板）
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    for (let y = RC.y0; y < RC.y1; y++) for (let x = RC.x0; x < RC.x1; x++) {
       if (wall(x, y)) continue;
       const px = x * TS, py = y * TS;
       for (const [nx, ny, horiz] of [[x, y - 1, true], [x - 1, y, false], [x + 1, y, false]]) {
@@ -1072,10 +1101,10 @@ ArtUI.load();
     // 長直牆邊：隨機凸出一點小弧＋牆腳碎石
     const th = w.theme || {}, ice = th.id === 'ice';
     // 碎石顏色＝旁邊那格牆的平均顏色（把整張地圖縮成一格一點，只讀一次）
-    const tiny = document.createElement('canvas'); tiny.width = W; tiny.height = H; const tg = tiny.getContext('2d'); tg.imageSmoothingEnabled = true; tg.drawImage(src, 0, 0, W, H);
-    const TD = tg.getImageData(0, 0, W, H).data;
-    const colAt = (x, y, k) => { const i = (y * W + x) * 4, f = v => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(TD[i])},${f(TD[i + 1])},${f(TD[i + 2])})`; };
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const TW = Math.ceil(src.width / TS), THh = Math.ceil(src.height / TS), tiny = document.createElement('canvas'); tiny.width = TW; tiny.height = THh; const tg = tiny.getContext('2d'); tg.imageSmoothingEnabled = true; tg.drawImage(src, 0, 0, TW * TS, THh * TS, 0, 0, TW, THh);   // 這一塊縮成一格一點
+    const TD = tg.getImageData(0, 0, TW, THh).data;
+    const colAt = (x, y, k) => { const tx = Math.max(0, Math.min(TW - 1, Math.floor((x * TS - B.x) / TS))), ty = Math.max(0, Math.min(THh - 1, Math.floor((y * TS - B.y) / TS))), i = (ty * TW + tx) * 4, f = v => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(TD[i])},${f(TD[i + 1])},${f(TD[i + 2])})`; };
+    for (let y = RC.y0; y < RC.y1; y++) for (let x = RC.x0; x < RC.x1; x++) {
       if (wall(x, y)) continue;
       const px = x * TS, py = y * TS;
       // 牆腳碎石
@@ -1108,25 +1137,29 @@ ArtUI.load();
 (function () {
   if (typeof Hook === 'undefined') return;
   const RES = 8, PAD = 3, SUB = TS / RES;   // 輪廓取樣：每格 4×4 點
-  function contour(w, inside, outer = true) {   // inside(x,y)：這格算不算「裡面」；outer：地圖外圍算不算裡面（牆＝算，水池＝不算）
+  function contour(w, inside, outer = true, rect = null) {   // inside(x,y)：這格算不算「裡面」；outer：地圖外圍算不算裡面（牆＝算，水池＝不算）
+    //   v2.19 rect（格子範圍）：只算這一塊附近（範圍外多讀一圈真實地形）；最外一圈固定成 outer 讓輪廓閉合，那一圈在畫塊範圍之外
     const W = w.W, H = w.H, deco = w.deco;
-    const wall = inside || ((x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x])));
-    const NX = W * SUB + PAD * 2, NY = H * SUB + PAD * 2;
+    const base = inside || ((x, y) => x < 0 || y < 0 || x >= W || y >= H || (w.grid[y * W + x] === 0 && !(deco && deco[y * W + x])));
+    const RX0 = rect ? rect.x0 : 0, RY0 = rect ? rect.y0 : 0, RW = rect ? rect.x1 - rect.x0 : W, RH = rect ? rect.y1 - rect.y0 : H, PD = rect ? 6 : PAD;   // 分塊時多讀 6 個取樣點（48px）的真實地形，模糊的結果才跟整張算的一樣
+    const wall = base;
+    const NX = RW * SUB + PD * 2, NY = RH * SUB + PD * 2;
     let v = new Float32Array(NX * NY), t = new Float32Array(NX * NY);
-    const cellOf = i => Math.floor((i - PAD + 0.5) * RES / TS);
-    for (let j = 0; j < NY; j++) { const cy = cellOf(j); for (let i = 0; i < NX; i++) v[j * NX + i] = wall(cellOf(i), cy) ? 1 : 0; }
+    const cellX = i => RX0 + Math.floor((i - PD + 0.5) * RES / TS), cellY = j => RY0 + Math.floor((j - PD + 0.5) * RES / TS);
+    for (let j = 0; j < NY; j++) { const cy = cellY(j); for (let i = 0; i < NX; i++) v[j * NX + i] = wall(cellX(i), cy) ? 1 : 0; }
     const blurX = (a, b) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { let s = 0; for (let k = -2; k <= 2; k++) s += a[j * NX + Math.min(NX - 1, Math.max(0, i + k))]; b[j * NX + i] = s / 5; } };
     const blurY = (a, b) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { let s = 0; for (let k = -2; k <= 2; k++) s += a[Math.min(NY - 1, Math.max(0, j + k)) * NX + i]; b[j * NX + i] = s / 5; } };
     blurX(v, t); blurY(t, v); blurX(v, t); blurY(t, v);
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
-      const gx = i - PAD, gy = j - PAD, cx = cellOf(i), cy = cellOf(j), k = j * NX + i;
+      const gx = RX0 * SUB + i - PD, gy = RY0 * SUB + j - PD, cx = cellX(i), cy = cellY(j), k = j * NX + i;   // gx、gy 用整張地圖的編號 → 每一塊算出來的雜訊一樣，接得起來
       v[k] += ((hash2(gx * 3 + 7, gy * 5 + 11) % 1000) / 1000 - 0.5) * 0.14;   // 一點點雜訊：直牆邊不會是一條死板的直線
       const lx = (gx % SUB + SUB) % SUB, ly = (gy % SUB + SUB) % SUB, core = lx >= 1 && lx <= 2 && ly >= 1 && ly <= 2;
       if (core) v[k] = wall(cx, cy) ? Math.max(v[k], 0.7) : Math.min(v[k], 0.3);   // 格子中心：牆一定是牆、地板一定是地板
     }
+    if (rect) for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) if (i === 0 || j === 0 || i === NX - 1 || j === NY - 1) v[j * NX + i] = outer ? 1 : 0;   // 最外一圈固定，輪廓才會在範圍內閉合
     // marching squares：沿著輪廓走一圈，做成一條條完整的外框線（不是一堆小塊拼起來，才不會有接縫細線）
     //   外框和中間的洞（牆裡的地板）用 evenodd 規則一起處理
-    const X = i => (i - PAD + 0.5) * RES, Y = j => (j - PAD + 0.5) * RES, T = 0.5;
+    const X = i => RX0 * TS + (i - PD + 0.5) * RES, Y = j => RY0 * TS + (j - PD + 0.5) * RES, T = 0.5;
     const val = (i, j) => v[j * NX + i];
     const ptOf = key => {   // 邊的編號 → 輪廓點（在那條邊上依數值內插）
       const e = key % 2, idx = (key - e) / 2, i = idx % NX, j = (idx - i) / NX;
@@ -1172,7 +1205,12 @@ ArtUI.load();
     if (!w.canvas || !w.grid || !ArtUI.smoothWalls(w)) return;
     const id = w.theme.id, fl = ArtUI.tex(id + '_floor'), wl = ArtUI.tex(id + '_wall'), g = w.canvas.getContext('2d');
     const W = w.W, H = w.H, deco = w.deco, CW = W * TS, CH = H * TS, hf = ArtUI.depth() ? 26 : 22;
-    const P = contour(w), cap = moved(P, 0, -hf);
+    // v2.19 分塊畫：輪廓只算這一塊附近（範圍外一律當牆，誤差落在看不到的外圍）；沒分塊時整張算一次、用 _terrainVer 快取
+    const R = w._chunkRect || { x0: 0, y0: 0, x1: W, y1: H };
+    let P;
+    if (w._chunkRect) P = contour(w, null, true, R);
+    else { const ver = w._terrainVer || 0; if (!w._contourC || w._contourC.ver !== ver) w._contourC = { ver, P: contour(w) }; P = w._contourC.P; }
+    const cap = moved(P, 0, -hf);
     const big = new Path2D(); big.rect(-200, -200, CW + 400, CH + 400);
     g.save();
     // 0) 牆格底下先鋪連續的地板（被削掉的牆角露出來的就是真正的地板）
@@ -1182,7 +1220,7 @@ ArtUI.load();
     const pool = t => t === 2 || t === 8 || t === 14 || t === 15;
     const stacked = t => t && !pool(t) && typeof StackProps !== 'undefined' && StackProps.handles && StackProps.handles(t);
     const flat = [];
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) {
       const i = y * W + x, t = deco && deco[i];
       if ((w.grid[i] === 0 && !t) || stacked(t)) g.rect(x * TS, y * TS, TS, TS);
       else if (t && !pool(t) && typeof drawDeco === 'function') { g.rect(x * TS, y * TS, TS, TS); flat.push([t, x, y]); }

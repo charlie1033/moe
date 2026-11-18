@@ -76,12 +76,12 @@ const MapTint = (() => {
 // 整體調色直接畫進地圖底圖（進地圖時畫一次；v2.12.1 以前是每一格全螢幕混色，大螢幕很吃效能）
 Hook.on('worldCanvas', w => {
   try {
-    const p = MapTint.on() && w && w.canvas && MapTint.pal(w); if (!p) return;
-    const g = w.canvas.getContext('2d'); g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = p.a * 0.75; g.fillStyle = p.hi; g.fillRect(0, 0, w.canvas.width, w.canvas.height); g.restore();
+    const p = MapTint.on() && w && w._chunkPx && MapTint.pal(w); if (!p) return;   // v2.19 分塊畫：只罩這一塊
+    const g = w.canvas.getContext('2d'), B = w._chunkPx; g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = p.a * 0.75; g.fillStyle = p.hi; g.fillRect(B.x, B.y, B.w, B.h); g.restore();
   } catch (e) { }
 });
 Hook.on('glow', (g, cx, cy) => { try { MapTint.glow(g, cx, cy); } catch (e) { } });
 SettingsRows.add('ui', () => `<div class="prow"><div class="pname">地圖色調<small>每種場景罩上自己的顏色（熔岩偏紅、冰原偏藍、虛空偏紫），首領房地上有發光的裂紋</small></div><div class="pctl"><label class="pswitch"><input type="checkbox" data-mtint ${MapTint.on() ? 'checked' : ''}><span></span></label></div></div>`, root => {
   const c = root.querySelector('[data-mtint]');
-  if (c) c.onchange = () => { CFG.mapTint = c.checked; saveCfg(); if (G.world && G.world.canvas) try { buildWorldCanvas(G.world); } catch (e) { } };
+  if (c) c.onchange = () => { CFG.mapTint = c.checked; saveCfg(); if (G.world) worldRepaint(G.world); };
 });

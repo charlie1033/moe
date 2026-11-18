@@ -17,6 +17,6 @@ Hook.on('update', () => {
   PerfGuard.bad = 0; PerfGuard.ema = 16;
   const s = PerfGuard.steps.find(([k]) => CFG[k] !== false); if (!s) return;
   CFG[s[0]] = false; saveCfg();
-  if (s[0] === 'stackProps' && G.world && G.world.canvas) try { buildWorldCanvas(G.world); } catch (e) { }
+  if (s[0] === 'stackProps' && G.world) worldRepaint(G.world);
   UI.msg(`畫面跑不太順，已自動關掉「${s[1]}」（設定 → 介面可以再打開）`, '#ffd36a');
 });

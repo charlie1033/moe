@@ -8,17 +8,21 @@
 //   ・區域首領綁的劇情點（首領的 story）：首領活著時鎖住（互動鈕「先打倒『名字』」、按了不會觸發、地上不發光），打倒後才亮起來可以撿
 //   ・完成過的：第二次進圖顯示成已查看（變暗、沒有光暈），按 F 可以重看劇情，不再給獎勵；收集的碎片撿過就不再出現
 //   ・任務面板：「✦ 第 3 夜的夢：2 / 3」；日誌多一個分頁「夢裡的故事」
-//  資料：角色 P.chapEv（chapmaps.js 的 'start' 補）；事件狀態在 w.chap.evs（ev.done、伏擊中 ev.amb／wave）；伏擊的怪 m.chapAmb＝事件格子編號
+//  資料：角色 P.chapEv（chapmaps.js 的 'start' 補）；事件狀態在 w.chap.evs（ev.done、伏擊中 ev.amb／wave）；伏擊的怪 m.chapAmb＝'夜-區'＋事件格子編號（v2.19 大地圖三區的編號會重複）
 //  給別的檔用：ChapEv.completeById(事件id, x, y)（區域首領綁劇情時呼叫）、ChapEv.reward(獎勵, x, y)、ChapEv.applyLines()
 // =============================================================
 const ChapEv = {
   keyOf: e => e.kind === 'collect' ? e.id + '#' + (e.part || 1) : e.id,
   // 被區域首領鎖住的劇情點：這張圖的首領 story 指向它、首領還活著、這個角色還沒打倒過牠 → 回傳首領名字（沒鎖回傳 null）
   locked(w, ev) {
-    const c = w && w.chap; if (!c || !c.boss || c.boss.dead || !ev || ev.done) return null;
-    const d = ChapterMaps.def(w), bd = d && d.bosses && d.bosses.B;
-    if (!bd || bd.story !== ev.id || (G.P && G.P.chapBoss && G.P.chapBoss[bd.id])) return null;
-    return bd.name || '區域首領';
+    const c = w && w.chap; if (!c || !ev || ev.done) return null;
+    for (const rec of (c.bosses || (c.boss ? [c.boss] : []))) {   // v2.19 大地圖：每區各自的區域首領
+      if (rec.dead) continue;
+      const d = ChapterMaps.def(w, rec.key), bd = d && d.bosses && d.bosses.B;
+      if (!bd || bd.story !== ev.id || (G.P && G.P.chapBoss && G.P.chapBoss[bd.id])) continue;
+      return bd.name || '區域首領';
+    }
+    return null;
   },
   reward(r, x, y) {
     if (!r) return;
@@ -103,13 +107,13 @@ Hook.on('start', () => ChapEv.applyLines());
 Hook.on('update', dt => {
   const w = G.world, c = w && w.chap; if (!c) return;
   for (const ev of c.evs) if (ev.amb) {
-    const alive = G.mons.filter(m => m.chapAmb === ev.n && !m.dead).length;
+    const alive = G.mons.filter(m => m.chapAmb === (ev.key || '') + ev.n && !m.dead).length;
     if (ev.wave < ev.waves) {
       if ((ev.next -= dt) <= 0 && alive < 3) {
         ev.wave++; ev.next = 3.5;
         const before = G.mons.length, packs = ev.wave === ev.waves ? 2 : 1;
         for (let k = 0; k < packs; k++) { const a = Math.random() * Math.PI * 2; spawnPack(ev.x + Math.cos(a) * 90, ev.y + Math.sin(a) * 70, w); }
-        for (let i = before; i < G.mons.length; i++) { const m = G.mons[i]; m.aggro = true; m.mlvl += 1; m.chapAmb = ev.n; burst(m.x, m.y, '#ff7a50', 6, 120); }
+        for (let i = before; i < G.mons.length; i++) { const m = G.mons[i]; m.aggro = true; m.mlvl += 1; m.chapAmb = (ev.key || '') + ev.n; burst(m.x, m.y, '#ff7a50', 6, 120); }
         G.shake = Math.max(G.shake, 4);
         UI.msg(`伏擊：第 ${ev.wave} / ${ev.waves} 波`, '#ff9a6a');
       }

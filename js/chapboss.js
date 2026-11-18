@@ -8,12 +8,15 @@
 //    ・有 story：牠還活著（而且這個角色還沒打倒過牠）時，那個劇情點是鎖住的（互動鈕寫「先打倒『名字』」、不發光，見 chapevents.js ChapEv.locked）；
 //      打倒後劇情點亮起來讓玩家自己撿。這張圖上沒有那個劇情點時，打倒直接算完成
 //    ・每次進那一區牠都會在（可以重打），只有保證獎勵限第一次
-//  資料：P.chapBoss[首領id] = true；地圖 w.chap.boss = { x, y, dead, lx, ly }（純資料，沒打完的夢會還原：讀回來後把同種的黃怪換回首領）
+//  資料：P.chapBoss[首領id] = true；地圖 w.chap.bosses = [{ x, y, dead, key, r, spawned, lx, ly }]（v2.19 大地圖每區各一隻；舊存檔單區圖是 w.chap.boss）（純資料，沒打完的夢會還原：讀回來後把同種的黃怪換回首領）
 //  接點：Hook 'stage'、'update'、'kill'、'drawWorld'、'drawOver'
 // =============================================================
 const ChapBoss = (() => {
   const pend = [];
-  const def = w => { const d = ChapterMaps.def(w); return d && d.bosses && d.bosses.B; };
+  // v2.19 大地圖一張圖可能有好幾隻（每區各自的 B）：c.bosses = [{ x, y, dead, key, r, spawned, lx, ly }]；舊存檔的單區圖是 c.boss
+  const list = c => c ? (c.bosses || (c.boss ? [c.boss] : [])) : [];
+  const defOf = (w, rec) => { const d = ChapterMaps.def(w, rec && rec.key); return d && d.bosses && d.bosses.B; };
+  const idOf = bd => (bd && bd.id) || 'chboss';
   const hex = h => { h = (h || '#ffffff').replace('#', ''); if (h.length === 3) h = h.replace(/./g, c => c + c); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const mix = (a, b, t) => { const A = hex(a), B = hex(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
   function tint(sprite, col) { const pal = SPRITE_PAL[sprite]; if (!pal || !col) return null; const o = {}; for (const k in pal) if (k !== 'k' && /^#/.test(pal[k])) o[k] = mix(pal[k], col, 0.5); return o; }
@@ -34,42 +37,49 @@ const ChapBoss = (() => {
     m.name = bd.name || m.name; m.chapBoss = bd.id || 'chboss'; m.cbT = 4;
     G.mons.push(m); return m;
   }
-  const live = () => G.mons.find(m => m.chapBoss && !m.dead);
+  const live = rec => G.mons.find(m => m.chapBoss && !m.dead && (!rec || m.chapBoss === idOf(defOf(G.world, rec))));
   // 台詞：本身已經有任何括號（「」『』（）()）就原樣顯示，完全沒有括號才包「」
   const quote = s => /[「」『』（）()]/.test(s) ? s : `「${s}」`;
   Hook.on('stage', w => {
-    const c = w && w.chap; if (!c || !c.boss || w.bossRoom || c.bossSpawned) return;
-    const bd = def(w); if (!bd) return; c.bossSpawned = true;
-    spawn(w, bd, c.boss.x, c.boss.y, 1);
+    const c = w && w.chap; if (!c || w.bossRoom) return;
+    for (const rec of list(c)) {
+      if (rec.spawned || c.bossSpawned) continue;
+      const bd = defOf(w, rec); if (!bd) continue; rec.spawned = true; if (!c.bosses) c.bossSpawned = true;
+      spawn(w, bd, rec.x, rec.y, 1);
+    }
   });
   Hook.on('update', dt => {
-    const w = G.world, pl = G.pl, c = w && w.chap; if (!c || !c.boss || !pl || c.boss.dead || !c.bossSpawned) return;
-    const bd = def(w); if (!bd) return;
-    let b = live();
-    if (!b) {   // 沒打完的夢讀回來：首領變成普通黃怪了 → 換回來
-      const lx = c.boss.lx || c.boss.x, ly = c.boss.ly || c.boss.y;
-      const old = G.mons.filter(m => !m.dead && m.rarity === 'rare' && (m.type === bd.base || !MONSTERS[bd.base])).sort((a, z) => Math.hypot(a.x - lx, a.y - ly) - Math.hypot(z.x - lx, z.y - ly))[0];
-      let lf = 1; if (old && Math.hypot(old.x - lx, old.y - ly) < 200) { lf = old.life / old.maxLife; G.mons.splice(G.mons.indexOf(old), 1); }
-      b = spawn(w, bd, lx, ly, lf); if (!b) return;
-    }
-    c.boss.lx = Math.round(b.x); c.boss.ly = Math.round(b.y);
-    const d = dist(b, pl);
-    if (!b.awake && d < 380 && los(b.x, b.y, pl.x, pl.y)) {
-      b.awake = true; b.aggro = true; G.bossBar = b; Sfx.play('bossroar'); G.shake = Math.max(G.shake, 5);
-      UI.banner(b.name, bd.line ? quote(bd.line) : '區域首領', bd.color || '#ffd36a');
-      if (bd.line) UI.msg(`${b.name}：${quote(bd.line)}`, '#ffd36a');
-    }
-    if (b.awake && d < 700 && (!G.bossBar || G.bossBar.dead)) G.bossBar = b;
-    // 大招：3 個預警圈
-    if (b.awake && d < 520 && (b.cbT -= dt) <= 0) {
-      b.cbT = rnd(7, 9);
-      const L = BOSS_LAIR[w.theme.id], elem = (L && L.haz.elem) || 'phys', col = ELEM_COLOR[elem] || '#ffd36a', hit = (b.dmg[0] + b.dmg[1]) / 2 * 2.2;
-      for (let i = 0; i < 3; i++) {
-        const p = i === 0 ? nearestFloor(pl.x, pl.y) : randomFloorNear(pl.x + rnd(-120, 120), pl.y + rnd(-90, 90), 40);
-        G.teles.push({ shape: 'circle', x: p.x, y: p.y, r: 70, dur: 1.3, t: 0, color: col });
-        pend.push({ x: p.x, y: p.y, at: G.time + 1.3, elem, col, hit, b, w0: w });
+    const w = G.world, pl = G.pl, c = w && w.chap; if (!c || !pl || w.bossRoom) return;
+    for (const rec of list(c)) {
+      if (rec.dead || !(rec.spawned || c.bossSpawned)) continue;
+      const bd = defOf(w, rec); if (!bd) continue;
+      const lx = rec.lx || rec.x, ly = rec.ly || rec.y;
+      if (Math.abs(lx - pl.x) > 1800 || Math.abs(ly - pl.y) > 1400) continue;   // 別區的首領：走近了再管
+      let b = live(rec);
+      if (!b) {   // 沒打完的夢讀回來：首領變成普通黃怪了 → 換回來
+        const old = G.mons.filter(m => !m.dead && m.rarity === 'rare' && !m.chapBoss && (m.type === bd.base || !MONSTERS[bd.base])).sort((a, z) => Math.hypot(a.x - lx, a.y - ly) - Math.hypot(z.x - lx, z.y - ly))[0];
+        let lf = 1; if (old && Math.hypot(old.x - lx, old.y - ly) < 200) { lf = old.life / old.maxLife; G.mons.splice(G.mons.indexOf(old), 1); }
+        b = spawn(w, bd, lx, ly, lf); if (!b) continue;
       }
-      UI.msg(`${b.name}要放大招了——躲開預警圈`, '#ffb070');
+      rec.lx = Math.round(b.x); rec.ly = Math.round(b.y);
+      const d = dist(b, pl);
+      if (!b.awake && d < 380 && los(b.x, b.y, pl.x, pl.y)) {
+        b.awake = true; b.aggro = true; G.bossBar = b; Sfx.play('bossroar'); G.shake = Math.max(G.shake, 5);
+        UI.banner(b.name, bd.line ? quote(bd.line) : '區域首領', bd.color || '#ffd36a');
+        if (bd.line) UI.msg(`${b.name}：${quote(bd.line)}`, '#ffd36a');
+      }
+      if (b.awake && d < 700 && (!G.bossBar || G.bossBar.dead)) G.bossBar = b;
+      // 大招：3 個預警圈
+      if (b.awake && d < 520 && (b.cbT -= dt) <= 0) {
+        b.cbT = rnd(7, 9);
+        const L = BOSS_LAIR[w.theme.id], elem = (L && L.haz.elem) || 'phys', col = ELEM_COLOR[elem] || '#ffd36a', hit = (b.dmg[0] + b.dmg[1]) / 2 * 2.2;
+        for (let i = 0; i < 3; i++) {
+          const p = i === 0 ? nearestFloor(pl.x, pl.y) : randomFloorNear(pl.x + rnd(-120, 120), pl.y + rnd(-90, 90), 40);
+          G.teles.push({ shape: 'circle', x: p.x, y: p.y, r: 70, dur: 1.3, t: 0, color: col });
+          pend.push({ x: p.x, y: p.y, at: G.time + 1.3, elem, col, hit, b, w0: w });
+        }
+        UI.msg(`${b.name}要放大招了——躲開預警圈`, '#ffb070');
+      }
     }
   });
   Hook.on('update', () => {
@@ -84,7 +94,7 @@ const ChapBoss = (() => {
   Hook.on('enterMap', () => { pend.length = 0; });
   Hook.on('kill', m => {
     if (!m.chapBoss) return;
-    const w = G.world, c = w && w.chap, P = G.P, bd = def(w) || {}; if (c && c.boss) c.boss.dead = true;
+    const w = G.world, c = w && w.chap, P = G.P, rec = list(c).find(r => idOf(defOf(w, r)) === m.chapBoss), bd = (rec && defOf(w, rec)) || {}; if (rec) rec.dead = true;
     if (G.bossBar === m) G.bossBar = null;
     const first = P && !P.chapBoss[m.chapBoss]; if (P) P.chapBoss[m.chapBoss] = true;
     if (first) { ChapEv.reward(bd.reward, m.x, m.y); UI.banner(`${m.name}倒下了`, bd.reward ? '牠留下了東西' : '區域首領', '#ffd36a'); Sfx.play('unique'); }
@@ -97,18 +107,25 @@ const ChapBoss = (() => {
     }
     saveGame();
   });
-  // 腳下金色光圈、金色名字（蓋在黃色名字上面）
+  // 腳下金色光圈、金色名字（蓋在黃色名字上面）：畫面附近的每一隻
+  const near = (b, r) => Math.abs(b.x - G.cam.x - VW / 2) < VW / 2 + r && Math.abs(b.y - G.cam.y - VH / 2) < VH / 2 + r;
   Hook.on('drawWorld', g => {
-    const b = G.world && G.world.chap && live(); if (!b) return;
-    const feet = b.y + b.r * 0.8, a = 0.5 + 0.3 * Math.sin(G.time * 4);
-    g.save(); g.strokeStyle = `rgba(255,200,80,${a})`; g.lineWidth = 3; g.beginPath(); g.ellipse(b.x, feet, b.r + 10, (b.r + 10) * 0.45, 0, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = `rgba(255,170,60,${a * 0.18})`; g.fill(); g.restore();
+    if (!G.world || !G.world.chap) return;
+    for (const b of G.mons) {
+      if (!b.chapBoss || b.dead || !near(b, 80)) continue;
+      const feet = b.y + b.r * 0.8, a = 0.5 + 0.3 * Math.sin(G.time * 4);
+      g.save(); g.strokeStyle = `rgba(255,200,80,${a})`; g.lineWidth = 3; g.beginPath(); g.ellipse(b.x, feet, b.r + 10, (b.r + 10) * 0.45, 0, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = `rgba(255,170,60,${a * 0.18})`; g.fill(); g.restore();
+    }
   });
   Hook.on('drawOver', g => {
-    const b = G.world && G.world.chap && live(); if (!b || dist(b, G.pl) >= 360) return;
-    const sp = getSprite(b.def.sprite, b.scale, b.tint, false), top = b.y + b.r * 0.8 - sp.h - 6;
-    txt(g, b.name, b.x, top - 10, 11, '#ffd36a', 'center');
-    txt(g, '— 區域首領 —', b.x, top - (b.mods.length ? 36 : 23), 10, '#ffb050', 'center');
+    if (!G.world || !G.world.chap) return;
+    for (const b of G.mons) {
+      if (!b.chapBoss || b.dead || dist(b, G.pl) >= 360) continue;
+      const sp = getSprite(b.def.sprite, b.scale, b.tint, false), top = b.y + b.r * 0.8 - sp.h - 6;
+      txt(g, b.name, b.x, top - 10, 11, '#ffd36a', 'center');
+      txt(g, '— 區域首領 —', b.x, top - (b.mods.length ? 36 : 23), 10, '#ffb050', 'center');
+    }
   });
-  return { spawn, live, tint };
+  return { spawn, live: () => live(null), tint, list, defOf };
 })();

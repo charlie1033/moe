@@ -20,7 +20,8 @@ const ChapScenes = (() => {
     l: (x1, y1, x2, y2, c, w = 2) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); },
   });
   const flame = (d, x, y, s, t) => { const f = 0.85 + 0.15 * Math.sin(t * 13 + x); d.p([[x - 6 * s, y], [x - 3 * s, y - 10 * s * f], [x, y - 16 * s * f], [x + 3 * s, y - 9 * s * f], [x + 6 * s, y]], 'rgba(255,120,30,0.9)'); d.p([[x - 3 * s, y], [x, y - 10 * s * f], [x + 3 * s, y]], 'rgba(255,230,120,0.95)'); };
-  const crate = (d, x, y, s) => { d.r(x, y, s, s, '#8a6038'); d.r(x, y, s, 3, '#a87a48'); d.r(x + 2, y + 2, s - 4, s - 4, '#7a5230'); d.l(x + 3, y + 3, x + s - 3, y + s - 3, '#5a3a20', 2); d.l(x + s - 3, y + 3, x + 3, y + s - 3, '#5a3a20', 2); };
+  // v2.18.3 原本是木箱，玩家會以為是寶箱 → 改畫成麻袋（只有真正的寶箱事件才長得像箱子）
+  const crate = (d, x, y, s) => { const cx = x + s / 2, by = y + s; d.e(cx, by - 1, s * 0.5, 3, 'rgba(0,0,0,0.3)'); d.e(cx, by - s * 0.38, s * 0.48, s * 0.4, '#a08458'); d.e(cx - s * 0.12, by - s * 0.48, s * 0.18, s * 0.14, '#b89a6a'); d.r(cx - s * 0.16, y + s * 0.12, s * 0.32, s * 0.18, '#8a6e44'); d.r(cx - s * 0.2, y + s * 0.26, s * 0.4, 2, '#5a4026'); };
   // w,h＝佔地（格）；m＝哪些格擋路（#）；paint 靜態；anim 每格；lights [x, y, 半徑, 強度]（像素，相對左上角）；pier＝走得上去、水會變木板
   const S = {
     hut: { w: 5, h: 4, m: ['#####', '#####', '#####', '#####'], lights: [[36, 86, 80, 0.5], [124, 86, 80, 0.5]],
@@ -187,9 +188,9 @@ const ChapScenes = (() => {
   }
   const helper = (g, X, Y) => { const d = H(g), o = { X, Y }; for (const k in d) { const f = d[k]; o[k] = k === 'p' ? (pts, c) => f(pts.map(([x, y]) => [x + X, y + Y]), c) : k === 'l' ? (a, b, c2, e, col, lw) => f(a + X, b + Y, c2 + X, e + Y, col, lw) : (x, y, ...r) => f(x + X, y + Y, ...r); } return o; };
   function paintAll(w) {
-    const c = w.chap; if (!c || !c.scenes.length || !w.canvas) return;
-    const g = w.canvas.getContext('2d');
-    for (const sc of c.scenes) { const s = S[sc.id]; if (!s) continue; const d = helper(g, sc.sx * T, sc.sy * T); g.save(); try { s.paint(d, g); if (s.web) s.web(d); } catch (e) { console.error('[ChapScenes ' + sc.id + ']', e); } g.restore(); }
+    const c = w.chap, B = w._chunkPx; if (!c || !c.scenes.length || !B) return;   // v2.19 分塊畫：只畫碰到這一塊的布景（往外多 3 格給影子、旗子）
+    const g = w.canvas.getContext('2d'), M = 3 * T;
+    for (const sc of c.scenes) { const s = S[sc.id]; if (!s) continue; const x = sc.sx * T, y = sc.sy * T; if (x + s.w * T + M < B.x || y + s.h * T + M < B.y || x - M > B.x + B.w || y - M > B.y + B.h) continue; const d = helper(g, sc.sx * T, sc.sy * T); g.save(); try { s.paint(d, g); if (s.web) s.web(d); } catch (e) { console.error('[ChapScenes ' + sc.id + ']', e); } g.restore(); }
   }
   const onScr = sc => { const s = S[sc.id], x = sc.sx * T, y = sc.sy * T; return s && x + s.w * T > G.cam.x - 200 && x < G.cam.x + VW + 200 && y + s.h * T > G.cam.y - 200 && y < G.cam.y + VH + 200; };
   function anim(g) {

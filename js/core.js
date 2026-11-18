@@ -5,7 +5,7 @@
 //     'update'(dt) 每格更新之後　'kill'(m) 怪物死亡之後　'start'(P) 進入角色之後
 //     'enterMap'(tier) 進地圖之後　'build'() 能力重算之後　'drawWorld'(g) 畫完地圖物件之後（世界座標）
 //     'drawOver'(g) 畫完角色和怪物之後（世界座標）　'light'(cut, cx, cy) 在黑暗上挖光（cut(螢幕x, 螢幕y, 半徑, 強度)）　'glow'(g, cx, cy) 黑暗之後畫彩色光（螢幕座標）
-//     'stage'(w) 每一區的怪和事件放好之後　'worldCanvas'(w) 地圖底圖畫好之後（畫進底圖、只畫一次）　'drawHUD'(g) 下方介面全部畫完之後（螢幕座標）　'drawMinimap'(g, mx, my, s) 小地圖上加標記（世界座標 / TS * s + mx）
+//     'stage'(w) 每一區的怪和事件放好之後　'worldCanvas'(w) 底圖畫一塊的時候（v2.19 分塊畫：每塊各跑一次，只畫 w._chunkRect 的格子，見 game.js）　'terrainChanged'(w, rect|null) 地形變了（換地圖、worldRepaint 給範圍）　'drawHUD'(g) 下方介面全部畫完之後（螢幕座標）　'drawMinimap'(g, mx, my, s) 小地圖上加標記（世界座標 / TS * s + mx）
 //     'cast'(sid, c) 放完技能之後（c＝這次施放算好的數值）
 //     'hurt'(掉了多少, opts) 角色被打到、真的掉血或掉護盾之後（持續傷害不算）
 //     'preHit'(ctx)／'crit'(m, 技能欄) 打中怪之前可改暴擊與倍率／打出暴擊之後（gems4.js 發的，ctx 見那個檔頭）

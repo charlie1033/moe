@@ -2,7 +2,7 @@
 //  營地人物分工：以前格倫、薇薇、莫、卡爾、國王按 F 都是打開同一本日誌，現在各有各的事
 //  ・薇薇：照舊打開日誌（記憶與怪物圖鑑）　・國王：帶話任務（errands.js）
 //  ・格倫：說下一個看守者是誰、在第幾夜、怕什麼（別的模組可以 GLEN_HOOKS.push(P => 文字或 null) 搶先說話）
-//  ・卡爾：「陪你打一區」——答應後，下一張夢的第一區多一個戰鬥夥伴（卡爾本人的樣子，生命、傷害約你的一半，換區就回營地）
+//  ・卡爾：「陪你走過一個區域」——答應後，下一張夢的第一個區域多一個戰鬥夥伴（卡爾本人的樣子，生命、傷害約你的一半；v2.19 大地圖：你走進第二個區域，他就回營地）
 //  ・莫：海風驛站碼頭邊多一個釣魚點（莫的右邊）。每去夢裡走一趟回來，可以拋竿一次（按 F）
 //    浮標晃一晃 → 驚嘆號 → 拉起來：90% 釣到「上一個我」的遺物＝一句話（20 句，寫進日誌「莫釣到的話」）＋一件隨機裝備（物品等級＝你的等級）
 //    10% 釣到一隻黃色精英怪跳上岸（在營地打，怪物等級＝你的等級）
@@ -41,12 +41,12 @@ Talk.add(id => {
 // —— 薇薇：圖鑑（打開日誌的第一頁） ——
 Talk.add(id => { if (id === 'vivi' && typeof JournalTabs !== 'undefined') JournalTabs.cur = 'main'; return false; });
 
-// —— 卡爾：陪你打一區 ——
+// —— 卡爾：陪你走過一個區域 ——
 Talk.add(id => {
   if (id !== 'karl') return false;
   const P = G.P;
   if (P.karlGo) { UI.msg('卡爾：「我準備好了。您一進夢，我就跟上。」', '#e8d8a0'); return true; }
-  gameAsk('迷途騎士．卡爾：\n「守門人大人，下一張夢讓我跟著吧。」\n「至少第一區，我替您擋在前面。」\n\n（下一張夢的第一區，卡爾會跟你一起打；換區他就回營地）', () => {
+  gameAsk('迷途騎士．卡爾：\n「守門人大人，下一張夢讓我跟著吧。」\n「至少第一個區域，我替您擋在前面。」\n\n（下一張夢的第一個區域，卡爾會陪你走過去；走進第二個區域，他就回營地）', () => {
     P.karlGo = true; saveGame(); UI.msg('卡爾：「遵命。這一次，我要走在大人前面。」', '#e8d8a0');
   }, { yes: '一起走', no: '不用了' });
   return true;
@@ -62,13 +62,13 @@ Hook.on('enterMap', () => {
   const P = G.P, pl = G.pl; if (!P || !P.karlGo || !G.world || G.world.kind !== 'map') return;
   P.karlGo = false;
   const k = karlStats(), p = randomFloorNear(pl.x + 30, pl.y, 30);
-  G.mins.push({ kind: 'min', mtype: 'karl', sprite: 'npc_karl', karl: true, home: G.world, x: p.x, y: p.y, r: 12, life: k.life, maxLife: k.life,
+  G.mins.push({ kind: 'min', mtype: 'karl', sprite: 'npc_karl', karl: true, home: G.world, homeReg: (G.world.stage && G.world.stage.i) || 1, x: p.x, y: p.y, r: 12, life: k.life, maxLife: k.life,
     dmg: [k.hit * 0.85, k.hit * 1.15], aps: k.aps, atkCD: 0.4, facing: 1, flash: 0, speed: 210, count: 1 });
-  UI.msg('卡爾：「跟緊我，守門人大人。」（第一區結束前，卡爾都會跟著你）', '#e8d8a0');
+  UI.msg('卡爾：「跟緊我，守門人大人。」（走進第二個區域之前，卡爾都會跟著你）', '#e8d8a0');
 });
 Hook.on('update', () => {
   const k = G.mins.find(m => m.karl); if (!k) return;
-  if (k.home !== G.world) { G.mins.splice(G.mins.indexOf(k), 1); UI.msg('卡爾：「前面的路，請您自己走。我在營地等您。」', '#e8d8a0'); }
+  if (k.home !== G.world || (G.world.regions && G.world.stage.i > (k.homeReg || 1))) { G.mins.splice(G.mins.indexOf(k), 1); UI.msg('卡爾：「前面的路，請您自己走。我在營地等您。」', '#e8d8a0'); }
   else if (k.life <= 1) { G.mins.splice(G.mins.indexOf(k), 1); UI.msg('卡爾倒下了……他化成光，先回營地去了。', '#e8d8a0'); }
 });
 Hook.on('drawOver', g => { const k = G.mins.find(m => m.karl); if (k) txt(g, '卡爾', k.x, k.y - 44, 11, '#e8d8a0', 'center'); });

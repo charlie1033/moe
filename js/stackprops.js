@@ -178,5 +178,5 @@ Hook.on('drawWorld', g => { try { StackProps.draw(g); } catch (e) { } });
 Hook.on('drawOver', g => { try { StackProps.drawOver(g); } catch (e) { } });
 SettingsRows.add('ui', () => `<div class="prow"><div class="pname">立體障礙物<small>樹、岩石、石柱這些障礙物用一層一層疊起來的方式畫，看起來有立體感；電腦比較慢可以關掉</small></div><div class="pctl"><label class="pswitch"><input type="checkbox" data-stk ${StackProps.on() ? 'checked' : ''}><span></span></label></div></div>`, root => {
   const c = root.querySelector('[data-stk]');
-  if (c) c.onchange = () => { CFG.stackProps = c.checked; saveCfg(); if (G.world && G.world.canvas) try { buildWorldCanvas(G.world); } catch (e) { } };
+  if (c) c.onchange = () => { CFG.stackProps = c.checked; saveCfg(); if (G.world) worldRepaint(G.world); };
 });

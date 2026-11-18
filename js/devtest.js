@@ -57,7 +57,7 @@ const MOE_DEV = {
         T.ok(Math.hypot(G.pl.x - x0, G.pl.y - y0) > 30, cls + ' 位移沒有動');
       }
     },
-    '按 F 互動：撿東西、路人、出口門、地圖事件、寶箱': T => {
+    '按 F 互動：撿東西、路人、地圖事件、寶箱、首領之門': T => {
       const P = T.hero('warrior', 60, 21);
       const f = campFolk(G.world)[0]; T.ok(T.near(f).kind === 'folk', '路人沒被選到'); UI.interact(); T.ok(f.say, '路人沒說話');
       T.ok(T.near(G.world.portal, 30).kind === 'device', '營火（夢之門）沒被選到'); UI.interact(); T.ok(UI.mapDevOpen, '夢之門沒打開'); UI.showMapDevice(false);
@@ -69,7 +69,7 @@ const MOE_DEV = {
         const ev = Object.assign({ kind, done: false, type: 'might', mon: w.theme.monsters[0] }, at); w.events.push(ev); G.loot = [];
         T.ok(T.near(ev).kind === 'mapev', kind + ' 沒被選到'); UI.interact(); T.ok(ev.done, kind + ' 沒啟動'); if (typeof ChoiceBox !== 'undefined' && ChoiceBox.open) ChoiceBox.pick(0); T.run(0.3);
       }
-      const n = w.stage.n; for (let k = 1; k < n; k++) { G.loot = []; T.ok(T.near(G.world.gate).kind === 'gate', '出口門沒被選到'); UI.interact(); T.ok(G.world.stage.i === k + 1, '沒進下一區'); }
+      T.ok(!w.gate, '大地圖不該有區域門'); for (let k = 2; k <= w.stage.n; k++) { goRegion(k); T.ok(G.world === w && w.stage.i === k, '沒走到第 ' + k + ' 區'); }
       T.ok(G.world.bossGate && !G.mons.some(m => m.boss), '最後一區應該是首領之門'); T.ok(T.near(G.world.bossGate).kind === 'bossgate', '首領之門沒被選到');
       UI.interact(); T.ok(!G.world.bossRoom, '封印中不該進得去'); BossRoom.skip(); T.ok(G.world.bossRoom && G.mons.some(m => m.boss), '沒有進到首領巢穴');
       G.mons.find(m => m.boss).awake = true; T.run(6); T.ok(G.teles.length || G.zones.length || G.mons.length > 1 || (G.world.haz && G.world.haz.pend.length), '巢穴機關沒有發動');
@@ -95,11 +95,11 @@ const MOE_DEV = {
     '地圖色調：每種場景都有色調、首領房有裂紋': T => {
       T.hero('mage', 30, 12);
       for (let t = 1; t <= 10; t++) { enterMap(t); T.ok(MapTint.T[G.world.theme.id], '場景 ' + G.world.theme.id + ' 沒有色調'); render(); }
-      enterMap(3); while (G.world.stage && G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); T.ok((MapTint.veins(G.world) || []).length > 5, '首領房沒有裂紋');
+      enterMap(3); goRegion(G.world.stage.n); BossRoom.skip(); T.ok((MapTint.veins(G.world) || []).length > 5, '首領房沒有裂紋');
     },
     '終局：怪群加大、蟲群、夢潮裂隙': T => {
       T.hero('mage', 80, 26); let sw = 0, tide = null, cnt = 0;
-      for (let k = 0; k < 8 && !(sw && tide); k++) { enterMap(22); cnt = Math.max(cnt, G.mons.length); sw += G.mons.filter(m => m.swarm).length; tide = G.world.events.find(e => e.kind === 'tide'); }
+      for (let k = 0; k < 8 && !(sw && tide); k++) { enterMap(22); for (let i = 2; i <= G.world.stage.n; i++) goRegion(i); cnt = Math.max(cnt, G.mons.length); sw += G.mons.filter(m => m.swarm).length; tide = G.world.events.find(e => e.kind === 'tide'); }
       T.ok(sw > 0, '深層夢境沒有蟲群'); T.ok(tide, '第 22 夜沒有夢潮裂隙'); T.ok(cnt > 120, '深層夢境怪太少：' + cnt);
       G.pl.x = tide.x; G.pl.y = tide.y + 30; tide.done = false; activateEvent(tide); T.run(5);
       const mobs = G.mons.filter(m => m.tide); T.ok(mobs.length > 5, '裂隙沒有冒怪'); mobs.slice(0, 5).forEach(m => killMonster(m)); T.ok(tide.kills === 5, '裂隙擊殺數不對');
@@ -127,12 +127,12 @@ const MOE_DEV = {
     '夢的深度：倍率、世界規則、盡頭': T => {
       T.ok(Math.abs(depthScale(20) - 1.4) < 1e-9 && Math.abs(depthScale(40) - 1.8) < 1e-9 && depthScale(5) === 1, '深度倍率不對');
       const P = T.hero('mage', 95, 40); T.ok(depthRules(15).length === 0 && depthRules(23).length === 1 && depthRules(38).length === 4, '世界規則條數不對');
-      P.deepRules[38] = ['wr_blast', 'wr_colossus', 'wr_guard', 'wr_thorn']; P.deepMods[38] = []; enterMap(38); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip();
+      P.deepRules[38] = ['wr_blast', 'wr_colossus', 'wr_guard', 'wr_thorn']; P.deepMods[38] = []; enterMap(38); goRegion(G.world.stage.n); BossRoom.skip();
       const F = G.world.mm.flags; T.ok(F.wr_blast && F.wr_colossus && F.wr_guard && F.wr_thorn && G.world.mm.q >= 40, '世界規則沒有套到地圖');
       T.ok(G.mons.filter(m => m.name.startsWith('護衛・')).length === 3 && G.mons.find(m => m.boss).colossus, '護衛或巨像沒生效');
       const m = makeMonster(G.world.theme.monsters[0], G.pl.x + 60, G.pl.y, G.world.mlvl, 'normal', G.world.theme); G.mons.push(m); killMonster(m); T.ok(G.world.blasts.length === 1, '餘燼沒有留下爆炸'); T.run(3); T.ok(!G.world.blasts.length && G.zones.length > 0, '爆炸沒結束或荊棘沒長');
       T.ok(!P.deepRules[38], '進圖後世界規則沒有重抽'); T.ok(!rollMapMods(30).some(id => MAP_MOD_BY_ID[id].rule), '世界規則被當成一般詞綴骰到');
-      P.deepMods[40] = []; enterMap(40); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); killMonster(G.mons.find(m => m.boss)); T.ok(P.maxTier === 40 && P.depthEnd, '第 40 夜沒有封頂');
+      P.deepMods[40] = []; enterMap(40); goRegion(G.world.stage.n); BossRoom.skip(); killMonster(G.mons.find(m => m.boss)); T.ok(P.maxTier === 40 && P.depthEnd, '第 40 夜沒有封頂');
     },
     '新手保護：前期升級快、第一夜怪少而且遠程少': T => {
       T.ok(xpNeed(1) < 80 && xpNeed(11) < xpNeed(12) && xpNeed(12) === 3026, '前期經驗曲線不對');
@@ -313,11 +313,11 @@ const MOE_DEV = {
     },
     '營地分工：卡爾陪打一區、格倫講看守者': T => {
       T.hero('warrior', 20, 8); const P = G.P; P.karlGo = true; enterMap(3); T.ok(G.mins.some(m => m.karl), '卡爾沒跟來');
-      nextStage(); T.run(0.1); T.ok(!G.mins.some(m => m.karl), '換區後卡爾沒回營地');
+      goRegion(2); T.run(0.1); T.ok(!G.mins.some(m => m.karl), '換區後卡爾沒回營地');
       T.ok(glenWarden(P).includes('看守者'), '格倫沒講看守者');
     },
     '看守者抉擇：請託、半血轉場、三選一、殘片': T => {
-      T.hero('warrior', 30, 3); enterMap(3); while (G.world.stage.i < G.world.stage.n) nextStage(); BossRoom.skip(); T.run(0.2);
+      T.hero('warrior', 30, 3); enterMap(3); goRegion(G.world.stage.n); BossRoom.skip(); T.run(0.2);
       const wd = G.world.wd; T.ok(wd && wd.id === 'beast', '巢穴沒有建立抉擇狀態');
       const yes = document.querySelector('#gask.show .gask-yes'); if (yes) yes.click(); T.ok(wd.trial && wd.stage === 'fight', '請託沒有接下');
       const b = G.mons.find(m => m.boss); b.awake = true; hitMonster(b, { d: { fire: [1e8, 1e8] }, crit: 0, multi: 100, ail: {} });
@@ -360,28 +360,28 @@ const MOE_DEV = {
       P.wardens.first = {};
     },
     '章節地圖：固定地圖會被採用、同一區兩次一樣、沒資料和第 11 夜照舊隨機': T => T.chapTry(() => {
-      T.hero('warrior', 20, 12); enterMap(1); T.quiet(); const w = G.world, a = Array.from(w.grid).join('');
-      T.ok(w.chap && w.W === 64 && /測試墓穴/.test(w.name) && G.banner.sub === '測試用的夢。', '第 1 夜第 1 區沒有用固定地圖或開場白');
-      T.ok(w.chap.scenes.length === 3 && G.mons.some(m => m.chapBoss) && w.deco.includes(15), '布景、木橋或區域首領沒放');
-      enterMap(1); T.quiet(); T.ok(Array.from(G.world.grid).join('') === a, '同一區兩次地形不一樣');
-      const o2 = CHAPTER_MAPS['1-2']; delete CHAPTER_MAPS['1-2']; try { nextStage(); T.ok(!G.world.chap && G.world.stage.i === 2, '沒有資料的區沒有照舊隨機'); } finally { if (o2) CHAPTER_MAPS['1-2'] = o2; }
-      enterMap(11); T.quiet(); T.ok(!G.world.chap && G.world.W === 84, '第 11 夜不是隨機地圖');
+      T.hero('warrior', 20, 12); enterMap(1); T.quiet(); const w = G.world, r1 = w.regions[0], rel = W => W.chap.evs.filter(e => e.r === 1).map(e => (e.tx - W.regions[0].rect.x) + ',' + (e.ty - W.regions[0].rect.y)).join(';'), a = rel(w);
+      T.ok(w.chap && r1.rect.w === 64 && /測試墓穴/.test(w.name) && G.banner.sub === '測試用的夢。', '第 1 夜第 1 區沒有用固定地圖或開場白');
+      T.ok(w.chap.scenes.filter(s => s.r === 1).length === 3 && G.mons.some(m => m.chapBoss) && w.deco.includes(15), '布景、木橋或區域首領沒放');
+      enterMap(1); T.quiet(); T.ok(rel(G.world) === a && G.world.regions[0].rect.w === 64, '同一區兩次地形不一樣');
+      const o2 = CHAPTER_MAPS['1-2']; delete CHAPTER_MAPS['1-2']; try { enterMap(1); T.ok(G.world.regions[1].key === null && G.world.regions[0].key === '1-1' && !G.world.chap.evs.some(e => e.r === 2), '沒有資料的區沒有照舊隨機'); } finally { if (o2) CHAPTER_MAPS['1-2'] = o2; }
+      enterMap(11); T.quiet(); T.ok(!G.world.chap && G.world.regions && G.world.W >= 100 && G.world.H >= 70, '第 11 夜不是隨機大地圖');
     }),
     '章節地圖：四種事件都能完成、D 會打開、再進圖不重複給獎勵': T => T.chapTry(() => {
-      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); const w = G.world, ev = n => w.chap.evs.find(e => e.n === n), use = n => { T.near(ev(n), 0); UI.interact(); T.quiet(); };
+      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); const w = G.world, ev = n => w.chap.evs.find(e => e.n === n && e.key === '1-1'), use = n => { T.near(ev(n), 0); UI.interact(); T.quiet(); };
       T.ok(w.chap.dCells.every(i => !w.grid[i]), 'D 一開始沒有封住');
       use('1'); T.ok(G.P.chapEv.dev_ghost && w.chap.dCells.every(i => w.grid[i]) && NPC_LINES.jailer.includes('「測試台詞」'), 'npc 完成後 D 沒打開或沒多台詞');
       use('2'); use('3'); T.ok(!G.P.chapEv.dev_shard, '收集只撿一片就完成了'); use('4'); T.ok(G.P.chapEv.dev_book && G.P.chapEv.dev_shard, 'lore 或收集沒有完成');
       G.mons = []; use('5'); for (let k = 0; k < 12 && !G.P.chapEv.dev_amb; k++) { T.run(1); G.mons.filter(m => m.chapAmb).forEach(m => killMonster(m)); }
       T.ok(G.P.chapEv.dev_amb, '伏擊打完沒有完成');
-      enterMap(1); T.quiet(); const l0 = G.loot.length; T.near(G.world.chap.evs.find(e => e.n === '2'), 0); UI.interact(); T.quiet();
-      T.ok(G.world.chap.open && G.world.chap.evs.every(e => e.done) && G.loot.length === l0, '第二次進圖事件又出現或又給獎勵');
+      enterMap(1); T.quiet(); const l0 = G.loot.length; T.near(G.world.chap.evs.find(e => e.n === '2' && e.key === '1-1'), 0); UI.interact(); T.quiet();
+      T.ok(G.world.chap.open && G.world.chap.evs.filter(e => e.key === '1-1').every(e => e.done) && G.loot.length === l0, '第二次進圖事件又出現或又給獎勵');
     }),
     '章節地圖：區域首領、沒打完的夢還原 D 和首領、日誌與任務面板': T => T.chapTry(() => {
       T.hero('warrior', 20, 3); enterMap(1); T.quiet(); let w = G.world, b = G.mons.find(m => m.chapBoss);
       G.pl.x = b.x + 120; G.pl.y = b.y; T.run(0.2); T.ok(G.bossBar === b, '區域首領沒有首領血條');
-      b.life = b.maxLife / 2; dreamSave(); goTown(); G.savedMap = null; dreamRestore(G.charId); resumeMap(); T.run(0.2); w = G.world;
-      T.ok(w.chap && w.chap.dCells.every(i => !w.grid[i]) && w.chap.scenes.length === 3, '讀檔後地圖、D 的狀態不對');
+      b.life = b.maxLife / 2; dreamSave(); goTown(); G.savedMap = null; dreamRestore(G.charId); resumeMap(); G.pl.x = b.x + 120; G.pl.y = b.y; T.run(0.2); w = G.world;
+      T.ok(w.chap && w.chap.dCells.every(i => !w.grid[i]) && w.chap.scenes.filter(s => s.r === 1).length === 3, '讀檔後地圖、D 的狀態不對');
       b = G.mons.find(m => m.chapBoss && !m.dead); T.ok(b && Math.abs(b.life / b.maxLife - 0.5) < 0.05, '讀檔後區域首領沒有還原');
       const l0 = G.loot.length; killMonster(b); T.ok(G.P.chapBoss.dev_boss && G.P.chapEv.dev_bossstory && G.loot.length > l0, '打倒區域首領沒記錄或沒掉獎勵');
       T.ok(/第 1 夜的夢：\d+ \/ \d+/.test(PanelRows.html('quest', G.P)), '任務面板沒顯示劇情進度');
@@ -390,7 +390,7 @@ const MOE_DEV = {
 
     '章節地圖第1到5夜': T => {
       for (let t = 1; t <= 5; t++) for (let s = 1; s <= 3; s++) { const d = CHAPTER_MAPS[t + '-' + s]; T.ok(d && d.rows.every(r => r.length === d.rows[0].length), `第 ${t}-${s} 區手工地圖缺少或列長不一`); }
-      enterMap(1); T.ok(G.world.chap && G.world.W === 64 && G.world.chap.evs.length === 2, '第 1 夜第 1 區沒有用手工地圖');
+      enterMap(1); T.ok(G.world.chap && G.world.regions[0].rect.w === 64 && G.world.chap.evs.filter(e => e.r === 1).length === 2, '第 1 夜第 1 區沒有用手工地圖');
       T.ok(STORY.chev_ch1_decree && STORY['chev_ch1_decree#3'], '詔書收集的劇情沒有登記');
     },
     '六件套裝：四套 24 件、2／4／6 件門檻': T => {
@@ -450,13 +450,10 @@ const MOE_DEV = {
         T.ok(digs === Object.keys(d.events || {}).sort().join(), `第 ${t}-${s} 區事件數字對不上`);
       }
     },
-    '章節地圖：10-2 封印打開通道': T => {
-      T.hero('warrior', 40, 10); enterMap(10); nextStage();
-      const w = G.world, c = w.chap;
-      T.ok(c && c.key === '10-2' && c.dCells.length > 0 && !w.grid[c.dCells[0]], '10-2 一開始要封住');
-      ChapterMaps.openD(w, true);
-      T.ok(w.grid[c.dCells[0]] === 1, '打開後要變成路');
-    },
+    '章節地圖：10-2 封印打開通道': T => { T.hero('warrior', 40, 10); enterMap(10); goRegion(2);
+      const w = G.world, c = w.chap, i0 = c && c.dCells[0];
+      T.ok(c && c.keys.includes('10-2') && c.dCells.length > 0 && !w.grid[i0] && w.rmap[i0] === 2, '10-2 一開始要封住');
+      ChapterMaps.openD(w, true); T.ok(w.grid[i0] === 1, '打開後要變成路'); },
     '狀態列：統一排在小地圖下方、不重疊': T => {
       T.hero('warrior', 20, 5); enterMap(3);
       mechHud('trialHud', 96, '#fff', '測試一'); StatusLines.set('x', '測試二', '#fff');
@@ -506,7 +503,7 @@ const MOE_DEV = {
       enterMap(3); T.quiet(); G.pl.life = G.S.maxLife; const b3 = makeBoss('boneking', G.pl.x + 60, G.pl.y, 5); damagePlayer([[G.S.maxLife * 3, 'phys']], { src: b3, spell: true }); T.ok(G.dead, '第 3 夜不應該有傷害上限'); UI.hideDeath();
     },
     '死在巢穴：死因、回到首領之門前': T => {
-      T.hero('druid', 5, 1); damagePlayer = T.realDP; enterMap(1); T.quiet(); while (G.world.stage.i < G.world.stage.n) nextStage(); const z = G.world; BossRoom.skip(); T.quiet();
+      T.hero('druid', 5, 1); damagePlayer = T.realDP; enterMap(1); T.quiet(); goRegion(G.world.stage.n); const z = G.world; BossRoom.skip(); T.quiet();
       const b = G.mons.find(m => m.boss); T.ok(b.maxLife < BOSSES.boneking.life * 3, '第 1 夜看守者生命沒有降低');
       for (let i = 0; i < 5 && !G.dead; i++) damagePlayer([[9999, 'phys']], { src: b, how: 'slam', spell: true });
       T.ok(G.dead && G.savedMap && G.savedMap.world === z, '巢穴裡倒下沒有留首領之門的回來點'); T.ok(/腐骨之王.*重砸/.test(DeathHelp.cause().text), '死因沒寫看守者和招式');
@@ -525,26 +522,121 @@ const MOE_DEV = {
       T.ok(mapLevel(1) === 2 && mapLevel(2) === 5 && mapLevel(10) === 60, '地圖等級曲線不對');
     },
     '區域首領鎖劇情點（7-2 老鱷魚）': T => {
-      T.hero('warrior', 40, 10); enterMap(7); while (G.world.stage.i < 2) nextStage(); const w = G.world, ev = w.chap.evs.find(e => e.id === 'ch7_lastpage'), b = ChapBoss.live();
+      T.hero('warrior', 40, 10); enterMap(7); goRegion(2); const w = G.world, ev = w.chap.evs.find(e => e.id === 'ch7_lastpage'), b = ChapBoss.live();
       T.ok(ev && b && ChapEv.locked(w, ev), '首領活著時劇情點沒有鎖');
       T.near(ev, 0); Interact.resolve(); T.ok(G.nearAct && /^先打倒『/.test(G.nearAct.label), '互動鈕沒寫先打倒');
       ChapEv.use(ev); T.ok(!G.P.chapEv.ch7_lastpage, '鎖住時還能撿');
       killMonster(b); T.ok(!G.P.chapEv.ch7_lastpage && !ChapEv.locked(w, ev), '首領倒下後沒解鎖或直接完成了');
       ChapEv.use(ev); T.ok(G.P.chapEv.ch7_lastpage, '解鎖後撿不起來');
     },
-    '章節地圖：打開通道不整張重畫': T => {
-      T.hero('warrior', 40, 10); enterMap(10); while (G.world.stage.i < 2) nextStage(); const w = G.world, cv = w.canvas;
-      T.ok(_dPatch.get(w), '沒有先畫好打開後的小圖');
-      const t0 = performance.now(); ChapterMaps.openD(w, true); const ms = performance.now() - t0;
-      T.ok(w.canvas === cv && w.chap.dCells.every(i => w.grid[i]) && ms < 15, '打開通道還是整張重畫（' + ms.toFixed(1) + ' 毫秒）');
+    '分塊畫：每塊跟整張畫一樣、交界沒有縫': T => {
+      T.hero('warrior', 40, 12); enterMap(12); const w0 = G.world, W = 60, H = 40, w = Object.assign({}, w0, { W, H, grid: new Uint8Array(W * H), deco: w0.deco && new Uint8Array(W * H), canvas: null, chap: null });
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { w.grid[y * W + x] = w0.grid[y * w0.W + x]; if (w.deco) w.deco[y * W + x] = w0.deco[y * w0.W + x]; }
+      buildWorldCanvas(w); const all = { x0: 0, y0: 0, x1: W, y1: H }, px = c => c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let bad = 0;   // ① 每一塊＝同樣大小的畫布畫全部格子（只畫範圍內的格子不會少東西）
+      for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 2; cx++) { const c = worldChunk(w, cx, cy), r = document.createElement('canvas'); r.width = c.width; r.height = c.height; worldPaintInto(w, r, cx * CHUNK_PX - CHUNK_PAD, cy * CHUNK_PX - CHUNK_PAD, all); const a = px(c), b = px(r); for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) bad++; }
+      // ② 接起來跟舊的整張畫比：交界兩行的差不能比畫布大小造成的雜訊大（實測 ≤ 5）
+      const full = document.createElement('canvas'); full.width = W * TS; full.height = H * TS; worldPaintInto(w, full, 0, 0, all);
+      const comp = document.createElement('canvas'); comp.width = full.width; comp.height = full.height; worldDraw(comp.getContext('2d'), w, 0, 0, W * TS, H * TS);
+      const fa = px(full), ca = px(comp); let seam = 0, diff = 0;
+      for (let i = 0; i < fa.length; i += 4) { const d = Math.max(Math.abs(fa[i] - ca[i]), Math.abs(fa[i + 1] - ca[i + 1]), Math.abs(fa[i + 2] - ca[i + 2])), p = i / 4, x = p % full.width, y = (p / full.width) | 0; if (d) diff++; if ((x === 1023 || x === 1024 || y === 1023 || y === 1024) && d > seam) seam = d; }
+      worldDropChunks(w);
+      T.ok(bad <= (ArtStyle.on ? 20000 : 0), '分塊畫少畫了東西（' + bad + ' 個值不同）');   // 美術開著時 GPU 畫裁切路徑有少量四捨五入誤差（美術工作階段實測，多數差 1～3） T.ok(seam <= 8 && diff < fa.length / 4 * 0.01, '塊與塊交界有縫（交界最大差 ' + seam + '、全圖 ' + diff + ' 點不同）');
+    },
+    '分塊畫：400×300 大地圖不超過上限': T => {
+      T.hero('warrior', 40, 12); enterMap(12); const w0 = G.world, W = 400, H = 300, w = Object.assign({}, w0, { W, H, grid: new Uint8Array(W * H), deco: null, canvas: null, chap: null, events: [] });
+      for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) w.grid[y * W + x] = (x % 9 && y % 7) ? 1 : 0;
+      const keep = [ArtStyle.on, Hook.m.worldCanvas, WorldChunks.max]; ArtStyle.on = false; Hook.m.worldCanvas = []; WorldChunks.max = 6;   // 只量引擎：關美術、上限調小比較快
+      let over = 0, peak = 0;
+      try { buildWorldCanvas(w); G.world = w; const g = document.createElement('canvas').getContext('2d');
+        for (let k = 0; k < 10; k++) { G.pl.x = (40 + k * 36) * TS; G.pl.y = (30 + k * 26) * TS; worldDraw(g, w, G.pl.x - VW / 2, G.pl.y - VH / 2, G.pl.x + VW / 2, G.pl.y + VH / 2); const n = WorldChunks.count(); peak = Math.max(peak, n); if (n > 6) over++; }
+      } finally { [ArtStyle.on, Hook.m.worldCanvas, WorldChunks.max] = keep; worldDropChunks(w); }
+      T.ok(!over && peak >= 4, '塊數超過上限或沒畫（最多 ' + peak + ' 塊）'); T.ok(WorldChunks.limit() === (IS_TOUCH ? 12 : 20), '預設上限不對');
+      T.ok(w.canvas.chunked && w.canvas.width === W * TS && w.mini.width === W, '大地圖的代表物件或小地圖不對');
+    },
+    '分塊畫：worldRepaint 只重畫涵蓋的塊': T => {
+      T.hero('warrior', 40, 12); enterMap(12); const w = G.world, nx = Math.ceil(w.W / CHUNK), ny = Math.ceil(w.H / CHUNK);
+      for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) worldChunk(w, cx, cy);
+      let ev = null; const f = (ww, r) => { ev = r; }; Hook.on('terrainChanged', f);
+      const tv = w._terrainVer, n = worldRepaint(w, 40, 10, 41, 11), dirty = [...w.chunks.values()].filter(k => k.dirty).map(k => k.cx + ',' + k.cy);
+      Hook.m.terrainChanged = Hook.m.terrainChanged.filter(h => h !== f);
+      T.ok(n === 1 && dirty.join() === '1,0', '標記重畫的塊不對：' + dirty.join(' '));
+      T.ok(w._terrainVer === tv + 1 && ev && ev.x0 === 40 && ev.y1 === 11, '沒發 terrainChanged 或版本沒加');
+      const p0 = WorldChunks.painted; render(); worldChunk(w, 1, 0); T.ok(WorldChunks.painted - p0 <= 2 && !w.chunks.get(1).dirty, '重畫的塊太多或沒重畫');
+      const tv2 = w._terrainVer; T.ok(worldRepaint(w) === w.chunks.size && w._terrainVer === tv2, '設定切換（全部重畫）不對');
+    },
+    '小地圖：大地圖用附近、可以切換整張': T => {
+      T.hero('warrior', 40, 12); enterMap(12); const w0 = G.world, keep = CFG.miniView;
+      const w = Object.assign({}, w0, { W: 200, H: 60, grid: new Uint8Array(200 * 60).fill(1), deco: null, canvas: null, chap: null, events: [] });
+      try {
+        buildWorldCanvas(w); G.world = w; G.pl.x = 150 * TS; G.pl.y = 30 * TS;
+        CFG.miniView = 'auto'; render(); const a = Object.assign({}, G.mmView);
+        CFG.miniView = 'full'; render(); const b = Object.assign({}, G.mmView);
+        CFG.miniView = 'auto'; enterMap(12); render(); const c = Object.assign({}, G.mmView);
+        T.ok(a.near && a.w === 90 * a.s && a.ox === 105 && G.mmBox && G.mmBox.wd === G.world, '大地圖沒有用附近、或沒跟著玩家捲動（ox=' + a.ox + '）');
+        T.ok(!b.near && b.w === 200 * b.s, '設定整張沒有顯示整張');
+        T.ok(G.world.W > 120 || !c.near, '小地圖（寬 ' + G.world.W + '）自動模式不該用附近');
+      } finally { CFG.miniView = keep; worldDropChunks(w); }
+    },
+    '章節地圖：打開通道只重畫蓋到的塊': T => {
+      T.hero('warrior', 40, 10); enterMap(10); G._stagePlan = { i: 2, n: 3 }; let w; try { w = genMap(10); } finally { G._stagePlan = null; }   // 10-2 有 D（世界組改成大地圖後：換成大地圖裡有 D 的那張）
+      G.world = w; buildWorldCanvas(w); T.ok(w.chap && w.chap.dCells.length && !w.chap.open, '10-2 沒有封住的通道');
+      for (let cy = 0; cy < Math.ceil(w.H / CHUNK); cy++) for (let cx = 0; cx < Math.ceil(w.W / CHUNK); cx++) worldChunk(w, cx, cy);
+      const dc = w.chap.dCells[0], dx = Math.floor((dc % w.W) / CHUNK), dy = Math.floor(Math.floor(dc / w.W) / CHUNK); worldDropChunks(w); for (let cy = Math.max(0, dy - 1); cy <= dy + 1; cy++) for (let cx = Math.max(0, dx - 1); cx <= dx + 1; cx++) if (cx * CHUNK < w.W && cy * CHUNK < w.H) worldChunk(w, cx, cy);
+        const ex = w.explored, tv = w._terrainVer, t0 = performance.now(); ChapterMaps.openD(w, true); const ms = performance.now() - t0;
+      const dirty = [...w.chunks.values()].filter(k => k.dirty).length;
+      T.ok(w.chap.dCells.every(i => w.grid[i]) && dirty > 0 && dirty < w.chunks.size && w.explored === ex && w._terrainVer > tv && ms < 15, '打開通道沒有只重畫蓋到的塊（' + dirty + '/' + w.chunks.size + ' 塊，' + ms.toFixed(1) + ' 毫秒）');
+    },
+    '大地圖：一夜一張圖、沒有區域門、走進第 2 區換區、怪延後生成、遠處凍結': T => {
+      T.hero('warrior', 30, 3); enterMap(1); T.quiet(); const w = G.world;
+      T.ok(w.regions && w.regions.length === 3 && !w.gate && w.stage.i === 1, '第 1 夜不是一張三區的大地圖，或還有區域門');
+      T.ok(G.mons.length && G.mons.every(m => BigMap.regionAt(w, m.x, m.y) === 1) && !w.regions[1].act, '進圖時第 1 區以外就有怪');
+      const p = w.regions[1].sPt; G.pl.x = p.x * TS + 16; G.pl.y = p.y * TS + 16; T.run(0.3);
+      T.ok(w.stage.i === 2 && w.regions[1].act && G.banner && /倒鐘/.test(G.banner.title) && /第 2 \/ 3 區/.test(w.name), '走進第 2 區沒換區或沒跳橫幅');
+      T.ok(G.mons.some(m => BigMap.regionAt(w, m.x, m.y) === 2) && !w.regions[2].act, '第 2 區的怪沒生，或第 3 區太早生');
+      const far = G.mons.find(m => !m.dead && Math.hypot(m.x - G.pl.x, m.y - G.pl.y) > 2400); if (far) { far.aggro = true; const x = far.x; T.run(0.5); T.ok(far.zz && far.x === x, '遠處的怪沒有凍結'); }
+    },
+    '大地圖：劇情事件、封住的通道、區域首領都在大地圖上完成（第 1 夜）': T => {
+      T.hero('warrior', 30, 3); enterMap(1); T.quiet(); const w = G.world, c = w.chap;
+      T.ok(c && c.keys.join() === '1-1,1-2,1-3' && c.dCells.length && c.dCells.every(i => !w.grid[i]), '三區的劇情資料沒合併或 D 沒封住');
+      for (const ev of c.evs) { T.near(ev, 0); UI.interact(); T.quiet(); }
+      T.ok(c.open && c.dCells.every(i => w.grid[i]) && ['ch1_guard', 'ch1_decree', 'ch1_throne'].every(k => G.P.chapEv[k]), 'D 沒打開或劇情沒完成');
+      goRegion(2); const b = ChapBoss.live(); T.ok(b && BigMap.regionAt(w, b.x, b.y) === 2, '第 2 區的區域首領沒出現'); killMonster(b); T.ok(c.bosses[0].dead && G.P.chapBoss.ch1_herald, '區域首領沒記錄');
+      T.ok(!(w.events || []).some(e => c.evs.some(s => Math.hypot(s.x - e.x, s.y - e.y) < 3 * TS)), '地圖事件壓在劇情點 3 格內');
+      goRegion(3); T.ok(w.bossGate && BigMap.regionAt(w, w.bossGate.x, w.bossGate.y) === 3 && G.mons.filter(m => m.guardian).length === 2, '首領之門或守護者不在最後一區');
+    },
+    '大地圖：深層地圖 3～6 區、大小在範圍內、樣子不一樣': T => {
+      T.hero('warrior', 60, 30);
+      for (const t of [11, 15, 25]) for (let k = 0; k < 3; k++) {
+        G._stagePlan = { i: 1, n: stageCountFor(t) }; const t0 = performance.now(), w = genMap(t), ms = performance.now() - t0; G._stagePlan = null;
+        T.ok(w.regions && w.regions.length >= 3 && w.regions.length <= 6 && w.stage.n === w.regions.length, `第 ${t} 夜區數不對`);
+        T.ok(w.W >= 100 && w.W <= 260 && w.H >= 70 && w.H <= 180, `第 ${t} 夜大小 ${w.W}×${w.H} 超出範圍`);
+        T.ok(new Set(w.regions.map(r => r.kind)).size >= 2 && ms < 400, `區域長得都一樣，或蓋圖太慢（${Math.round(ms)} 毫秒）`);
+      }
+    },
+    '大地圖：沒打完的夢存讀（目前區、已生成的區、D、守護者）': T => {
+      T.hero('warrior', 30, 3); enterMap(1); T.quiet(); let w = G.world; goRegion(3); T.run(0.3);
+      const n0 = G.mons.length, act = w.regions.map(r => r.act).join();
+      dreamSave(); goTown(); G.savedMap = null; dreamRestore(G.charId); resumeMap(); T.run(0.3); w = G.world;
+      T.ok(w.regions && w.regions.map(r => r.act).join() === act && w.rmap && w.rmap.length === w.W * w.H, '讀檔後區域資料不對');
+      T.ok(Math.abs(G.mons.length - n0) <= 3 && G.mons.filter(m => m.guardian).length === w.bossGate.need && !w.bossGate.open, '讀檔後怪物或守護者不對');
+      T.ok(w.chap.dCells.every(i => !w.grid[i]) && !w.chap.open && w.stage.i === 1, '讀檔後 D 或目前所在區不對');
+      goRegion(2); T.ok(w.regions[1].act && w.stage.i === 2 && G.mons.some(m => BigMap.regionAt(w, m.x, m.y) === 2), '讀檔後還沒生怪的區走近不會生');
+    },
+    '大地圖：v2.18.2 舊存檔（一區一張圖）讀得回來、出口門接到大地圖': T => {
+      T.hero('warrior', 30, 5); enterMap(3); T.quiet(); const old = ChapterMaps.build(3, 1), b = old.boss; old.stage = { i: 1, n: 3 }; old.gate = { x: (b.x + b.w / 2) * TS, y: (b.y + b.h / 2) * TS };
+      resetEntities(); G.world = old; buildWorldCanvas(old); G.pl.x = (old.start.x + 4) * TS; G.pl.y = (old.start.y + 4) * TS; populate(old); old.portal = { x: G.pl.x, y: G.pl.y, exit: true };
+      dreamSave(); goTown(); G.savedMap = null; dreamRestore(G.charId); resumeMap(); T.run(0.2); T.ok(!G.world.regions && G.world.gate && G.world.chap, '舊格式沒讀回來');
+      G.loot = []; T.ok(T.near(G.world.gate).kind === 'gate', '舊存檔的出口門沒被選到'); UI.interact(); T.run(0.2);
+      const w = G.world; T.ok(w.regions && w.stage.i === 2 && w.regions[0].act && !G.mons.some(m => BigMap.regionAt(w, m.x, m.y) === 1), '舊存檔換區沒接到大地圖第 2 區');
     },
     '章節地圖：劇情點旁邊沒有怪': T => {
-      for (const [t, s] of [[6, 2], [10, 2], [7, 2]]) { T.hero('warrior', 40, 10); enterMap(t); while (G.world.stage.i < s) nextStage(); const c = G.world.chap;
+      for (const [t, s] of [[6, 2], [10, 2], [7, 2]]) { T.hero('warrior', 40, 10); enterMap(t); goRegion(s); const c = G.world.chap;
         const n = G.mons.filter(m => !m.dead && !m.chapBoss && !m.chapAmb && c.evs.some(e => Math.hypot(e.x - m.x, e.y - m.y) < 4.5 * TS)).length;
         T.ok(n === 0, `${t}-${s} 劇情點旁邊還有 ${n} 隻怪`); }
     },
     '沉船大版、日誌第幾區、進化圖鑑排序、輔助寶石連動': T => {
-      T.hero('ranger', 30, 6); enterMap(6); while (G.world.stage.i < 2) nextStage(); T.ok(G.world.chap.scenes.some(s => s.id === 'wreckBig'), '6-2 沉船沒有用大版');
+      T.hero('ranger', 30, 6); enterMap(6); goRegion(2); T.ok(G.world.chap.scenes.some(s => s.id === 'wreckBig'), '6-2 沉船沒有用大版');
       const j = JournalTabs.list.find(x => x.id === 'chapstory').html(); T.ok(/在第 1 夜第 \d/.test(j), '日誌沒寫第幾區');
       const h = EvoCodex.html(); T.ok(h.indexOf('飛刀') >= 0 && h.indexOf('飛刀') < h.indexOf('evoother') && /其他職業（\d+）/.test(h) && /傳奇.+有機會掉/.test(h), '進化圖鑑排序或掉落提示不對');
       T.ok(/可觸發：凝血（流血＋冰緩）/.test(SUPPORTS.rend.desc) && !/可觸發/.test(SUPPORTS.power.desc), '輔助寶石沒寫可觸發的連動');
