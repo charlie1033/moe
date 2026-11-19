@@ -119,7 +119,7 @@ const UI = {
     this.refresh();
   },
   closeAll() { for (const k in this.open) if (this.open[k]) this.toggle(k, false); this.curSel = null; this.hideTip(); },
-  onStart() { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); setTimeout(() => window.focusSink && window.focusSink(), 50); $('#menu').classList.remove('show'); document.body.classList.add('playing'); this.layoutHUD(); Touch.layout(); this.refresh(); this.renderQuest(); },
+  onStart() { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); setTimeout(() => window.focusSink && window.focusSink(), 50); $('#menu').classList.remove('show'); this.menuMode = 'pick'; document.body.classList.add('playing'); this.layoutHUD(); Touch.layout(); this.refresh(); this.renderQuest(); },
   refresh() { if (!G.P) return; this.refreshInv(); this.refreshChar(); this.refreshSkills(); this.refreshTreeHead(); this.refreshJournal(); this.refreshJewels(); this.refreshCraft(); },
 
   // ---------- 功能按鈕列（畫面右側）與 HUD 說明 ----------
@@ -1109,43 +1109,64 @@ const UI = {
   },
 
   // ---------- 選角 ----------
-  buildMenu() {
+  // v2.19.5 分成兩頁：mode 'pick'＝選擇角色（每個角色一個槽位，最後一格是「建立新角色」）；'new'＝建立新角色（只有職業、名字、返回）
+  //   不帶參數重畫時沿用目前那一頁（換美術設定會重畫）；進遊戲後回到 'pick'
+  buildMenu(mode) {
+    if (mode) this.menuMode = mode;
+    mode = this.menuMode = this.menuMode === 'new' ? 'new' : 'pick';
     const ok = storageOK();
-    const idx = ok ? loadIndex() : { chars: [] };
+    const idx = ok ? loadIndex() : { chars: [] }, full = idx.chars.length >= MAX_CHARS;
     let h = '';
     if (!ok) h += `<div class="warnbox">⚠ 這個瀏覽器目前<b>不允許遊戲存檔</b>（可能是無痕視窗或隱私設定）。<br>可以照常玩，但離開前請${ctlText('{help}')} →「匯出備份」把進度存成檔案，下次再「匯入備份」。<br>建議改用一般視窗的 Chrome 或 Edge 開啟 index.html。</div>`;
-    if (idx.chars.length) {
-      h += '<div class="slots">' + idx.chars.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).map(c => `<div class="slot"><img src="${spriteURL(c.cls)}">
-        <div class="sinfo"><b style="color:${CLASSES[c.cls].color}">${c.name}</b><br>${CLASSES[c.cls].name}　Lv ${c.lvl}　第 ${c.maxTier} 夜</div>
-        <button data-play="${c.id}">繼續</button><button class="del" data-del="${c.id}">刪除</button></div>`).join('') + '</div>';
+    const port = k => typeof ArtStyle !== 'undefined' && ArtStyle.img('class_' + k);
+    if (mode === 'pick') {
+      h += `<div class="mhead">選擇角色<small>${idx.chars.length} / ${MAX_CHARS}</small></div><div class="slots">`;
+      h += idx.chars.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).map(c => { const C = CLASSES[c.cls] || {}, pt = port(c.cls);
+        return `<div class="slot" data-play="${c.id}">${pt ? `<img class="sport" src="${pt}" alt="">` : `<img class="ssprite" src="${spriteURL(c.cls)}" alt="">`}
+        <div class="sinfo"><b style="color:${C.color}">${c.name}</b><span>${C.name || ''}　Lv ${c.lvl}</span><span>最深第 ${c.maxTier || 1} 夜</span></div>
+        <div class="sbtns"><button class="go">繼續</button><button class="del" data-del="${c.id}">刪除</button></div></div>`; }).join('');
+      h += full ? `<div class="slot empty full"><div class="splus">✕</div><div class="sinfo">角色已滿 ${MAX_CHARS} 個<span>刪除一個才能再建立</span></div></div>`
+        : '<div class="slot empty" id="slotNew"><div class="splus">＋</div><div class="sinfo"><b>建立新角色</b><span>舊角色會保留</span></div></div>';
+      h += '</div>';
+      h += `<div class="nrow"><button id="expBtn">匯出備份</button><button id="impBtn">匯入備份</button><input type="file" id="impFile" accept=".json,application/json" style="display:none"></div>`;
+      if (FileSave.supported()) h += `<div class="nrow"><button id="linkBtn">連結存檔檔案（自動存到電腦）</button><button id="readBtn">從存檔檔案讀取</button></div><div class="freenote" id="fileStat"></div>`;
+      h += '<div class="freenote">備份檔只會存在你的電腦（下載資料夾），不會上傳到網路。</div>';
+    } else {
+      h += '<div class="mhead">建立新角色</div>';
+      if (full) h += `<div class="warnbox">角色已滿 ${MAX_CHARS} 個，請先回到「選擇角色」刪除一個。</div>`;
+      h += '<div class="classes">';
+      for (const k in CLASSES) {
+        const c = CLASSES[k], pt = port(k);
+        h += `<div class="ccard${pt ? ' hasport' : ''}" data-cls="${k}">${pt ? `<img class="cport" src="${pt}" alt=""><img class="cmini" src="${spriteURL(k)}">` : `<img src="${spriteURL(k)}">`}<div class="cname" style="color:${c.color}">${c.name}</div><div class="cattr">起點：${c.attrName}</div><div class="cdesc">${c.desc}</div>
+          <div class="cskills">預設技能：${c.skills.filter(x => x).map(s => SKILLS[s].name).join('、')}</div></div>`;
+      }
+      h += '</div><div class="nrow">角色名稱 <input id="nameIn" maxlength="10" value="無名者"> <button id="newBtn" disabled>選一個職業</button></div>';
+      h += '<div class="nrow"><button id="backPick">◂ 返回選擇角色</button></div>';
+      h += '<div class="freenote">職業只決定「天賦樹的起點」和起始裝備，所有技能所有職業都能用。</div>';
     }
-    h += `<div class="or">— 建立新角色（最多 ${MAX_CHARS} 個，舊角色會保留）—</div><div class="classes">`;
-    for (const k in CLASSES) {
-      const c = CLASSES[k];
-      const port = typeof ArtStyle !== 'undefined' && ArtStyle.img('class_' + k);
-      h += `<div class="ccard${port ? ' hasport' : ''}" data-cls="${k}">${port ? `<img class="cport" src="${port}" alt=""><img class="cmini" src="${spriteURL(k)}">` : `<img src="${spriteURL(k)}">`}<div class="cname" style="color:${c.color}">${c.name}</div><div class="cattr">起點：${c.attrName}</div><div class="cdesc">${c.desc}</div>
-        <div class="cskills">預設技能：${c.skills.filter(x => x).map(s => SKILLS[s].name).join('、')}</div></div>`;
-    }
-    h += '</div><div class="nrow">角色名稱 <input id="nameIn" maxlength="10" value="無名者"> <button id="newBtn" disabled>選一個職業</button></div>';
-    h += `<div class="nrow"><button id="expBtn">匯出備份</button><button id="impBtn">匯入備份</button><input type="file" id="impFile" accept=".json,application/json" style="display:none"></div>`;
-    if (FileSave.supported()) h += `<div class="nrow"><button id="linkBtn">連結存檔檔案（自動存到電腦）</button><button id="readBtn">從存檔檔案讀取</button></div><div class="freenote" id="fileStat"></div>`;
-    h += '<div class="freenote">職業只決定「天賦樹的起點」和起始裝備，所有技能所有職業都能用。備份檔只會存在你的電腦（下載資料夾），不會上傳到網路。</div>';
     $('#menuBody').innerHTML = h;
-    let chosen = null;
-    document.querySelectorAll('.ccard').forEach(c => c.onclick = () => {
-      document.querySelectorAll('.ccard').forEach(x => x.classList.remove('sel'));
-      c.classList.add('sel'); chosen = c.dataset.cls;
-      $('#newBtn').disabled = false; $('#newBtn').textContent = `以${CLASSES[chosen].name}開始`;
-    });
-    $('#newBtn').onclick = () => {
-      if (!chosen) return;
-      if (idx.chars.length >= MAX_CHARS) return alert(`角色已滿 ${MAX_CHARS} 個，請先刪除一個。`);
-      FileSave.ensure();
-      startGame(newCharacter(chosen, $('#nameIn').value.trim() || '無名者'));
-    };
-    document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
+    $('#menu').scrollTop = 0;
+    if (mode === 'new') {
+      let chosen = null;
+      document.querySelectorAll('.ccard').forEach(c => c.onclick = () => {
+        document.querySelectorAll('.ccard').forEach(x => x.classList.remove('sel'));
+        c.classList.add('sel'); chosen = c.dataset.cls;
+        if (!full) { $('#newBtn').disabled = false; $('#newBtn').textContent = `以${CLASSES[chosen].name}開始`; }
+      });
+      $('#newBtn').onclick = () => {
+        if (!chosen) return;
+        if (loadIndex().chars.length >= MAX_CHARS) return gameNote(`角色已滿 ${MAX_CHARS} 個，請先刪除一個。`);
+        FileSave.ensure();
+        startGame(newCharacter(chosen, $('#nameIn').value.trim() || '無名者'));
+      };
+      $('#backPick').onclick = () => this.buildMenu('pick');
+      return;
+    }
+    if ($('#slotNew')) $('#slotNew').onclick = () => this.buildMenu('new');
+    document.querySelectorAll('[data-play]').forEach(b => b.onclick = e => {
+      if (e.target.closest('[data-del]')) return;
       const P = loadChar(b.dataset.play);
-      if (!P) return alert('這個角色的存檔讀不到了。');
+      if (!P) return gameNote('這個角色的存檔讀不到了。');
       FileSave.ensure(); // 有連結過存檔檔案的話，順便取得寫入權限
       startGame(P, b.dataset.play);
     });

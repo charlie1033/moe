@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>夢疑 MOE v2.19.4</title>
+<title>夢疑 MOE v2.19.5</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -181,10 +181,22 @@
   .restag.weak { color:#9fff9f; border-color:#3a8a3a; } .restag.immune { color:#ff9a9a; border-color:#8a3a3a; }
   /* 選角多角色 */
   .warnbox { border:1px solid #a03030; background:rgba(120,20,20,.3); padding:10px 14px; margin-bottom:12px; font-size:13px; line-height:1.7; max-width:720px; }
-  .slots { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; width:520px; max-width:94vw; }
-  .slot { display:flex; align-items:center; gap:10px; border:1px solid #3a3020; background:rgba(0,0,0,.4); padding:4px 10px; }
-  .slot img { image-rendering:pixelated; width:40px; height:40px; } .sinfo { flex:1; font-size:13px; line-height:1.5; }
+  /* v2.19.5 選擇角色：每個角色一個槽位（一排一排），最後一格是建立新角色 */
+  .mhead { color:var(--gold); font-size:20px; letter-spacing:4px; margin:2px 0 14px; display:flex; align-items:baseline; gap:10px; }
+  .mhead small { font-size:12px; color:var(--dim); letter-spacing:1px; }
+  .slots { display:grid; grid-template-columns:repeat(auto-fill, 160px); gap:12px; justify-content:center; width:min(900px, 94vw); margin-bottom:4px; }
+  .slot { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; height:252px; box-sizing:border-box; padding:8px; border:1px solid #3a3020; background:rgba(0,0,0,.4); cursor:pointer; text-align:center; }
+  .slot .sport { width:100%; height:132px; object-fit:cover; object-position:center 18%; border-radius:4px; border:1px solid #3a2c1a; filter:none; }
+  .slot .ssprite { image-rendering:pixelated; width:96px; height:96px; margin:18px 0; }
+  .sinfo { flex:1; font-size:12px; line-height:1.55; display:flex; flex-direction:column; color:var(--dim); } .sinfo b { font-size:15px; }
+  .sbtns { display:flex; gap:6px; } .sbtns button { padding:3px 10px; font-size:12px; }
   .slot .del { background:#2a1414; color:#d08080; }
+  .slot:hover { border-color:#c8a060; }
+  .slot.empty { justify-content:center; border:2px dashed #5a4630; background:rgba(0,0,0,.25); }
+  .slot.empty:hover { border-color:var(--gold); background:rgba(80,60,30,.25); }
+  .slot.empty .splus { font-size:46px; line-height:1; color:#c8a060; } .slot.empty .sinfo { flex:none; } .slot.empty .sinfo b { color:var(--gold); }
+  .slot.full { cursor:default; opacity:.6; } .slot.full:hover { border-color:#5a4630; background:rgba(0,0,0,.25); }
+  @media (max-width: 720px), (max-height: 500px) { .slots { grid-template-columns:repeat(auto-fill, 128px); gap:8px; } .slot { height:216px; padding:6px; } .slot .sport { height:100px; } .slot .ssprite { width:72px; height:72px; margin:12px 0; } }
   .classes .ccard { width:210px; padding:10px; } .ccard img { width:64px; height:64px; } .cdesc { min-height:0; font-size:12px; }
   .nrow button { margin-left:6px; }
   /* 功能按鈕列、HUD 熱區、任務框（遊戲中才顯示） */
@@ -326,7 +338,8 @@
     box-shadow:inset 0 0 20px rgba(0,0,0,.6); transition:transform .12s, box-shadow .12s, border-color .12s; }
   .ccard:hover { transform:translateY(-3px); border-color:#c8a060; box-shadow:0 8px 24px rgba(0,0,0,.6), 0 0 14px rgba(232,180,90,.25), inset 0 0 20px rgba(0,0,0,.5); }
   .ccard img, .slot img { filter:drop-shadow(0 4px 4px rgba(0,0,0,.6)); }
-  .slot { border-radius:6px; border-color:#4a3a24; background:linear-gradient(90deg, rgba(40,30,20,.6), rgba(8,6,6,.6)); }
+  .slot:not(.empty) { border-radius:6px; border-color:#4a3a24; background:linear-gradient(rgba(40,30,20,.55), rgba(8,6,6,.75)); box-shadow:inset 0 0 20px rgba(0,0,0,.6); }
+  .slot:not(.empty):hover { border-color:#c8a060; }  .slot.empty { border-radius:6px; }
   /* 任務框 */
   #questbox { background:linear-gradient(90deg, rgba(14,10,8,.85), rgba(14,10,8,.55)); border:none; border-left:2px solid #c8a060; border-radius:0 4px 4px 0;
     box-shadow:0 4px 14px rgba(0,0,0,.5); }
@@ -607,7 +620,7 @@
 
 <div id="menu" class="panel">
   <div class="title logo-title"><img src="img/logo.png" alt="夢疑 MOE"></div>
-  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.19.4</div>
+  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.19.5</div>
   <div id="menuBody"></div>
 </div>
 <div id="title"></div>
@@ -713,7 +726,7 @@
 <div id="tip"></div>
 
 <!--BOOT-->
-<script id="bootList" type="application/json">{"v":"2.19.4","f":[["sfx.js",8729],["settings.js",20571],["core.js",9647],["data.js",91813],["story.js",36812],["quests.js",8857],["sprites.js",22186],["art.js",37799],["artwork.js",10792857],["artstyle.js",7029],["scene.js",17928],["atlas0x72.js",69467],["atlasdcss.js",62527],["atlaswild.js",7074],["pixelart.js",14460],["paperdoll.js",25244],["tree.js",44345],["gemlevel.js",8485],["items.js",40720],["game.js",121488],["newskills.js",13894],["stacks.js",10140],["render.js",63375],["ui.js",98933],["dragitem.js",12558],["enhance.js",15387],["dreamscar.js",20448],["elites.js",11065],["curses.js",7238],["gems2.js",5978],["monai.js",12219],["stashspec.js",10772],["endgame.js",10617],["tutorial.js",11858],["artscenes.js",9483],["artui.js",86808],["touch.js",11538],["touchtext.js",3875],["dodge.js",3981],["treeplan.js",8515],["camplife.js",9427],["jewels2.js",6193],["uniqstash.js",7882],["dreamkeep.js",6160],["stages.js",22353],["treejewels.js",11109],["mapevents.js",14818],["village.js",5219],["music.js",6854],["classmove.js",6313],["levelfx.js",2768],["townlayout.js",3771],["auras.js",8239],["gems3.js",5668],["stackprops.js",13513],["minimapmarks.js",5308],["lootfx.js",1900],["bossroom.js",12797],["atlas.js",16581],["dreamtide.js",8528],["dreamrites.js",10052],["depths.js",6751],["maptint.js",5658],["lights.js",6982],["perfguard.js",1712],["mobilefit.js",8880],["summoner2.js",4471],["newbie.js",5826],["thornfx.js",4547],["gemshare.js",1388],["skilluniques.js",20524],["classbal.js",1155],["jewelgirl.js",5128],["reactions.js",12723],["evocodex.js",9398],["book138.js",8695],["dreamwords.js",10291],["errands.js",16629],["trials.js",6315],["campjobs.js",12161],["pastself.js",5724],["gems4.js",11043],["dreamtalk.js",4443],["skills4.js",14097],["wardentext.js",32378],["wardenplus.js",14870],["wardens.js",14578],["wardencamp.js",12011],["storychoice.js",6060],["sets.js",13505],["seteffects.js",7640],["bossuniques.js",10716],["deepuniques.js",8336],["prophecy.js",8759],["climb.js",8443],["sets6.js",13030],["sets6fx.js",10354],["chapmaps.js",17811],["chapevents.js",12171],["chapart.js",12432],["chapscenes.js",24888],["chapboss.js",9775],["chapmaps1.js",91708],["chapmaps2.js",109544],["bigmapgen.js",12998],["bigmap.js",18677],["deathhelp.js",7159],["autoaim.js",3063],["titlescreen.js",31235],["artcamp.js",12999],["core-end.js",3187],["main.js",9758]]}</script>
+<script id="bootList" type="application/json">{"v":"2.19.5","f":[["sfx.js",8729],["settings.js",20571],["core.js",9647],["data.js",91813],["story.js",36812],["quests.js",8857],["sprites.js",22186],["art.js",37799],["artwork.js",10792857],["artstyle.js",7029],["scene.js",17928],["atlas0x72.js",69467],["atlasdcss.js",62527],["atlaswild.js",7074],["pixelart.js",14460],["paperdoll.js",25244],["tree.js",44345],["gemlevel.js",8485],["items.js",40720],["game.js",121488],["newskills.js",13894],["stacks.js",10140],["render.js",63375],["ui.js",100620],["dragitem.js",12558],["enhance.js",15387],["dreamscar.js",20448],["elites.js",11065],["curses.js",7238],["gems2.js",5978],["monai.js",12219],["stashspec.js",10772],["endgame.js",10617],["tutorial.js",11858],["artscenes.js",9483],["artui.js",86808],["touch.js",11538],["touchtext.js",3875],["dodge.js",3981],["treeplan.js",8515],["camplife.js",9427],["jewels2.js",6193],["uniqstash.js",7882],["dreamkeep.js",6160],["stages.js",22353],["treejewels.js",11109],["mapevents.js",14818],["village.js",5219],["music.js",6854],["classmove.js",6313],["levelfx.js",2768],["townlayout.js",3771],["auras.js",8239],["gems3.js",5668],["stackprops.js",13513],["minimapmarks.js",5308],["lootfx.js",1900],["bossroom.js",12797],["atlas.js",16581],["dreamtide.js",8528],["dreamrites.js",10052],["depths.js",6751],["maptint.js",5658],["lights.js",6982],["perfguard.js",1712],["mobilefit.js",8880],["summoner2.js",4471],["newbie.js",5826],["thornfx.js",4547],["gemshare.js",1388],["skilluniques.js",20524],["classbal.js",1155],["jewelgirl.js",5128],["reactions.js",12723],["evocodex.js",9398],["book138.js",8695],["dreamwords.js",10291],["errands.js",16629],["trials.js",6315],["campjobs.js",12161],["pastself.js",5724],["gems4.js",11043],["dreamtalk.js",4443],["skills4.js",14097],["wardentext.js",32378],["wardenplus.js",14870],["wardens.js",14578],["wardencamp.js",12011],["storychoice.js",6060],["sets.js",13505],["seteffects.js",7640],["bossuniques.js",10716],["deepuniques.js",8336],["prophecy.js",8759],["climb.js",8443],["sets6.js",13030],["sets6fx.js",10354],["chapmaps.js",17811],["chapevents.js",12171],["chapart.js",12432],["chapscenes.js",24888],["chapboss.js",9775],["chapmaps1.js",91708],["chapmaps2.js",109544],["bigmapgen.js",12998],["bigmap.js",18677],["deathhelp.js",7159],["autoaim.js",3063],["titlescreen.js",31160],["artcamp.js",12999],["core-end.js",3187],["main.js",9758]]}</script>
 <!--/BOOT-->
 <script>
 // =============================================================

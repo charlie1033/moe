@@ -653,8 +653,10 @@ const MOE_DEV = {
     },
     '劇情對齊：營地播主線、選完取代第二章、深層台詞': T => {
       const P = T.hero('warrior', 50, 9); P.story.seen = { intro: true, firstDream: true };
-      enterMap(4); T.ok(!P.story.seen.tier4, '一進第 4 夜就播了舊劇情');
-      P.hub = 'cell'; goTown(); T.quiet(); update(1 / 30); T.ok(P.story.seen.tier4, '回營地沒播歐莉的紙條'); T.quiet();
+      // smoke() 把 storyBeat 換成空的（劇情不會跳出來擋測試）→ 這裡記下有沒有叫它播 tier4，不看 seen
+      const sb = window.storyBeat, beats = []; window.storyBeat = k => beats.push(k);
+      try { enterMap(4); update(1 / 30); T.ok(!beats.includes('tier4'), '一進第 4 夜就播了舊劇情'); P.hub = 'cell'; goTown(); T.quiet(); update(1 / 30); } finally { window.storyBeat = sb; }
+      T.ok(beats.includes('tier4'), '回營地沒播歐莉的紙條'); T.quiet();
       P.story.seen.yin1 = true; P.bossKills.b_swamp = 1; P.wardens.first.b_swamp = 'name'; P.wardens.tok = {};
       T.ok((nextNpcChapter('yin', P) || {}).id === 'w_b_swamp', '選完之後茵之二沒有被取代');
       T.ok(!STORY.w_b_swamp.pages[0].includes('圍裙'), '沒拿到信物卻說了圍裙');
@@ -673,6 +675,19 @@ const MOE_DEV = {
       T.hero('mage', 12, 4); saveGame(); const id = G.charId; T.ok(!TitleScreen.alive && !TitleScreen.shown, '進遊戲後開始畫面的迴圈沒停');
       backToTitle(); TitleScreen.open(); T.ok(TitleScreen.last && TitleScreen.last.id === id && q('#title [data-ts="cont"]'), '繼續不是上次的角色');
       q('#title [data-ts="cont"]').click(); T.ok(G.state === 'play' && G.charId === id && !TitleScreen.alive, '繼續沒有直接進角色');
+    },
+    '選角畫面：槽位清單和建立新角色分開': T => {
+      T.clean(); if (G.state === 'play') backToTitle(); const q = s => document.querySelector(s), qa = s => document.querySelectorAll(s).length;
+      TitleScreen.open(); q('#title [data-ts="new"]').click();
+      T.ok(q('#menu.show .classes') && !qa('#menu .slot') && q('#backPick'), '建立新角色那頁還有角色清單，或沒有返回');
+      UI.buildMenu(); T.ok(q('#menu .classes'), '重畫後跳回了選擇角色');
+      q('#backPick').click(); const n = loadIndex().chars.length;
+      T.ok(!qa('#menu .classes') && qa('#menu .slot[data-play]') === n && q('#slotNew'), '選擇角色的槽位數不對：' + qa('#menu .slot[data-play]') + '/' + n);
+      q('#slotNew').click(); T.ok(q('#menu .classes'), '空槽位沒打開建立新角色');
+      q('#tsBack').click(); q('#title [data-ts="chars"]').click(); T.ok(q('#menu .slots') && !qa('#menu .classes'), '開始畫面的選擇角色沒打開槽位清單');
+      const old = window.loadIndex; window.loadIndex = () => ({ chars: Array.from({ length: MAX_CHARS }, (_, i) => ({ id: 'x' + i, name: '假' + i, cls: 'mage', lvl: 1, maxTier: 1 })) });
+      try { UI.buildMenu('pick'); T.ok(!q('#slotNew') && q('#menu .slot.full') && qa('#menu .slot[data-play]') === MAX_CHARS, '角色滿了還能建立'); } finally { window.loadIndex = old; UI.buildMenu('pick'); }
+      T.hero('mage', 2, 1); backToTitle(); T.ok(UI.menuMode === 'pick' && q('#menu .slots'), '回到選角沒回到槽位清單'); TitleScreen.destroy();
     },
     '開始畫面：沒有角色時沒有繼續': T => {
       if (G.state === 'play') backToTitle(); const old = window.loadIndex; window.loadIndex = () => ({ chars: [] });

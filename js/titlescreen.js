@@ -12,7 +12,7 @@
 //      召喚師外側趴著一隻白色靈狼（遊戲的狼圖用 tint.G 染白，同營地的大白），身體跟著呼吸起伏
 //    ・左上「夢疑 MOE」標誌＋副標，左邊文字選單：繼續（有角色才有）、選擇角色、建立新角色、設定、製作人員；右下版本號
 //    ・第一次點擊後播營地音樂（music.js 讀 TitleScreen.playing()）
-//  規則：「選擇角色」「建立新角色」只是把開始畫面藏起來，露出原本的角色清單（左上多一顆「回到開始畫面」）；
+//  規則：「選擇角色」「建立新角色」只是把開始畫面藏起來，各自打開選角畫面的那一頁（槽位清單／建立新角色；左上多一顆「回到開始畫面」）；
 //        進入遊戲（Hook 'start'，含 MOE_DEV.hero）→ 停掉迴圈、丟掉畫布（destroy）；backToTitle 回來時看到角色清單，可以按左上鈕再打開
 //  畫法：整個畫面畫在 300 列高的小畫布上（1 個世界像素＝2 格），瀏覽器用像素放大貼滿螢幕；地面和樹只在換尺寸時畫一次
 //        火堆固定在畫面右邊（距右邊約 0.62 個畫面高、至少 62% 寬），手機橫向也不會被左邊選單蓋到
@@ -284,7 +284,7 @@ const TitleScreen = (() => {
   function act(a) {
     if (typeof Sfx !== 'undefined') try { Sfx.play('click'); } catch (e) { }
     if (a === 'cont') { const c = api.last; const p = c && loadChar(c.id); if (!p) return act('chars'); try { FileSave.ensure(); } catch (e) { } return startGame(p, c.id); }
-    if (a === 'chars' || a === 'new') { hide(); UI.buildMenu(); document.getElementById('menu').classList.add('show'); if (a === 'new') setTimeout(() => { const el = document.querySelector('#menu .classes'); if (el) el.scrollIntoView({ block: 'center' }); }, 30); return; }
+    if (a === 'chars' || a === 'new') { hide(); UI.buildMenu(a === 'new' ? 'new' : 'pick'); document.getElementById('menu').classList.add('show'); return; }
     if (a === 'set') { setOpen = true; Pause.open = true; Pause.view = 'settings'; Pause.waitKey = null; Pause.render(); return; }
     if (a === 'cred') return root.classList.add('cred');
     if (a === 'credx') return root.classList.remove('cred');
