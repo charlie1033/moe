@@ -487,6 +487,7 @@ const MOE_DEV = {
       mechHud('trialHud', 96, '#fff', ''); StatusLines.set('x', ''); T.ok(!StatusLines.fixed.trialHud && !StatusLines.fixed.x, '狀態列拿不掉');
     },
     '新手引導：照實際狀況出現、不擋面板': T => {
+      UI.storyQ = []; UI.storyOpen = false; document.querySelectorAll('#story.show, #gask.show').forEach(e => e.classList.remove('show')); for (const k in UI.open) if (UI.open[k]) UI.toggle(k, false);   // 前面的測試可能留下劇情框、請託框
       T.hero('druid', 1, 1); const P = G.P; P.tut = 0; P.tutD = {}; CFG.tutorial = true; Tut.begin(P); Tut.T = null;
       Tut.tick(0.1); T.ok(Tut.T && Tut.T.id === 'move', '第一步不是移動');
       enterMap(1); P.tutD = { move: 1, attack: 1, pickup: 1 }; Tut.T = null; P.inv = P.inv.map(it => it && (isStack(it) || isFlask(it)) ? it : null);
@@ -722,6 +723,51 @@ const MOE_DEV = {
       const want = ['u_fuse', 'set_dabai_collar'].map(id => ArtStyle.cell(id)); if (want.some(c => !c)) return;   // 美術關掉時跳過
       UI.toggle('inv', true); UI.refreshInv(); const imgs = [...document.querySelectorAll('#inv img')].map(i => i.src);
       T.ok(want.every(c => imgs.includes(artURL(c))), '背包裡的傳奇或套裝沒用自己的圖示'); UI.toggle('inv', false);
+    },
+    '手機：點背包裝備只出現一個視窗（比較面板）': T => {
+      T.hero('ranger', 20, 5); const P = G.P, keep = Touch.on;
+      let it = null; for (let k = 0; k < 60 && !it; k++) { const x = makeItem(pickBase(5).id, 'magic', 5); if (!isFlask(x) && !canEquip(x)) it = x; }
+      const i = P.inv.indexOf(null); P.inv[i] = it; UI.toggle('inv', true); UI.refreshInv();
+      const c = document.querySelector(`#invgrid .icell[data-i="${i}"]`), r = c.getBoundingClientRect(), o = { bubbles: true, clientX: r.x + 5, clientY: r.y + 5 };
+      try {
+        Touch.on = true; c.dispatchEvent(new MouseEvent('mouseenter', o)); c.dispatchEvent(new MouseEvent('click', o));
+        T.ok($('#cmp').classList.contains('show') && $('#cmp [data-a="equip"]'), '手機：點了沒有打開比較面板（或沒有裝備鈕）');
+        T.ok($('#tip').style.display !== 'block', '手機：比較面板之外又跳了浮動說明');
+        UI.select(null); Touch.on = false; c.dispatchEvent(new MouseEvent('mouseenter', o));
+        T.ok($('#tip').style.display === 'block', '電腦版：滑鼠移上去沒有浮動說明');
+      } finally { Touch.on = keep; UI.select(null); UI.hideTip(); UI.toggle('inv', false); }
+    },
+    '手機：位移鈕有職業圖示、冷卻轉圈、在畫面內': T => {
+      if (!Touch.on) return T.ok(!document.getElementById('tdodge'), '電腦版不該有位移鈕');
+      for (const cls of ['ranger', 'mage', 'warrior', 'samurai']) {
+        T.hero(cls, 10, 2); UI.closeAll(); enterMap(1); T.quiet(); G.pl.dodgeCd = 0.5; Touch.frame = 5; Touch.tick();
+        const b = $('#tdodge'), r = b.getBoundingClientRect(), c = CV.getBoundingClientRect();
+        T.ok(b.querySelector('.tico').src.startsWith('data:image') && b.dataset.move === classMove().id, cls + '：位移鈕沒有該職業的圖示');
+        T.ok(r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom, cls + '：位移鈕跑出畫面');
+        T.ok(b.querySelector('.tcd').textContent !== '', cls + '：位移冷卻沒有轉圈');
+        for (const o of document.querySelectorAll('#touchui .tbtn[data-s]')) { const q = o.getBoundingClientRect(); T.ok(r.right <= q.left || r.left >= q.right || r.bottom <= q.top || r.top >= q.bottom, cls + '：位移鈕跟技能鈕重疊'); }
+      }
+      G.pl.dodgeCd = 0; $('#tdodge').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); T.ok(G.pl.dodgeCd > 0, '按位移鈕沒有放出位移');
+    },
+    '手機：天賦點一下出現確認鈕、按了才點上': T => {
+      T.hero('ranger', 20, 5); const P = G.P; UI.toggle('tree', true); TreeView.center(); TreeView.draw();
+      const tgt = TREE.list.find(n => { const p = treePath(P, n.id); return p && p.length === 2 && n.kind === 'minor'; });
+      const n0 = P.tree.length, cv = TreeView.canvas;
+      const blank = () => { for (let y = 30; y < cv.height; y += 17) for (let x = 30; x < cv.width; x += 17) if (TREE.list.every(n => { const q = TreeView.toScreen(n); return Math.hypot(q.x - x, q.y - y) > TreeView.nodeR(n) + 30; })) return { x, y }; };
+      const tap = (n, type) => { const r = cv.getBoundingClientRect(), p = n ? TreeView.toScreen(n) : blank(), o = { bubbles: true, clientX: r.left + p.x, clientY: r.top + p.y, pointerId: 9, pointerType: type || 'touch', button: 0 }; cv.dispatchEvent(new PointerEvent('pointerdown', o)); window.dispatchEvent(new PointerEvent('pointerup', o)); };
+      try {
+        tap(tgt); tap(tgt);
+        T.ok(P.tree.length === n0, '點兩下同一個天賦就點上了（應該要按確認鈕）');
+        const b = document.querySelector('#treeSel [data-ta="alloc"]');
+        T.ok(b && b.textContent === '點這 2 個（需要 2 點）', '沒有出現「點這 2 個（需要 2 點）」確認鈕');
+        if (b) b.click();
+        T.ok(P.tree.length === n0 + 2 && P.tree.includes(tgt.id), '按確認鈕沒有點上');
+        T.ok(document.querySelector('#treeSel').style.display === 'none', '點完說明卡沒收起來');
+        tap(tgt); const rb = document.querySelector('#treeSel [data-ta="refund"]'); if (rb) rb.click();
+        T.ok(!P.tree.includes(tgt.id), '「退回這一點」沒作用');
+        tap(tgt); tap(null); T.ok(!TreeView.tapSel && document.querySelector('#treeSel').style.display === 'none', '點空白處沒有取消選取');
+        if (!IS_TOUCH) { TreePlan.cancel(); tap(tgt, 'mouse'); T.ok(P.tree.includes(tgt.id), '電腦版：左鍵沒有直接點上'); }
+      } finally { TreePlan.cancel(); UI.toggle('tree', false); }
     },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');

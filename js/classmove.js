@@ -18,8 +18,8 @@ REMOVED_GEMS.forEach(k => { if (SKILLS[k]) SKILLS[k].hidden = true; });
 for (const c in CLASS_GEMS) CLASS_GEMS[c] = CLASS_GEMS[c].filter(k => !REMOVED_GEMS.includes(k));
 if (!CLASS_GEMS.samurai.includes('swallow')) CLASS_GEMS.samurai.unshift('swallow');
 CLASSES.samurai.skills = ['heavy', 'swallow', null, null, null];
-CLASSES.samurai.desc = `力量區：太刀、暴擊、流血。${byCtl('空白鍵', '閃避鈕')}「一閃」拔刀衝刺，一刀一個。`;
-CLASSES.warrior.desc += `${byCtl('空白鍵', '閃避鈕')}「躍擊」跳進敵陣。`;
+CLASSES.samurai.desc = `力量區：太刀、暴擊、流血。${byCtl('空白鍵', '位移鈕')}「一閃」拔刀衝刺，一刀一個。`;
+CLASSES.warrior.desc += `${byCtl('空白鍵', '位移鈕')}「躍擊」跳進敵陣。`;
 const _rsgCM = randomSkillGem;
 randomSkillGem = function (mlvl) { let s = _rsgCM(mlvl), n = 0; while (REMOVED_GEMS.includes(s) && n++ < 20) s = _rsgCM(mlvl); return REMOVED_GEMS.includes(s) ? 'heavy' : s; };
 const _gemShopCM = UI.refreshGemShop.bind(UI);
@@ -85,6 +85,5 @@ Hook.on('update', dt => {
 // 跳起來時角色畫高一點
 const _drawPlCM = drawPlayer;
 drawPlayer = function (g, ...a) { const pl = G.pl; if (pl && pl.hop) { g.save(); g.translate(0, -pl.hop); const r = _drawPlCM(g, ...a); g.restore(); return r; } return _drawPlCM(g, ...a); };
-// 按鍵名稱、手機按鈕、說明
+// 按鍵名稱、說明（手機的位移鈕在 touch.js）
 const kaD = KEY_ACTIONS.find(a => a.id === 'dodge'); if (kaD) kaD.name = '職業位移（翻滾／瞬移／躍擊／一閃）';
-setInterval(() => { const b = document.getElementById('tdodge'); if (b && G.P) { const g = classMove().glyph; if (b.textContent !== g) b.textContent = g; } }, 1000);

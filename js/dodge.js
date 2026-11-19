@@ -50,16 +50,4 @@ if (_drawPlayerDodge) drawPlayer = function (g, ...a) {
   if (pl && pl.dodgeCd > 0) { g.strokeStyle = 'rgba(220,210,255,0.6)'; g.lineWidth = 2; g.beginPath(); g.arc(pl.x, pl.y + 10, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - pl.dodgeCd / DODGE.cd)); g.stroke(); }
   return r;
 };
-// 手機：多一顆「閃」按鈕
-if (typeof Touch !== 'undefined') {
-  const _tInit = Touch.init.bind(Touch);
-  Touch.init = function () {
-    _tInit();
-    if (!this.on) return;
-    const ui = document.getElementById('touchui'); if (!ui) return;
-    const b = document.createElement('div'); b.className = 'tbtn'; b.id = 'tdodge'; b.textContent = '閃';
-    Object.assign(b.style, { left: (VW - 300) + 'px', top: (VH - 64) + 'px', width: '50px', height: '50px', fontSize: '18px', fontWeight: 'bold', color: '#e8e0ff', background: 'linear-gradient(#4a3a6a,#1a1428)' });
-    b.addEventListener('pointerdown', e => { e.stopPropagation(); playerDodge(); });
-    ui.appendChild(b);
-  };
-}
+// 手機的位移鈕在 touch.js（技能鈕旁邊，畫各職業位移技能的圖示）

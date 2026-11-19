@@ -18,7 +18,7 @@ const EVO_MAP = {   // 傳奇 id → 技能代號（技能頁那一格用）
 };
 const EVO_MULTI = {   // 一件對應好幾個技能：圖鑑最後一區
   u_echoquiver: '所有射箭的技能', u_quakefist: '所有近戰技能', u_fanggloves: '會讓敵人中毒的技能',
-  u_sheath: `武士的${byCtl('空白鍵', '閃避鈕')}位移`, u_shadowstep: '翻滾與位移技能',
+  u_sheath: `武士的${byCtl('空白鍵', '位移鈕')}位移`, u_shadowstep: '翻滾與位移技能',
 };
 const EvoCodex = {
   found() { if (!G.stash) return {}; return G.stash.uniqFound || (G.stash.uniqFound = {}); },

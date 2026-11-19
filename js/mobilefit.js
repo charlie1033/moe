@@ -50,7 +50,8 @@ const MobileFit = (() => {
     st.textContent = `.panel:not(#tree):not(#menu) { max-height:calc((var(--vh, 100vh) - 16px) / (var(--pz, 1) * var(--uiScale, 1))); }
     #story { max-height:calc((var(--vh, 100vh) - 24px) / (var(--pz, 1) * var(--uiScale, 1))); top:var(--vmid, 50%); overflow-y:auto; }
     body.touch #tree { top:var(--vtop, 0px); }   /* 天賦樹（全畫面）也讓出被蓋住的上方 */
-    @media (max-height: 520px) { #tree .ph { padding:4px 10px; font-size:13px; min-height:0; } #tree .ph .thint { display:none; } #tree .ph button { padding:2px 8px; font-size:12px; } #treePlan { bottom:6px; padding:4px 10px; } }   /* 手機：天賦樹的標題列縮成一行 */
+    @media (max-height: 520px) { #tree .ph { padding:4px 10px; font-size:13px; min-height:0; } #tree .ph .thint { display:none; } #tree .ph button { padding:2px 8px; font-size:12px; } #treeDock { bottom:6px; } #treePlan { padding:4px 10px; } }   /* 手機：天賦樹的標題列縮成一行 */
+    @media (max-height: 440px) { #title .ts-logo .logo-title img { width:clamp(150px, 42vh, 240px); } #title .ts-sub { margin:.6vh 0 2vh 4px; } #title .ts-menu button { font-size:19px; padding:.45em .4em .45em 1.25em; min-height:40px; } #menu > .tp-wrap img { height:96px !important; width:auto !important; } }   /* 手機橫向：開始畫面的標誌縮小，五個選項都看得到（以前「製作人員」被切掉） */
     #story .stfoot { position:sticky; bottom:-18px; background:linear-gradient(rgba(15,12,18,0), #0f0c12 35%); padding:10px 0 4px; }`;
     document.head.appendChild(st);
   }

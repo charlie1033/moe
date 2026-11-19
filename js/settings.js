@@ -67,10 +67,10 @@ const keyLabel = id => keyName(keyOfAction(id));
 const CTL_MENU = n => `點右上角 ☰ → <b>${n}</b>`;
 const CTL_TOUCH = {
   tree: CTL_MENU('天賦'), inv: CTL_MENU('背包'), skills: CTL_MENU('技能'), char: CTL_MENU('角色'), craft: CTL_MENU('強化'), journal: CTL_MENU('日誌'), help: CTL_MENU('說明'), portal: CTL_MENU('回城'),
-  interact: '點右邊跳出來的<b>互動鈕</b>', dodge: '點<b>「閃」</b>鈕', f1: '點左下角<b>第 1 格藥劑</b>',
+  interact: '點右邊跳出來的<b>互動鈕</b>', dodge: '點<b>位移鈕</b>（技能鈕左下單獨那顆）', f1: '點左下角<b>第 1 格藥劑</b>',
   move: '在<b>左半邊畫面</b>按住拖曳就能', lmb: '按<b>右下的大圓鈕</b>', rmb: '<b>大圓鈕旁邊的小圓鈕</b>', aimNote: '（會自動瞄準畫面裡的怪，首領、精英優先；點一下怪可以鎖定）',
   pickup: '<b>點地上的名稱</b>撿起來', equip: '點一下裝備，再按<b>「裝備」</b>鈕穿上',
-  dodgeKey: '閃避鈕', lmbSkill: '大圓鈕的技能', rmbSkill: '大圓鈕旁邊小圓鈕的技能', talk: '點右邊的<b>「對話」</b>鈕',
+  dodgeKey: '位移鈕', lmbSkill: '大圓鈕的技能', rmbSkill: '大圓鈕旁邊小圓鈕的技能', talk: '點右邊的<b>「對話」</b>鈕',
 };
 const CTL_PC = {
   move: () => `用 <b>${keyLabel('up')} ${keyLabel('left')} ${keyLabel('down')} ${keyLabel('right')}</b> `, lmb: '按<b>滑鼠左鍵</b>', rmb: '<b>右鍵</b>', aimNote: '（朝滑鼠的方向）',
@@ -119,7 +119,7 @@ const Pause = {
     if (this.view === 'main') {
       const P = G.P;
       p.innerHTML = `<div class="pcard pmain"><div class="ptitle">暫停</div>
-        <div class="psub">${P.name}　${CLASSES[P.cls].name}　等級 ${P.lvl}　·　${G.world.name}</div>
+        <div class="psub">${[`${P.name}　${CLASSES[P.cls].name}　等級 ${P.lvl}`, ...String(G.world.name).split(/\s*[·・．]\s*/)].map(s => `<span style="display:inline-block;white-space:nowrap">${s}</span>`).join('　·　')}</div>
         <button data-p="resume" class="pbig">繼續遊戲</button>
         <button data-p="settings" class="pbig">設定</button>
         <button data-p="help" class="pbig">操作說明</button>

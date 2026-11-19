@@ -1,8 +1,11 @@
 // =============================================================
 //  手機／平板觸控操作（電腦版不會啟動）
 //  左半邊：手指按下的地方就是搖桿；右下：5 個技能鈕（自動瞄準畫面裡的怪：首領＞精英＞一般，同級打最近；點怪可以鎖定，見 autoaim.js）
+//  v2.19.7 右下配置：大圓鈕（主攻擊）＋左上一圈四顆技能（直徑 62，手機上至少 40 像素）；
+//    位移鈕（空白鍵：翻滾／瞬移／躍擊／一閃，classmove.js）單獨放在技能弧的左下外側，畫該職業位移的圖示＋冷卻轉圈
 //  右上「☰」：所有功能選單；靠近人物時出現「對話」鈕
-//  點地上物品名稱＝撿起；背包裡的物品：點一下看說明，再點一下才使用
+//  點地上物品名稱＝撿起；背包、身上的裝備：點一下＝選取，左邊的比較面板有完整說明和按鈕（不另外跳浮動說明）
+//  倉庫、商店、珠寶格：點一下看說明，再點一下才使用
 // =============================================================
 const Touch = {
   on: IS_TOUCH,
@@ -10,7 +13,8 @@ const Touch = {
   joyId: null,           // 控制搖桿的手指
   tipEl: null,           // 目前顯示說明的格子（再點一次才執行）
   // 技能鈕位置（邏輯座標 960×540）：主攻擊在右下，其他四顆繞著它
-  BTN: [[872, 392, 36], [800, 426, 24], [797, 365, 24], [834, 321, 24], [889, 314, 24]],
+  BTN: [[868, 388, 42], [777, 401, 31], [792, 337, 31], [846, 299, 31], [911, 307, 31]],
+  DODGE: [712, 444, 30],   // 位移鈕：技能弧左下外側，跟其他鈕隔開，不會誤觸
   init() {
     if (!this.on) return;
     document.body.classList.add('touch');
@@ -18,8 +22,9 @@ const Touch = {
     const ui = document.createElement('div'); ui.id = 'touchui';
     ui.innerHTML = `<div id="tzone"></div><div id="tjoy"><div id="tknob"></div></div>`
       + this.BTN.map(([x, y, r], i) => `<div class="tbtn ${i ? '' : 'main'}" data-s="${i}" style="left:${x - r}px;top:${y - r}px;width:${r * 2}px;height:${r * 2}px"><img class="tico" alt=""><i class="tcd"></i></div>`).join('')
-      + `<div class="tbtn talk" id="ttalk" style="right:62px;top:214px;height:48px">對話</div>`
-      + `<div class="tbtn menu" id="tmenu" style="left:${VW - 52}px;top:8px;width:44px;height:44px">☰<b class="tbadge"></b></div>`;
+      + `<div class="tbtn dodge" id="tdodge" style="left:${this.DODGE[0] - this.DODGE[2]}px;top:${this.DODGE[1] - this.DODGE[2]}px;width:${this.DODGE[2] * 2}px;height:${this.DODGE[2] * 2}px"><img class="tico" alt=""><i class="tcd"></i></div>`
+      + `<div class="tbtn talk" id="ttalk" style="right:62px;top:196px;height:60px">對話</div>`
+      + `<div class="tbtn menu" id="tmenu" style="left:${VW - 66}px;top:6px;width:58px;height:58px">☰<b class="tbadge"></b></div>`;   // 58 邏輯像素＝手機上約 40
     document.body.appendChild(ui);
     const panel = document.createElement('div'); panel.id = 'tmenupanel'; panel.className = 'panel';
     document.body.appendChild(panel);
@@ -39,8 +44,13 @@ const Touch = {
       const up = e => { if (!this.held.has(e.pointerId)) return; this.held.delete(e.pointerId); if (![...this.held.values()].includes(s)) { this.press(s, false); b.classList.remove('on'); } };
       b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
     });
+    $('#tdodge').addEventListener('pointerdown', e => { e.stopPropagation(); $('#tdodge').classList.add('on'); playerDodge(); });
+    const dUp = () => $('#tdodge').classList.remove('on'); $('#tdodge').addEventListener('pointerup', dUp); $('#tdodge').addEventListener('pointercancel', dUp);
     $('#ttalk').addEventListener('pointerdown', e => { e.stopPropagation(); UI.interact(); });
     $('#tmenu').addEventListener('pointerdown', e => { e.stopPropagation(); this.toggleMenu(); });
+    // 夢之門（地圖裝置）：手機上面板蓋住左半邊的搖桿區，走不開 → 標題加一顆 ✕
+    const mh = document.querySelector('#mapdev .ph');
+    if (mh) { const x = document.createElement('span'); x.className = 'x'; x.textContent = '✕'; x.onclick = () => UI.showMapDevice(false); mh.appendChild(x); const t = mh.querySelector('.thint'); if (t) t.textContent = '走開或按 ✕ 關閉'; }
     // 背包、倉庫、商店、珠寶：第一下看說明，第二下才執行
     document.addEventListener('click', e => this.cellTap(e), true);
     // HUD 熱區（藥劑、技能欄）：手機上直接點就用，不跳說明
@@ -111,14 +121,26 @@ const Touch = {
       cd.style.background = fr ? `conic-gradient(from ${(1 - fr) * 360}deg, rgba(0,0,0,.68) 0 ${fr * 360}deg, transparent 0)` : 'none';
       cd.textContent = fr ? cdv.toFixed(1) : '';
     });
+    this.dodgeTick(pl);
     const ta = $('#ttalk'); ta.style.display = G.nearAct ? 'flex' : 'none'; if (G.nearAct && ta.textContent !== G.nearAct.label) ta.textContent = G.nearAct.label;
     // ☰ 放在小地圖的左邊，不要蓋到小地圖
     const w = G.world, mw = w && w.mini ? w.W * (w.kind === 'town' ? 3 : 2) : 0;
-    $('#tmenu').style.left = (mw ? VW - mw - 13 - 104 : VW - 104) + 'px'; // 回城鈕的左邊
+    $('#tmenu').style.left = (mw ? VW - mw - 19 - 122 : VW - 12 - 122) + 'px'; // 回城鈕（手機上 58 寬，ui.js placePortalBtn）的左邊
     // 功能選單上的紅點：任何一個功能有新東西就亮
     const any = [...document.querySelectorAll('#menubar .mbadge.red')].some(x => x.textContent);
     $('#tmenu .tbadge').style.display = any ? 'block' : 'none';
     if (this.menuOpen) this.renderMenu();
+  },
+  // 位移鈕：該職業位移技能的圖示＋冷卻轉圈（冷卻長度＝classmove.js 的 CLASS_MOVE）
+  dodgeTick(pl) {
+    const b = $('#tdodge'); if (!b) return;
+    const M = classMove(), ico = b.querySelector('.tico'), cd = b.querySelector('.tcd');
+    const u = moveIconURL(M.id); if (ico.src !== u) ico.src = u;
+    b.style.setProperty('--sc', M.id === 'roll' ? '#3a6a3a' : M.id === 'blink' ? '#3a4a8a' : '#7a3a2a');
+    const fr = pl.dodgeCd > 0 ? Math.min(1, pl.dodgeCd / M.cd) : 0;
+    cd.style.background = fr ? `conic-gradient(from ${(1 - fr) * 360}deg, rgba(0,0,0,.68) 0 ${fr * 360}deg, transparent 0)` : 'none';
+    cd.textContent = fr ? pl.dodgeCd.toFixed(1) : '';
+    b.dataset.move = M.id;
   },
   // ☰ 功能選單：大按鈕，點了就開
   menuOpen: false,
@@ -169,3 +191,55 @@ const Touch = {
     this.tipEl = null; UI.hideTip();
   },
 };
+// v2.19.7 位移鈕的圖示：瞬移、一閃用美術的技能圖（sk_blink、sk_iai）；翻滾、躍擊美術還沒做，先用程式畫（寶石底＋符號），
+// 美術補了 sk_roll／sk_leap 就自動換成新圖
+function moveIconURL(id) {
+  if (id === 'blink') return skillIconURL('blink', 96);
+  if (id === 'issen') return skillIconURL('iai', 96);
+  return artURL(artCanvas('mv_' + id, 96, g => {
+    if (artNew(g, 'sk_' + id)) return;
+    const c = id === 'roll' ? ATTR_GEM.dex : ATTR_GEM.str;
+    drawGemBody(g, gemPoints(50, 50, 46, 8, 0.32), gemPoints(50, 50, 33, 8, 0.32), c[0], c[1]);
+    g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#fff6dc'; g.fillStyle = '#fff6dc'; g.lineWidth = 7;
+    g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 4;
+    const head = (x, y, a) => { g.beginPath(); g.moveTo(x + Math.cos(a) * 12, y + Math.sin(a) * 12); g.lineTo(x + Math.cos(a + 2.4) * 11, y + Math.sin(a + 2.4) * 11); g.lineTo(x + Math.cos(a - 2.4) * 11, y + Math.sin(a - 2.4) * 11); g.closePath(); g.fill(); };
+    if (id === 'roll') {   // 翻滾：一圈箭頭＋後面的速度線
+      const a1 = Math.PI * 0.75, a2 = Math.PI * 2.3;
+      g.beginPath(); g.arc(56, 50, 19, a1, a2); g.stroke();
+      head(56 + Math.cos(a2) * 19, 50 + Math.sin(a2) * 19, a2 + Math.PI / 2);
+      g.lineWidth = 5; for (const [y, l] of [[38, 14], [50, 18], [62, 14]]) { g.beginPath(); g.moveTo(30 - l, y); g.lineTo(30, y); g.stroke(); }
+    } else {   // 躍擊：跳起的弧線＋落地的衝擊
+      g.beginPath(); g.moveTo(20, 70); g.quadraticCurveTo(42, 8, 70, 58); g.stroke();
+      head(70, 58, Math.atan2(58 - 33, 70 - 56));
+      g.lineWidth = 5; for (const a of [-2.6, -1.9, -1.2, -0.5]) { g.beginPath(); g.moveTo(72 + Math.cos(a) * 10, 76 + Math.sin(a) * 10); g.lineTo(72 + Math.cos(a) * 20, 76 + Math.sin(a) * 20); g.stroke(); }
+      g.beginPath(); g.moveTo(52, 80); g.lineTo(92, 80); g.stroke();
+    }
+    g.restore();
+  }));
+}
+(() => {
+  if (!IS_TOUCH) return;
+  const st = document.createElement('style');
+  // 手機的觸控目標至少 40×40（面板有 zoom 縮小，所以除以 zoom 換回實際大小）
+  const z = 'calc(40px / (var(--pz, 1) * var(--uiScale, 1)))';
+  st.textContent = `.tbtn.dodge { border-color:rgba(200,190,255,.85); }
+  .tbtn.dodge .tico { width:80%; height:80%; }
+  .tbtn.talk { font-size:19px; }
+  .tbtn.menu { font-size:30px; }
+  body.touch #portalbtn { width:58px; height:58px; }
+  body.touch .hspot[data-s^="fl"] { margin-left:-3px; width:36px !important; margin-top:-22px; height:74px !important; }   /* 藥劑：點的範圍往上加高（寬度被隔壁擋住） */
+  body.touch #fullbtn { width:40px; height:40px; line-height:40px; z-index:5; }   /* 面板打開時躲到面板後面，不蓋住背包格子 */
+  body.touch .panel .ph .x { min-width:${z}; min-height:${z}; display:inline-flex; align-items:center; justify-content:center; padding:0; box-sizing:border-box; }
+  body.touch .panel .ph button, body.touch #cmp .cmpbtns button { min-height:${z}; min-width:${z}; }
+  body.touch #tree .ph .x, body.touch #tree .ph button { min-width:40px; min-height:40px; }   /* 天賦樹沒有縮放 */
+  body.touch #mapList button { min-height:${z}; min-width:calc(64px / (var(--pz, 1) * var(--uiScale, 1))); }   /* 夢之門的「進入」 */
+  body.touch #gask button { min-height:40px; min-width:72px; }
+  body.touch .tmbtn { min-height:${z}; box-sizing:border-box; }   /* ☰ 功能選單的大按鈕 */
+  body.touch #questbox .qhead { position:relative; } body.touch #questbox .qhead::after { content:''; position:absolute; inset:-20px -4px; }   /* 任務框標題（展開／收起）：點得到的範圍加高 */
+  body.touch .jtabs button { min-height:${z}; }   /* 日誌的分頁 */
+  body.touch #menu button:not(.go):not(.del) { min-height:calc(40px / var(--pz, 1)); }   /* 選角畫面：回到開始畫面、備份（角色卡上的「繼續」不用放大：點整張卡就進遊戲；「刪除」小一點免得誤觸） */
+  body.touch .jent .replay { position:relative; } body.touch .jent .replay::after { content:''; position:absolute; inset:-14px -10px; }
+  body.touch .glock, body.touch .supall { position:relative; }   /* 技能頁：自動升級、顯示全部（列高固定，按鈕本身不能變高 → 用看不見的外框把點得到的範圍放大） */
+  body.touch .glock::after, body.touch .supall::after { content:''; position:absolute; inset:-14px -8px; }`;
+  document.head.appendChild(st);
+})();

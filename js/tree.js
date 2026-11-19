@@ -398,10 +398,10 @@ const TreeView = {
         return;
       }
       const r = canvas.getBoundingClientRect();
-      this.touchMode = e.pointerType === 'touch';   // v2.12.7 手指點：判定範圍放大、挑最近的點
+      this.touchMode = e.pointerType === 'touch' || IS_TOUCH;   // v2.12.7 手指點：判定範圍放大、挑最近的點（v2.19.7 手機版一律用「點選＋確認鈕」）
       this.mouse = { x: e.clientX - r.left, y: e.clientY - r.top, cx: e.clientX, cy: e.clientY };
       this.updateHover();
-      this.drag = { x: e.clientX, y: e.clientY, ox: this.ox, oy: this.oy, moved: false, btn: e.button, touch: e.pointerType === 'touch' };
+      this.drag = { x: e.clientX, y: e.clientY, ox: this.ox, oy: this.oy, moved: false, btn: e.button, touch: this.touchMode };
     });
     window.addEventListener('pointermove', e => {
       if (!UI.treeOpen) return;
@@ -428,19 +428,14 @@ const TreeView = {
       if (this.pts.size < 2) this.pinch = null;
       if (!this.drag) return;
       const d = this.drag; this.drag = null;
-      if (d.moved || !this.hover) { if (d.touch) { this.tapSel = null; UI.hideTip(); } return; }
+      if (d.moved) return;   // 拖曳、縮放：選取的點留著
       if (d.touch) {
-        // 手機：第一下看說明，同一個節點再點一下才點天賦（已點的再點兩下＝退點）
-        if (this.tapSel !== this.hover.id) {
-          this.tapSel = this.hover.id;
-          const n = this.hover, p = this.toScreen(n), r = this.canvas.getBoundingClientRect(), own = G.P.tree.includes(n.id);
-          UI.showTip(this.nodeTip(n) + `<div class="tip-hint" style="color:#ffe9a0;margin-top:4px">👆 ${own ? '再點一下：退回這一點' : '再點一下：點下去'}</div>`, r.left + p.x, r.top + p.y + this.nodeR(n) + 14);
-          return;
-        }
-        this.tapSel = null;
-        if (G.P.tree.includes(this.hover.id)) this.tryRefund(this.hover.id); else this.tryAlloc(this.hover.id);
+        // v2.19.7 手機：點一下＝選取（高亮＋下方說明卡），按說明卡上的「點這個天賦」才點；點空白處＝取消選取（說明卡在 treeplan.js 的 TreePlan.sel）
+        this.tapSel = this.hover ? this.hover.id : null;
+        UI.hideTip(); TreePlan.sel(true);
         return;
       }
+      if (!this.hover) return;
       if (d.btn === 0) this.tryAlloc(this.hover.id);
       if (d.btn === 2) this.tryRefund(this.hover.id);
     };
@@ -474,7 +469,7 @@ const TreeView = {
       if (d < this.nodeR(n) + pad && d - this.nodeR(n) < bd) { best = n; bd = d - this.nodeR(n); }
     }
     this.hover = best;
-    if (best && this.touchMode) { const p = this.toScreen(best), r = this.canvas.getBoundingClientRect(); UI.showTip(this.nodeTip(best), r.left + p.x, r.top + p.y + this.nodeR(best) + 14); }   // 手機：說明放在天賦點下面，不擋手指
+    if (this.touchMode) UI.hideTip();   // 手機：說明放在下方的說明卡（treeplan.js），不跳浮動說明
     else if (best) UI.showTip(this.nodeTip(best), this.mouse.cx, this.mouse.cy);
     else UI.hideTip();
   },

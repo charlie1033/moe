@@ -192,7 +192,8 @@ const UI = {
   placePortalBtn() {
     const r = CV.getBoundingClientRect(), s = r.width / VW, w = G.world;
     const mw = w && w.mini ? w.W * (w.kind === 'town' ? 3 : 2) : 0;
-    const x = mw ? VW - mw - 13 - 50 : VW - 56;
+    const bw = Touch.on ? 58 : 44;   // v2.19.7 手機的回城鈕放大到 58（約 40 像素）
+    const x = mw ? VW - mw - 19 - bw : VW - 12 - bw;
     Object.assign($('#portalbtn').style, { left: (r.left + x * s) + 'px', top: (r.top + 8 * s) + 'px', transform: `scale(${s})` });
     $('#portalbtn').classList.toggle('dim', !w || w.kind === 'town');
   },
@@ -546,6 +547,7 @@ const UI = {
       const hint = this.open.stash ? byCtl('右鍵：放進倉庫　拖曳：移動位置', '拖曳：移動位置') : it.stack === 'cur' ? (CURRENCY[it.key].scroll ? byCtl('左鍵：使用', '再點一下：使用') : byCtl('左鍵：選起來，再點要改造的裝備（右鍵取消）', '再點一下選起來，然後點要改造的裝備（再點一次石頭取消）')) : it.stack === 'sup' ? ctlText('到技能頁插上去（{skills}）', true) : it.stack === 'jewel' ? byCtl('按 G 到珠寶工坊鑲嵌、合成', '到珠寶工坊鑲嵌、合成') : ctlText('到工坊使用（{craft}）', true);
       return this.showTip(stackTipHTML(it, hint), e.clientX, e.clientY);
     }
+    if (Touch.on) return this.hideTip();   // v2.19.7 手機：裝備、藥劑點一下就選取，左邊的比較面板已經有說明、對照和按鈕，不再跳浮動說明
     if (isFlask(it)) {
       const hint = this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : this.open.shop ? byCtl(`右鍵：賣給商人，得到 ${this.valueText(sellValue(it))}　Ctrl+左鍵：分解`, `再點一下選取，用「賣出」鈕（得到 ${this.valueText(sellValue(it))}）或「分解」鈕`) : this.open.stash ? byCtl('右鍵：放進倉庫', '再點一下選取，用「放進倉庫」鈕') : byCtl('左鍵：選取　右鍵：放到藥劑欄', '再點一下選取，用「放上藥劑欄」鈕');
       return this.showTip(flaskTipHTML(it, { hint }), e.clientX, e.clientY);
@@ -561,6 +563,7 @@ const UI = {
   },
   hoverEquip(slot, e) {
     const it = G.P.equip[slot]; if (!it) return;
+    if (Touch.on) return this.hideTip();   // v2.19.7 手機：同上，比較面板就是說明
     this.showTip(itemTipHTML(it, { hint: this.curSel ? `點擊使用${CURRENCY[this.curSel].name}` : byCtl('左鍵：選取　右鍵：卸下', '再點一下選取，用「卸下」鈕') }), e.clientX, e.clientY);
   },
 
@@ -801,7 +804,7 @@ const UI = {
   refreshTreeHead() {
     const P = G.P;
     const avail = treePointsTotal(P) - treePointsUsed(P);
-    $('#treePts').innerHTML = `可用點數 <b class="${avail > 0 ? 'c-good' : ''}">${avail}</b>　已使用 ${treePointsUsed(P)}（等級 ${P.lvl - 1}＋任務 ${P.bonusPts || 0}）　重置點數 <b style="color:#c8b0ff">${respecFree(P) ? `${FREE_RESPEC_LVL} 級前免費` : (P.respec || 0)}</b>`;
+    $('#treePts').innerHTML = `<span class="tseg">可用點數 <b class="${avail > 0 ? 'c-good' : ''}">${avail}</b></span><span class="tseg">已使用 ${treePointsUsed(P)}（等級 ${P.lvl - 1}＋任務 ${P.bonusPts || 0}）</span><span class="tseg">重置點數 <b style="color:#c8b0ff">${respecFree(P) ? `${FREE_RESPEC_LVL} 級前免費` : (P.respec || 0)}</b></span>`;   // v2.19.7 分段（.tseg 不會從中間斷行）
   },
 
   // ---------- 地圖裝置 ----------
