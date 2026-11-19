@@ -935,10 +935,146 @@ ArtUI.load();
     im.src = s;
   }
   const pat = (g, k, ox, oy) => { const p = g.createPattern(SRC[k], 'repeat'), s = TILE / SRC[k].width; if (p.setTransform) p.setTransform(new DOMMatrix([s, 0, 0, s, ox || 0, oy || 0])); return p; };
+  // ---------------------------------------------------------------
+  //  v2.19.6 水塘打磨（參考像素池塘的六步）：
+  //   畫進底圖：①離岸越遠越深、岸邊淺（帶一點淺綠）②靠近鏡頭的下半邊亮一點（天空映進來）
+  //            ④岸上沾水的泥土比較暗 ⑤對岸的地面倒映在水裡（上下翻、壓暗）
+  //   每格畫：③岸上的樹、石頭倒過來、壓扁，每兩行左右錯開 1 像素像被水波揉動 ④浪頭拍岸的短亮線
+  //          ⑥落水漣漪、偶爾一閃的亮點、森林／草原／沼澤有落葉飄到水面
+  //   數值都在 POND
+  // ---------------------------------------------------------------
+  const POND = {
+    deep: 'rgba(4,16,34,0.34)', shallow: Array.from({ length: 16 }, (_, i) => [76 - i * 4.5, 0.034]), shallowCol: '110,190,175',   // 16 層每層窄一點點＝平滑的漸層 edgeGreen: 'rgba(150,215,140,0.22)',
+    sky: 'rgba(190,225,255,0.20)', lip: 'rgba(6,20,28,0.45)', bankH: 14, bankA: 0.34,
+    refl: { squash: 0.6, alpha: 0.6, tint: 'rgba(8,26,40,0.45)', reach: 3 },
+    foam: { alpha: 0.4, dash: [4, 14], speed: 8 },
+    ripple: { rate: 1.6, life: 1.3, r: 14 }, glint: { rate: 5, life: 0.35 }, leaf: { rate: 0.35, life: 5, themes: ['forest', 'grass', 'swamp'] },
+  };
+  ArtUI.pond = POND;   // 給自我檢查和調整用（POND.off＝true 就回到 v2.19.5 的畫法）
+  const isW = v => v === 2 || v === 15;
+  function bankCopy(w, at) {
+    if (!w.canvas || !w.canvas.getContext) return null;
+    const R = w._chunkRect || { x0: 0, y0: 0, x1: w.W, y1: w.H }; let any = false;
+    for (let y = R.y0; y < R.y1 && !any; y++) for (let x = R.x0; x < R.x1; x++) if (at(x, y) === 2 && !isW(at(x, y - 1))) { any = true; break; }
+    if (!any) return null;
+    const c = document.createElement('canvas'); c.width = w.canvas.width; c.height = w.canvas.height; c.getContext('2d').drawImage(w.canvas, 0, 0);
+    return { c, B: w._chunkPx || { x: 0, y: 0 } };
+  }
+  // 一個個池子的範圍（整張地圖算一次，地形變了重算）
+  function ponds(w) {
+    const ver = w._terrainVer || 0; if (w._ponds && w._ponds.ver === ver && w._ponds.deco === w.deco) return w._ponds.a;
+    const W = w.W, H = w.H, seen = new Uint8Array(W * H), a = [];
+    for (let i = 0; i < W * H; i++) {
+      if (seen[i] || !isW(w.deco[i])) continue;
+      let x0 = W, y0 = H, x1 = 0, y1 = 0; const st = [i]; seen[i] = 1;
+      while (st.length) { const j = st.pop(), x = j % W, y = (j / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        for (const n of [j - 1, j + 1, j - W, j + W]) if (n >= 0 && n < W * H && !seen[n] && isW(w.deco[n]) && Math.abs((n % W) - x) <= 1) { seen[n] = 1; st.push(n); } }
+      a.push({ x: x0 * TS, y: y0 * TS, w: (x1 - x0 + 1) * TS, h: (y1 - y0 + 1) * TS });
+    }
+    w._ponds = { ver, deco: w.deco, a }; return a;
+  }
+  function waterBake(g, w, L, R, cells, bank) {
+    const W = w.W;
+    if (bank) {   // ⑤ 對岸倒影：北岸那一格上面一條地面，上下翻過來貼在水裡
+      const BH = POND.bankH, b = bank.B;
+      g.save(); g.globalAlpha = POND.bankA;
+      for (const i of cells) {
+        const x = i % W, y = (i / W) | 0; if (w.deco[i] !== 2 || isW(y > 0 ? w.deco[i - W] : 0)) continue;
+        const X = x * TS, Y = y * TS, sx = X - b.x, sy = Y - BH - b.y; if (sx < 0 || sy < 0 || sx + TS > bank.c.width || sy + BH > bank.c.height) continue;
+        g.save(); g.translate(0, 2 * Y); g.scale(1, -1); g.drawImage(bank.c, sx, sy, TS, BH, X, Y - BH, TS, BH); g.restore();
+      }
+      g.restore();
+    }
+    g.fillStyle = POND.deep; g.fillRect(R.x0 * TS - 40, R.y0 * TS - 40, (R.x1 - R.x0) * TS + 80, (R.y1 - R.y0) * TS + 80);   // ① 整片先壓深
+    for (const [lw, a] of POND.shallow) { g.strokeStyle = `rgba(${POND.shallowCol},${a})`; g.lineWidth = lw; g.stroke(L); }   // 越靠岸疊越多層＝越淺
+    g.strokeStyle = POND.edgeGreen; g.lineWidth = 7; g.stroke(L);   // ④ 岸邊一圈淺綠
+    const px0 = R.x0 * TS - 64, py0 = R.y0 * TS - 64, px1 = R.x1 * TS + 64, py1 = R.y1 * TS + 64;
+    for (const p of ponds(w)) {   // ② 每個池子靠近鏡頭的下半邊亮一點
+      if (p.x > px1 || p.y > py1 || p.x + p.w < px0 || p.y + p.h < py0) continue;
+      const gr = g.createLinearGradient(0, p.y + p.h * 0.4, 0, p.y + p.h); gr.addColorStop(0, 'rgba(190,225,255,0)'); gr.addColorStop(1, POND.sky);
+      g.fillStyle = gr; g.fillRect(p.x, p.y + p.h * 0.4, p.w, p.h * 0.6 + 4);
+    }
+    g.strokeStyle = POND.lip; g.lineWidth = 5; g.stroke(L);   // 岸壁一條細細的暗邊（還是看得出凹下去）
+  }
+  // ③ 岸上障礙物的倒影圖（跟美術的障礙物圖同一張：上下翻、壓扁、染成水色、越往下越淡）
+  const RC = new Map();
+  function reflPic(t, s) {
+    const key = t + '|' + (s & 1) + '|' + ((s >> 1) % 3); if (RC.has(key)) return RC.get(key);
+    let out = null;
+    try {
+      if (typeof drawPropArt === 'function' && typeof propArtReady === 'function' && propArtReady(t)) {
+        const a = document.createElement('canvas'); a.width = 140; a.height = 120; const ag = a.getContext('2d');
+        if (drawPropArt(ag, { x: 70, y: 110, t, s }, 0, 0)) {   // 圖底在 y＝115
+          const hgt = Math.round(115 * POND.refl.squash); out = document.createElement('canvas'); out.width = 140; out.height = hgt;
+          const og = out.getContext('2d'); og.imageSmoothingEnabled = true; og.translate(0, hgt); og.scale(1, -POND.refl.squash); og.drawImage(a, 0, 0); og.setTransform(1, 0, 0, 1, 0, 0);
+          og.globalCompositeOperation = 'source-atop'; og.fillStyle = POND.refl.tint; og.fillRect(0, 0, 140, hgt);
+          og.globalCompositeOperation = 'destination-in'; const gr = og.createLinearGradient(0, 0, 0, hgt); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); og.fillStyle = gr; og.fillRect(0, 0, 140, hgt);
+        }
+      }
+    } catch (e) { out = null; }
+    if (out || typeof propArtReady !== 'function' || propArtReady(t)) RC.set(key, out);   // 圖還沒載好就先不記，下次再試
+    return out;
+  }
+  const PROPS = new Set([1, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13]);
+  function drawRefl(g, w, rx0, ry0, rx1, ry1) {
+    const W = w.W, H = w.H, T = G.time, x0 = Math.max(0, Math.floor(rx0 / TS) - 2), x1 = Math.min(W - 1, Math.ceil(rx1 / TS) + 2);
+    const y0 = Math.max(0, Math.floor(ry0 / TS) - POND.refl.reach - 1), y1 = Math.min(H - 1, Math.ceil(ry1 / TS));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const t = w.deco[y * W + x]; if (!PROPS.has(t)) continue;
+      let wet = false; for (let d = 1; d <= POND.refl.reach && !wet; d++) if (y + d < H && w.deco[(y + d) * W + x] === 2) wet = true;
+      if (!wet) continue;
+      const c = reflPic(t, hash2(x, y)); if (!c) continue;
+      const bx = x * TS + 16 - 70, by = y * TS + 29;
+      g.globalAlpha = POND.refl.alpha;
+      for (let r = 0; r < c.height; r += 2) {   // 每兩行左右錯開一點，像被水波揉動
+        const off = Math.round(Math.sin(T * 2.4 + r * 0.55 + x) * (0.5 + r / c.height));
+        g.drawImage(c, 0, r, c.width, 2, bx + off, by + r, c.width, 2);
+      }
+    }
+    g.globalAlpha = 1;
+  }
+  // ⑥ 漣漪、亮點、落葉（畫面裡的水才有；數量很少）
+  let FX = [], acc = { r: 0, g: 0, l: 0 };
+  function pondFx(g, w, inner, dt) {
+    const T = G.time;
+    if (inner.length) {
+      const pick = () => { const i = inner[(Math.random() * inner.length) | 0]; return { x: (i % w.W) * TS + 4 + Math.random() * 24, y: ((i / w.W) | 0) * TS + 4 + Math.random() * 24 }; };
+      const k = Math.min(1, inner.length / 40);   // 水越少越不頻繁
+      acc.r += dt * POND.ripple.rate * k; acc.g += dt * POND.glint.rate * k;
+      acc.l += dt * POND.leaf.rate * (POND.leaf.themes.indexOf(w.theme && w.theme.id) >= 0 ? 1 : 0) * k;
+      while (acc.r >= 1) { acc.r--; FX.push(Object.assign(pick(), { k: 'r', t: 0, life: POND.ripple.life })); }
+      while (acc.g >= 1) { acc.g--; FX.push(Object.assign(pick(), { k: 'g', t: 0, life: POND.glint.life })); }
+      while (acc.l >= 1) { acc.l--; const p = pick(); FX.push({ k: 'l', x: p.x, y: p.y, t: 0, life: POND.leaf.life, fall: 1.2, sw: Math.random() * 6, c: Math.random() < 0.5 ? '#b8c858' : '#d0a040' }); }
+    }
+    if (FX.length > 40) FX.splice(0, FX.length - 40);
+    g.save();
+    for (const f of FX) {
+      f.t += dt; const p = f.t / f.life; if (p >= 1) continue;
+      if (f.k === 'r') {
+        const r = 2 + POND.ripple.r * p; g.globalAlpha = 0.4 * (1 - p); g.strokeStyle = '#e8f6ff'; g.lineWidth = 1;
+        g.beginPath(); g.ellipse(f.x, f.y, r, r * 0.45, 0, 0, Math.PI * 2); g.stroke();
+        if (p < 0.5) { g.globalAlpha = 0.25 * (1 - p * 2); g.beginPath(); g.ellipse(f.x, f.y, r * 0.5, r * 0.22, 0, 0, Math.PI * 2); g.stroke(); }
+      } else if (f.k === 'g') {
+        g.globalAlpha = Math.sin(p * Math.PI) * 0.9; g.fillStyle = '#ffffff'; g.fillRect(Math.round(f.x), Math.round(f.y), 2, 1);
+        if (p > 0.3 && p < 0.7) g.fillRect(Math.round(f.x) + 0.5, Math.round(f.y) - 1, 1, 3);
+      } else {   // 落葉：先從上面飄下來，碰到水面盪一圈漣漪，再浮著慢慢淡掉
+        const falling = f.t < f.fall, q = Math.min(1, f.t / f.fall);
+        const lx = f.x + Math.sin(f.t * 3 + f.sw) * (falling ? 6 : 1.5), ly = f.y - (1 - q) * 46 + (falling ? 0 : Math.sin(T * 1.5 + f.sw));
+        if (!falling && !f.hit) { f.hit = 1; FX.push({ k: 'r', x: f.x, y: f.y, t: 0, life: POND.ripple.life }); }
+        g.globalAlpha = Math.min(1, (1 - p) * 3) * (falling ? 0.9 : 0.8); g.fillStyle = f.c;
+        g.fillRect(Math.round(lx), Math.round(ly), 3, 2); g.fillRect(Math.round(lx) + (Math.sin(f.t * 4) > 0 ? 3 : -1), Math.round(ly) + 1, 1, 1);
+      }
+    }
+    g.restore();
+    FX = FX.filter(f => f.t < f.life);
+  }
+  let lastT = 0;
+  Hook.on('enterMap', () => { FX = []; });
   Hook.on('worldCanvas', w => {
     if (!ArtUI.on() || !w.deco || !w.canvas) return;
     const g = w.canvas.getContext('2d'), W = w.W, H = w.H;
     const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : w.deco[y * W + x];
+    const bank = POND.off ? null : bankCopy(w, at);   // v2.19.6 對岸倒影要用的原始地板（池子畫上去之前先複製一份）
     g.save();
     for (const t in KIND) {
       const k = KIND[t], T = +t; if (!SRC[k]) continue;
@@ -964,11 +1100,14 @@ ArtUI.load();
           if (!L) { L = ArtUI.contour(w, same, false); C[k] = { ver, L }; }
           (w._liq || (w._liq = {}))[k] = L;
         }
-        g.save(); g.strokeStyle = drop; g.lineWidth = 6; g.stroke(L); g.restore();   // 岸上一圈落影
+        const pw = k === 'water' && !POND.off;
+        if (pw) { g.save(); g.strokeStyle = 'rgba(24,16,6,0.22)'; g.lineWidth = 18; g.stroke(L); g.strokeStyle = 'rgba(12,8,2,0.3)'; g.lineWidth = 8; g.stroke(L); g.restore(); }   // v2.19.6 岸邊沾水的泥土比較暗
+        else { g.save(); g.strokeStyle = drop; g.lineWidth = 6; g.stroke(L); g.restore(); }   // 岸上一圈落影
         g.save(); g.clip(L, 'evenodd');
         g.fillStyle = pat(g, k); g.fillRect(0, 0, W * TS, H * TS);
-        g.strokeStyle = inner; g.globalAlpha = 0.5; g.lineWidth = 20; g.stroke(L); g.globalAlpha = 0.7; g.lineWidth = 8; g.stroke(L);   // 池子內側一圈暗（看起來凹下去）
-        g.globalAlpha = 1; g.strokeStyle = rim; g.lineWidth = 3; g.stroke(L);   // 液面邊緣亮線
+        if (pw) waterBake(g, w, L, R, cells, bank);
+        else { g.strokeStyle = inner; g.globalAlpha = 0.5; g.lineWidth = 20; g.stroke(L); g.globalAlpha = 0.7; g.lineWidth = 8; g.stroke(L); }   // 池子內側一圈暗（看起來凹下去）
+        g.globalAlpha = 1; g.strokeStyle = rim; g.lineWidth = pw ? 2 : 3; g.stroke(L);   // 液面邊緣亮線
         g.restore();
       } else {
       if (w._liq) delete w._liq[k];
@@ -1004,19 +1143,33 @@ ArtUI.load();
     const W = w.W, t = G.time, x0 = Math.max(0, Math.floor(G.cam.x / TS)), y0 = Math.max(0, Math.floor(G.cam.y / TS));
     const x1 = Math.min(W - 1, Math.ceil((G.cam.x + VW) / TS)), y1 = Math.min(w.H - 1, Math.ceil((G.cam.y + VH) / TS));
     g.save();
+    const dt = Math.max(0, Math.min(0.1, t - lastT)); lastT = t;
+    const inner = [];   // v2.19.6 畫面裡「四周都是水」的格子（漣漪、亮點、落葉只放這裡）
+    // v2.19.6 水面上每格多畫的：浪頭拍岸的短亮線、岸上東西的倒影（在已經裁成池子形狀的範圍裡畫）
+    const waterExtra = (L, rx0, ry0, rx1, ry1) => {
+      const F = POND.foam; g.save(); g.globalAlpha = F.alpha * (0.75 + 0.25 * Math.sin(t * 1.7)); g.strokeStyle = '#eef8ff'; g.lineWidth = 3;
+      g.setLineDash(F.dash); g.lineDashOffset = -t * F.speed; g.stroke(L);
+      g.globalAlpha = F.alpha * 0.6; g.lineWidth = 2; g.setLineDash([2, 23]); g.lineDashOffset = t * F.speed * 0.6 + 7; g.stroke(L); g.restore();
+      drawRefl(g, w, rx0, ry0, rx1, ry1);
+    };
     for (const T of [8, 2, 14]) {
       const k = KIND[T]; if (!SRC[k]) continue;
       g.beginPath(); let n = 0;
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.deco[y * W + x] === T) { g.rect(x * TS, y * TS, TS, TS); n++; }
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.deco[y * W + x] === T) {
+        g.rect(x * TS, y * TS, TS, TS); n++;
+        if (T === 2 && x > 0 && y > 0 && x < W - 1 && y < w.H - 1) { const i = y * W + x; if (w.deco[i - 1] === 2 && w.deco[i + 1] === 2 && w.deco[i - W] === 2 && w.deco[i + W] === 2) inner.push(i); }
+      }
       if (!n) continue;
       if (w._liqCh) {   // v2.19 分塊畫：每一塊用自己的池子輪廓，各自只畫自己負責的範圍
         const [vx, vy] = FLOW[k], vx0 = G.cam.x, vy0 = G.cam.y;
         for (const e of w._liqCh.values()) {
           const L = e.L[k]; if (!L || e.x > vx0 + VW || e.y > vy0 + VH || e.x + e.w < vx0 || e.y + e.h < vy0) continue;
           g.save(); g.beginPath(); g.rect(e.x, e.y, e.w, e.h); g.clip(); g.clip(L, 'evenodd');
-          g.beginPath(); g.rect(Math.max(e.x, vx0), Math.max(e.y, vy0), Math.min(e.x + e.w, vx0 + VW) - Math.max(e.x, vx0), Math.min(e.y + e.h, vy0 + VH) - Math.max(e.y, vy0));
+          const rx0 = Math.max(e.x, vx0), ry0 = Math.max(e.y, vy0), rx1 = Math.min(e.x + e.w, vx0 + VW), ry1 = Math.min(e.y + e.h, vy0 + VH);
+          g.beginPath(); g.rect(rx0, ry0, rx1 - rx0, ry1 - ry0);
           g.globalAlpha = k === 'rift' ? 0.3 : 0.38; g.fillStyle = pat(g, k, t * vx, t * vy); g.fill();
           if (k === 'lava') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2); g.fillStyle = pat(g, k, -t * 3, t * 5); g.fill(); }
+          if (k === 'water' && !POND.off) { g.globalAlpha = 1; waterExtra(L, rx0, ry0, rx1, ry1); }
           g.restore();
         }
         continue;
@@ -1027,9 +1180,11 @@ ArtUI.load();
       g.globalCompositeOperation = 'source-over'; g.globalAlpha = k === 'rift' ? 0.3 : 0.38;
       g.fillStyle = pat(g, k, t * vx, t * vy); g.fill();
       if (k === 'lava') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2); g.fillStyle = pat(g, k, -t * 3, t * 5); g.fill(); }
+      if (L && k === 'water' && !POND.off) { g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; waterExtra(L, x0 * TS, y0 * TS, (x1 + 1) * TS, (y1 + 1) * TS); }
       if (L) g.restore();
     }
     g.restore();
+    if (!POND.off) pondFx(g, w, inner, dt);
   });
 })();
 

@@ -52,6 +52,19 @@ const MOE_DEV = {
       T.ok(typeof drawGateArt === 'function' && typeof drawFishArt === 'function', '首領之門／碼頭的美術掛鉤不見了');
       drawGateArt(g, { x: 50, y: 50, open: false }, '測試'); drawGateArt(g, { x: 50, y: 50, open: true }, '測試'); drawFishArt(g, { x: 50, y: 50 });
     },
+    '打擊特效加強': T => {   // juice.js：拖尾、飛行拉伸、連擊升調、首領倒下推近、位移殘影
+      T.ok(typeof JUICE === 'object' && typeof juiceProjXf === 'function' && typeof juiceZoom === 'function', 'juice.js 沒載入');
+      T.hero('ranger', 20, 5); enterMap(2); T.quiet();
+      G.projs.push({ x: G.pl.x, y: G.pl.y, vx: 400, vy: 0, r: 4, sprite: 'orb', color: '#80c0ff', team: 'ally', life: 2, pk: { d: { phys: [1, 1] } }, pierce: 0, hit: new Set(), explode: 0, child: true });
+      const p = G.projs[G.projs.length - 1]; T.run(0.3); T.ok(!G.projs.includes(p) || (p._tr && p._tr.length >= 4), '投射物沒有記錄拖尾');
+      const g = document.createElement('canvas').getContext('2d'), m0 = g.getTransform();
+      if (juiceProjXf(g, { x: 0, y: 0, vx: 300, vy: 0 })) { T.ok(Math.abs(g.getTransform().a - JUICE.stretch.along) < 0.01, '投射物沒有沿方向拉長'); g.restore(); }
+      T.ok(g.getTransform().a === m0.a, '拉長之後沒有還原');
+      const r1 = Sfx.pitchMul('kill', 1), r2 = Sfx.pitchMul('kill', 1), r3 = Sfx.pitchMul('kill', 1); T.ok(r3 > r2 && r2 > 0.95, '連續擊殺音效沒有升高');
+      T.ok(Sfx.pitchMul('hit', 0.97) === 0.97, '一般打擊音效不該跟著升調');
+      G.slowmo = 1.2; T.run(0.2); T.ok(juiceZoom() > 1, '首領倒下鏡頭沒有推近'); G.slowmo = 0; T.ok(juiceZoom() === 1, '慢動作結束鏡頭沒有拉回');
+      G.pl.x += 200; T.run(0.05); T.ok(Juice.dashes() > 0, '瞬間位移沒有殘影');
+    },
     '資料完整': T => {
       for (const k in SKILLS) T.ok(SKILLS[k].name && SKILLS[k].tags && SKILLS[k].req, '技能資料不完整 ' + k);
       for (const k in SUPPORTS) T.ok(SUPPORTS[k].req && SUPPORTS[k].mods && SUPPORTS[k].cost, '輔助資料不完整 ' + k);

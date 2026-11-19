@@ -53,6 +53,8 @@ function render() {
   if (G.shake > 0) { const sh = G.shake * CFG.shake / 100; cx += rnd(-sh, sh); cy += rnd(-sh, sh); }   // v2.4 震動強度可調
   G.cam.x = cx; G.cam.y = cy;
   g.save();
+  const zm = typeof juiceZoom === 'function' ? juiceZoom() : 1;   // v2.19.6 首領倒下鏡頭以角色為中心推近（juice.js）
+  if (zm !== 1) { const zx = pl.x - Math.round(cx), zy = pl.y - Math.round(cy); g.translate(zx, zy); g.scale(zm, zm); g.translate(-zx, -zy); }
   g.translate(-Math.round(cx), -Math.round(cy));
   // 地圖
   const sx = Math.max(0, Math.floor(cx)), sy = Math.max(0, Math.floor(cy));
@@ -160,6 +162,8 @@ function render() {
     g.fillStyle = armed ? t.color : "#6a7a5a"; g.beginPath(); g.arc(t.x, t.y, 4, 0, Math.PI * 2); g.fill();
   }
   for (const p of G.projs) {
+    const xf = typeof juiceProjXf === 'function' && juiceProjXf(g, p);   // v2.19.6 飛行時沿方向拉長（juice.js）；下面的 continue 只跳出 do 區塊，一定會 restore
+    do {
     if (typeof drawProjArt === "function" && drawProjArt(g, p)) continue;   // v2.8.7 美術工作階段可以接手畫投射物（回傳 true＝已經畫好）
     if (p.sprite === "axe") { // 迴旋飛斧：轉圈的斧頭
       g.save(); g.translate(p.x, p.y); g.rotate(p.spin || 0);
@@ -191,6 +195,8 @@ function render() {
       g.fillStyle = '#c8f4ff'; g.beginPath(); g.moveTo(9, 0); g.lineTo(0, 4); g.lineTo(-9, 0); g.lineTo(0, -4); g.closePath(); g.fill();
       g.restore();
     }
+    } while (false);
+    if (xf) g.restore();
   }
   // 特效
   for (const f of G.fx) {

@@ -50,7 +50,8 @@ const Sfx = {
   play(name, k = 1) {
     if (!this.on || !this.ctx || this.ctx.state !== 'running') return;
     const now = performance.now(); if (now - (this.last[name] || 0) < (SFX_GAP[name] || 35)) return; this.last[name] = now;
-    const r = 0.92 + Math.random() * 0.16;   // 每次音高差一點點，連打不會像機關槍
+    let r = 0.92 + Math.random() * 0.16;   // 每次音高差一點點，連打不會像機關槍
+    if (this.pitchMul) r = this.pitchMul(name, r);   // v2.19.6 連擊升調（juice.js）
     const cat = SFX_CAT[name] || 'combat'; this.mul = (this.cat && this.cat[cat] != null) ? this.cat[cat] : 1; if (this.mul <= 0) return;   // v2.4 分類音量
     try { (SFX_DEF[name] || SFX_DEF.hit)(this, r, k); } catch (e) {}
   },
