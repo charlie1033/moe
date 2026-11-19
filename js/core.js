@@ -26,11 +26,13 @@ const Interact = {
   add(kind, find, use) { this.kinds[kind] = { find, use }; },
   resolve() {
     const pl = G.pl, w = G.world; if (!pl || !w || !G.P) return;
-    let best = G.nearAct && G.nearAct.ref ? { kind: G.nearAct.kind, ref: G.nearAct.ref, label: G.nearAct.label, d: dist(pl, G.nearAct.ref) } : null;
+    // v2.19.10 傳送門（離開地圖）比較的時候多算 48 像素：旁邊有掉落物時按 F 先撿東西，不會一不小心就離開
+    const bias = k => (k === 'exit' ? 48 : 0);
+    let best = G.nearAct && G.nearAct.ref ? { kind: G.nearAct.kind, ref: G.nearAct.ref, label: G.nearAct.label, d: dist(pl, G.nearAct.ref) + bias(G.nearAct.kind) } : null;
     for (const k in this.kinds) {
       let list; try { list = this.kinds[k].find(pl, w); } catch (err) { console.error('[Interact ' + k + ']', err); }
       if (!list) continue;
-      for (const c of list) { const d = dist(pl, c.ref); if (d < (c.r || 60) && (!best || d < best.d)) best = { kind: k, ref: c.ref, label: c.label, d }; }
+      for (const c of list) { const d0 = dist(pl, c.ref), d = d0 + bias(k); if (d0 < (c.r || 60) && (!best || d < best.d)) best = { kind: k, ref: c.ref, label: c.label, d }; }
     }
     G.nearAct = best ? { kind: best.kind, ref: best.ref, label: best.label } : null;
     G.nearNPC = G.nearAct && G.nearAct.kind === 'npc' ? G.nearAct.ref : null;

@@ -815,7 +815,9 @@ const MOE_DEV = {
       const P = T.hero('warrior', 30, 5); enterMap(4); T.quiet(); G.mons = []; T.run(0.1); P.cur.portal = 3;
       usePortalScroll(); T.ok(TownPortal.casting && G.world.kind === 'map', '按回城沒有開始詠唱（或直接回去了）');
       T.run(0.5); G.pl.x += 20; T.run(0.1); T.ok(!TownPortal.casting && P.cur.portal === 3 && !G.world.portal, '移動沒有打斷詠唱或扣了卷軸');
-      usePortalScroll(); T.run(1.8); const w = G.world, p = w.portal; T.ok(p && p.tp && P.cur.portal === 2, '詠唱完沒開門或沒扣卷軸');
+      usePortalScroll(); T.run(0.7); T.ok(TownPortal.casting && !G.world.portal, '回城不到 1 秒就開門了');
+      Hook.emit('hurt', 5, {}); T.ok(!TownPortal.casting && P.cur.portal === 3, '被打到沒有打斷詠唱');
+      usePortalScroll(); T.run(1.1); const w = G.world, p = w.portal; T.ok(p && p.tp && P.cur.portal === 2, '詠唱完沒開門或沒扣卷軸');
       T.ok(T.near(p, 30).kind === 'exit', '傳送門按 F 選不到');
       G.pl.x = p.x; G.pl.y = p.y + 4; T.run(0.1); T.ok(G.world.kind === 'town' && G.savedMap && G.savedMap.world === w, '走進傳送門沒回營地');
       T.near(G.world.retPortal, 5); UI.interact(); T.run(0.2); T.ok(G.world === w, '從營地回不到原地圖');
@@ -829,7 +831,13 @@ const MOE_DEV = {
         killMonster(b); T.run(2); const L = G.loot.slice();
         T.ok(w.portal && ok(w.portal), `第 ${tier} 夜：傳送門在走不到的地方`);
         T.ok(L.length && L.every(ok), `第 ${tier} 夜：有掉落物在牆裡或走不到`);
-        for (const l of L) { if (l.gone) continue; const a = T.near(l, 4); if (l.gone) continue; T.ok(a && a.kind === 'loot', `第 ${tier} 夜：掉落物按 F 選不到`); UI.interact(); }
+        T.ok(L.every(l => Math.hypot(l.x - w.portal.x, l.y - w.portal.y) >= 60), `第 ${tier} 夜：掉落物跟傳送門疊在一起`);
+        if (tier === 1) {   // 傳送門跟掉落物都在範圍內：按 F 先撿東西
+          const fake = { x: w.portal.x + 30, y: w.portal.y, t: 9, cur: 'chaos', label: '測試' }; G.loot.push(fake);
+          const ap = CFG.autoPick; CFG.autoPick = false; const a = T.near(w.portal, 4); CFG.autoPick = ap; T.ok(a && a.kind === 'loot' && a.ref === fake, '傳送門旁有掉落物時，按 F 先選到傳送門'); fake.gone = true;
+        }
+        for (let k = 0; k < 3; k++) for (const l of L) { if (l.gone) continue; const a = T.near(l, 4); if (l.gone) continue;   // 掉落物靠很近時這次可能撿到旁邊那個：多繞幾圈
+          T.ok(a && a.kind === 'loot', `第 ${tier} 夜：掉落物按 F 選不到`); UI.interact(); }
         T.ok(L.every(l => l.gone), `第 ${tier} 夜：掉落物撿不起來`);
         T.ok(T.near(w.portal, 5).kind === 'exit', `第 ${tier} 夜：傳送門按 F 選不到`);
       }

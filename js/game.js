@@ -1293,15 +1293,49 @@ function bossDefeated(b) {
       if (Math.random() < 0.25 * extra) dropLoot(b.x, b.y, { frag: pick(THEME_FRAG) });
     }
   }
-  const pp = randomFloorNear(b.x, b.y + 90, 30);
+  const pp = bossPortalSpot(b);   // v2.19.10 傳送門開在離掉落物遠一點的地方（以前跟掉落物疊在一起，撿東西常按到傳送門）
   w.portal = { x: pp.x, y: pp.y, exit: true };
+  lootClearPortal(w.portal);
   // v2.15.2 打倒看守者後的傳送門：直接帶你到「下一夜」所屬的營地（換章節時就是新營地）
   if (!w.arena && w.tier && w.tier <= ENDING_TIER) { const nh = hubForTier(Math.min(w.tier + 1, ENDING_TIER)); if (nh && nh !== P.hub && HUB_BY_ID[nh]) w.portal.toHub = nh; }
   saveGame();
 }
+// v2.19.10 首領倒下的傳送門：離首領 150 像素、看得到、站得下，挑離地上掉落物最遠的那個點
+const PORTAL_CLEAR = 72;   // 掉落物離傳送門至少這麼遠
+function bossPortalSpot(b) {
+  let best = null, bs = -1;
+  for (const [dx, dy] of [[0, 150], [150, 30], [-150, 30], [0, -150], [110, 110], [-110, 110], [110, -110], [-110, -110], [0, 110], [110, 0], [-110, 0]]) {
+    const x = b.x + dx, y = b.y + dy;
+    if (blockedCircle(x, y, 16) || !los(b.x, b.y, x, y)) continue;
+    let m = 1e9; for (const l of G.loot) if (!l.gone) m = Math.min(m, Math.hypot(l.x - x, l.y - y));
+    const sc = Math.min(m, 400) + (dy > 0 ? 20 : 0);   // 一樣空曠時優先開在下面
+    if (sc > bs) { bs = sc; best = { x, y }; }
+  }
+  return best || randomFloorNear(b.x, b.y + 90, 30);
+}
+// 太靠近傳送門的掉落物往外挪
+function lootClearPortal(p) {
+  if (!p) return;
+  for (const l of G.loot) {
+    if (l.gone || Math.hypot(l.x - p.x, l.y - p.y) >= PORTAL_CLEAR) continue;
+    const q = lootSpotAwayFromPortal(l.x, l.y, 46); l.x = q.x; l.y = q.y;
+  }
+}
+// 掉落物的落點：不要落在傳送門旁邊（往傳送門的反方向推）
+function lootSpotAwayFromPortal(x, y, rad) {
+  const p = G.world && G.world.kind !== 'town' && G.world.portal;
+  let q = randomFloorNear(x, y, rad);
+  if (!p) return q;
+  for (let i = 0; i < 12 && Math.hypot(q.x - p.x, q.y - p.y) < PORTAL_CLEAR; i++) {
+    const a = Math.atan2(y - p.y, x - p.x) + rnd(-1, 1), r = PORTAL_CLEAR + rnd(8, 40);
+    const c = { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r };
+    q = !blockedCircle(c.x, c.y, 14) ? c : randomFloorNear(x, y, rad + i * 8);
+  }
+  return q;
+}
 function dropLoot(x, y, o) {
   if (G.world && G.world.lootRule && !G.world.lootRule(o, x, y)) return;   // v2.17 這一區的掉落規則（預言：只掉通貨）
-  const p = randomFloorNear(x, y, 46);
+  const p = lootSpotAwayFromPortal(x, y, 46);   // v2.19.10 不掉在傳送門上
   const l = Object.assign({ x: p.x, y: p.y, t: 0 }, o);
   if (l.item) {
     Hook.emit('dropItem', l.item, l);   // v2.17 深層傳奇在這裡升級
