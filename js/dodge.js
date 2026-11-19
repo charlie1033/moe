@@ -32,7 +32,7 @@ Hook.on('update', dt => {
   }
 });
 // F 撿東西：登記成互動對象（由 core.js 的 Interact 挑最近的）
-Interact.add('loot', () => G.loot.filter(l => !(l.gone || l.t < 0.25 || (typeof lootHidden === 'function' && lootHidden(l)) || (l.item && l.item.rarity === 'normal' && !G.showNormal && !isFlask(l.item)))).map(l => ({ ref: l, label: '撿起 ' + (l.label || ''), r: 80 })), l => pickupLoot(l));
+Interact.add('loot', () => G.loot.filter(l => !(l.gone || l.t < 0.25 || !lootCanPick(l))).map(l => ({ ref: l, label: '撿起 ' + (l.label || ''), r: 80 })), l => pickupLoot(l));
 // 翻滾中不受傷（投射物、近戰、地面都算）
 const _dmgDodge = damagePlayer;
 damagePlayer = function (parts, opts = {}) {

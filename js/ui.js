@@ -13,6 +13,7 @@ function gameAsk(text, onYes, opts = {}) {
     document.body.appendChild(box);
   }
   box.querySelector('.gask-text').textContent = text;
+  if (Goal.into) Goal.into(box.querySelector('.gask-text'), opts.goal);   // v2.20 opts.goal：底下多一條「目標」（goals.js）
   const yes = box.querySelector('.gask-yes'), no = box.querySelector('.gask-no');
   yes.textContent = opts.yes || '確定'; no.textContent = opts.no || '取消'; no.style.display = opts.noCancel ? 'none' : '';
   if (typeof input !== 'undefined') { input.keys = {}; input.l = input.r = false; }
@@ -164,7 +165,7 @@ const UI = {
     const pb = document.createElement('div'); pb.id = 'portalbtn';
     pb.innerHTML = `<span class="mico">${svg('portal')}<span class="mkey">${keyLabel('portal')}</span></span><span class="pbname">回城</span><b class="pbcount"></b>`;
     pb.onclick = () => usePortalScroll();
-    pb.onmouseenter = e => this.showTip(`<div class="tip-name">回城　<span class="mkey2">T</span></div><div class="tip-mod" style="color:#d8ccb4">使用傳送卷軸回營地，之後可以從營地的藍色門回到同一場夢。持有 ${G.P ? G.P.cur.portal : 0} 張。</div>`, e.clientX, e.clientY);
+    pb.onmouseenter = e => this.showTip(`<div class="tip-name">回城　<span class="mkey2">T</span></div><div class="tip-mod" style="color:#d8ccb4">原地詠唱 1.6 秒（移動、放技能、被打到會中斷），打開傳送門，走進去回營地；之後可以從營地的藍色門回到同一場夢。持有 ${G.P ? G.P.cur.portal : 0} 張。</div>`, e.clientX, e.clientY);
     pb.onmousemove = e => this.moveTip(e); pb.onmouseleave = () => this.hideTip();
     document.body.appendChild(pb);
     // HUD 熱區：技能欄、藥劑、生命球、魔力球、經驗條（滑鼠移上去看說明）
@@ -1233,6 +1234,7 @@ const UI = {
     $('#storyText').textContent = this.storyText(s.pages[this.storyPage]);
     $('#storyBtn').textContent = this.storyPage < s.pages.length - 1 ? '繼續 ▸' : '關閉';
     $('#storyPg').textContent = `${this.storyPage + 1} / ${s.pages.length}`;
+    if (Goal.story) Goal.story(this.storyKey, this.storyPage >= s.pages.length - 1);   // v2.20 最後一頁底下的「目標」（goals.js）
   },
   storyNext() {
     const s = STORY[this.storyKey];

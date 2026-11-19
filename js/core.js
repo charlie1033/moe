@@ -9,6 +9,7 @@
 //     'cast'(sid, c) 放完技能之後（c＝這次施放算好的數值）
 //     'hurt'(掉了多少, opts) 角色被打到、真的掉血或掉護盾之後（持續傷害不算）
 //     'preHit'(ctx)／'crit'(m, 技能欄) 打中怪之前可改暴擊與倍率／打出暴擊之後（gems4.js 發的，ctx 見那個檔頭）
+//     'monKb'(ctx) 怪被打中、算擊退之前（game.js hitMonster 發的）：ctx = { m, dmg 這一下的傷害, kb 擊退倍率（可以改，堅忍用） }
 //     'stats'(S, P) 能力算好之後、技能數值算之前（要影響技能傷害的加成放這裡；生命上限、移動速度已經算完，要改就直接改 S.maxLife／S.moveSpeed）
 //     'dropItem'(item, l) 裝備掉到地上時（dropLoot 裡發；可以在這裡改這件裝備，例如深層傳奇升級底材）
 //  Interact.add(種類, find, use)   按 F 互動：find(pl, w) 回傳 [{ ref, label, r? }]（r＝互動距離，預設 60）
@@ -99,6 +100,8 @@ const StatusLines = {
   },
 };
 function mechHud(id, top, color, t) { StatusLines.set(id, t, color); }
+//  Goal.add(代號 => 目標)／Goal.live(() => 目標)   v2.20 目標行：劇情最後一頁、確認框底下、狀態列的「目標：……」（目標的寫法和畫法在 goals.js）
+const Goal = { fns: [], add(f) { this.fns.push(f); }, live(f) { StatusLines.add(() => this.line ? this.line(f()) : null); } };
 // 任務框（DOM）在畫面上的範圍，換成畫面座標記在 G.qbBox：左下的訊息列看到任務框拉長到下面時，就改排在任務框右邊（render.js）
 function hudBoxes() {
   if (typeof G === 'undefined') return;

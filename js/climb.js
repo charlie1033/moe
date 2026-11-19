@@ -7,7 +7,7 @@
 //   ・每 5 層一個獎勵寶箱（照地圖掉寶率：8 件起、每 5 層多 2 件、稀有度 +50%＋每層 4%、保底黃裝每 10 層多 1 件）
 //     看守者本身照樣掉首領的寶物（競技場算法）
 //   ・死掉或走傳送門離開＝結束：紀錄存在 G.P.climbBest，並寫進冊子 Book138.record('爬塔最高層', 層數)
-//  資料：G.world.rush = { floor 正在打第幾層, cleared 打完幾層, next 下一隻出現的時間, gifts { 代號: 幾個 }, last 上一隻 }
+//  資料：G.world.rush = { floor 正在打第幾層, cleared 打完幾層, next 下一隻還剩幾秒出現（選贈禮、暫停時不倒數）, gifts { 代號: 幾個 }, last 上一隻 }
 //  對外：enterBossRush()（名字沿用，測試會呼叫）、climbDeviceHTML(P)（endgame.js 的地圖裝置介面用）、CLIMB_GIFTS
 // =============================================================
 const CLIMB_COST = 3;
@@ -52,7 +52,7 @@ function enterBossRush() {
 }
 function climbSpawn(w, first) {
   const R = w.rush, ids = [...new Set(THEMES.map(t => t.boss))].filter(id => id !== R.last), id = pick(ids), f = R.floor - 1;
-  R.last = id; w.portal = null;
+  R.last = id; if (w.portal && !w.portal.tp) w.portal = null;   // 上一層的離開傳送門收掉；自己開的回城門留著（townportal.js）
   w.theme = Object.assign({}, THEMES.find(t => t.boss === id), { boss: id });
   const b = makeBoss(id, 20 * TS, 11 * TS, w.mlvl + MON_LVL_BONUS.boss + Math.min(6, f));
   const lf = 1 + 0.15 * f + 0.012 * f * f, df = 1 + 0.07 * f;
@@ -86,15 +86,17 @@ Hook.on('kill', m => {
     UI.banner('爬塔寶箱', `第 ${R.cleared} 層的獎勵掉在地上`, '#ffd36a'); Sfx.play('unique');
   }
   if (G.P && R.cleared > (G.P.climbBest || 0)) G.P.climbBest = R.cleared;
-  R.floor++; R.next = G.time + 3.5;
+  R.floor++; R.next = 3.5;   // v2.20 改成「還剩幾秒」，只在沒暫停時倒數（以前用遊戲時間：選贈禮那段暫停也在走，選完下一隻已經站在寶物上、傳送門也收掉了）
   UI.msg(`下一隻看守者 3 秒後出現（第 ${R.floor} 層）・想結束就走傳送門`, '#ff9a6a');
   if (typeof ChoiceBox !== 'undefined') climbGiftPick(w);
   saveGame();
 });
-Hook.on('update', () => {
+Hook.on('update', dt => {
   const w = G.world, R = w && w.rush;
   if (_climbW && G.world !== _climbW) { climbEnd(_climbW); _climbW = null; }
-  if (R && !R.ended && R.next && G.time >= R.next) { R.next = 0; climbSpawn(w, false); }
+  if (!R || R.ended || !(R.next > 0) || UI.paused() || G.dead) return;
+  if (R.next > 10) R.next = 3.5;   // 舊的沒打完的夢：存的是遊戲時間
+  if ((R.next -= dt) <= 0) { R.next = 0; climbSpawn(w, false); }
 });
 Hook.on('start', () => { _climbW = null; });
 Hook.on('drawHUD', g => {

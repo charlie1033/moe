@@ -1112,7 +1112,9 @@ function hitMonster(m, pk, fromMinion, src, kb = 1) {
   // 異常狀態
   if (pk.ail) applyAilments(m, pk, { phys, fire, cold, light, chaos }, crit);
   // 打擊感：擊退、硬直、噴血
-  const resist = { normal: 1, magic: 0.65, rare: 0.35, boss: 0 }[m.rarity];
+  const kbc = { m, dmg: total, kb: { normal: 1, magic: 0.65, rare: 0.35, boss: 0 }[m.rarity] };
+  Hook.emit('monKb', kbc);   // v2.20 堅忍（poise.js）：累積吃下的傷害越多，擊退、硬直越小
+  const resist = kbc.kb;
   if (src && resist > 0) {
     const a = Math.atan2(m.y - src.y, m.x - src.x);
     const power = 160 * kb * resist * (crit ? 1.4 : 1);
@@ -1305,7 +1307,7 @@ function dropLoot(x, y, o) {
     Hook.emit('dropItem', l.item, l);   // v2.17 深層傳奇在這裡升級
     const rk = l.item.set ? 'set' : l.item.rarity, rn = l.item.set ? '套裝物品掉落' : '傳奇物品掉落';   // v2.17 套裝用綠色
     l.label = l.item.name; l.color = RARITY_COLOR[rk] || RARITY_COLOR[l.item.rarity];
-    if (l.item.rarity === 'unique') { Sfx.play('unique'); UI.banner(rn, l.item.name, l.color); } else if (l.item.rarity === 'rare') Sfx.play('rare');
+    if (l.item.rarity === 'unique') { Sfx.play('unique'); UI.banner(rn, l.item.name, l.color); } else if (l.item.rarity === 'rare' && !lootFiltered(l)) Sfx.play('rare');   // v2.20 篩掉的黃裝不響
     if (l.item.rarity === 'unique') UI.msg(`${rn}：${l.item.name}`, l.color);
   } else if (l.gem) { l.label = `輔助寶石：${SUPPORTS[l.gem].name}`; l.color = '#3fd8b8'; }
   else if (l.skill) { l.label = `技能寶石：${SKILLS[l.skill].name}`; l.color = '#ffd27a'; }
@@ -1739,13 +1741,13 @@ function autoPickup() {
   const pl = G.pl;
   for (const l of G.loot) {
     if (l.gone || l.t < 0.35) continue;
-    if (!(l.jewel || l.cur || l.mat)) continue;
+    if (!(l.jewel || l.cur || l.mat) || !lootCanPick(l)) continue;   // v2.20 篩掉的不自動撿
     if (dist(l, pl) < 34) pickupLoot(l);
   }
 }
 function pickupNearest() {
   let best = null, bd = 80;
-  for (const l of G.loot) { if (l.gone) continue; const d = dist(l, G.pl); if (d < bd) { bd = d; best = l; } }
+  for (const l of G.loot) { if (l.gone || !lootCanPick(l)) continue; const d = dist(l, G.pl); if (d < bd) { bd = d; best = l; } }
   if (best) pickupLoot(best);
 }
 // 依身上的 4 個藥劑欄，建立（或保留）每瓶的充能
@@ -1955,8 +1957,5 @@ function explodeAt(p) {
 function usePortalScroll() {
   if (G.world.kind === 'town' || G.dead) return;
   if ((G.P.cur.portal || 0) <= 0) return msgOnce('noscroll', '沒有傳送卷軸了（打怪會掉，商人也有賣）');
-  G.P.cur.portal--;
-  G.world.portal = { x: G.pl.x, y: G.pl.y, exit: true };
-  burst(G.pl.x, G.pl.y, '#7fc8ff', 24); Sfx.play('portal');
-  leaveMapToTown();
+  TownPortal.begin();   // v2.20 先詠唱、再開傳送門（townportal.js；詠唱完成才扣卷軸）
 }

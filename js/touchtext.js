@@ -16,7 +16,7 @@
   set('#tree .ph .thint', '<span class="tseg">點天賦 → 按下方的「點這個天賦」</span><span class="tseg">「確認加點」前都能免費改</span><span class="tseg">一指拖曳・兩指縮放</span>');   // v2.19.7 分段：只在段落之間換行（.tseg 在 treeplan.js）
   // 面板標題的按鍵字母
   for (const id of ['skills', 'craft', 'journal']) { const h = $q(`#${id} > .ph`); if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.textContent = h.firstChild.textContent.replace(/（[A-Z]）/, ''); }
-  if (typeof CURRENCY !== 'undefined' && CURRENCY.portal) CURRENCY.portal.desc = '在地圖裡點它（或點右上角的「回城」鈕）：打開傳送門回營地，之後可以從營地的藍色傳送門回到同一張地圖繼續打。';
+  if (typeof CURRENCY !== 'undefined' && CURRENCY.portal) CURRENCY.portal.desc = '在地圖裡點它（或點右上角的「回城」鈕）：原地詠唱 1.6 秒後打開傳送門，走進去回營地，之後可以從營地的藍色傳送門回到同一張地圖繼續打。';
   // 操作說明：手機那段補一句；鍵盤操作收起來
   const t = $q('#help .tonly');
   if (t) {

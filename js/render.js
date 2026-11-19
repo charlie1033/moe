@@ -100,8 +100,9 @@ function render() {
   }
   // 掉落物（光柱）
   for (const l of G.loot) {
-    if (lootHidden(l) || (l.item && l.item.rarity === 'normal' && !G.showNormal && !isFlask(l.item))) continue;   // v2.7 掉落篩選：藏起來的連圖示都不畫
-    if (l.item && l.item.rarity === 'unique') {
+    const dim = !lootCanPick(l);   // v2.20 篩掉的：照樣畫圖示，但小一點、暗一點，沒有光圈和光柱（settings.js lootFiltered）
+    if (dim) g.globalAlpha = 0.7;
+    if (l.item && l.item.rarity === 'unique' && !dim) {
       const gr = g.createLinearGradient(0, l.y - 120, 0, l.y);
       const uc = l.item.set ? '90,208,138' : '232,128,58'; gr.addColorStop(0, `rgba(${uc},0)`); gr.addColorStop(1, `rgba(${uc},0.55)`);
       g.fillStyle = gr; g.fillRect(l.x - 5, l.y - 120, 10, 120);
@@ -112,9 +113,10 @@ function render() {
       : l.gem ? supportIcon(l.gem, 48) : l.skill ? skillIcon(l.skill, 48) : l.cur ? currencyIcon(l.cur, 48) : l.stackItem ? (l.stackItem.stack === 'cur' ? currencyIcon(l.stackItem.key, 48) : null) : l.mat ? matIcon(l.mat.slice(0, l.mat.lastIndexOf("_")), +l.mat.slice(l.mat.lastIndexOf("_") + 1), 48) : null;
     if (icon) {
       const rc = l.item ? itemColor(l.item) : l.gem ? SUPPORTS[l.gem].color : l.skill ? '#ffd27a' : '#e8d8a8';
-      g.globalAlpha = 0.28; g.fillStyle = rc; g.beginPath(); g.ellipse(l.x, l.y + 8, 11, 4, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
-      const sz = l.item ? 24 : 18;
-      g.imageSmoothingEnabled = true; g.drawImage(icon, l.x - sz / 2, l.y - sz / 2 + bob, sz, sz); g.imageSmoothingEnabled = false;
+      if (!dim) { g.globalAlpha = 0.28; g.fillStyle = rc; g.beginPath(); g.ellipse(l.x, l.y + 8, 11, 4, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+      const sz = dim ? 18 : l.item ? 24 : 18;
+      g.imageSmoothingEnabled = true; g.drawImage(icon, l.x - sz / 2, l.y - sz / 2 + (dim ? 2 : bob), sz, sz); g.imageSmoothingEnabled = false;
+      g.globalAlpha = 1;
     }
     else if (l.jewel) {
       g.fillStyle = l.color; g.strokeStyle = '#000'; g.lineWidth = 1; g.beginPath();
@@ -135,6 +137,7 @@ function render() {
       g.beginPath(); g.moveTo(l.x, l.y - 7); g.lineTo(l.x + 5, l.y); g.lineTo(l.x, l.y + 7); g.lineTo(l.x - 5, l.y); g.closePath(); g.fill(); g.stroke();
     }
     else { g.fillStyle = CURRENCY[l.cur].color; g.beginPath(); g.arc(l.x, l.y, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke(); }
+    g.globalAlpha = 1;
   }
   // 角色與怪物（依 y 排序）
   const ents = [...G.mons.filter(m => m.boss || (m.x > cx - 120 && m.x < cx + VW + 120 && m.y > cy - 140 && m.y < cy + VH + 160)), ...G.mins, pl].sort((a, b) => a.y - b.y);   // v2.12.1 畫面外的怪不畫（深層夢境一區有幾百隻）
@@ -362,7 +365,7 @@ function drawMonster(g, m) {
   // 異常狀態特效（v1.2：更明顯，頭上也有小圖示）
   drawAilmentFx(g, m, feet, sp.h, m.r, monAilState(m), m.boss ? 14 : (m.rarity !== 'normal' && dist(m, G.pl) < 360) ? (m.mods.length ? 44 : 31) : 17);
   if (m.addElem) { g.fillStyle = m.addElem === 'fire' ? 'rgba(255,100,30,0.25)' : m.addElem === 'chaos' ? 'rgba(100,220,90,0.25)' : 'rgba(120,200,255,0.25)'; g.beginPath(); g.arc(m.x, m.y - 4, m.r + 4, 0, Math.PI * 2); g.fill(); }
-  const top = feet - sp.h - 6;
+  const top = feet - sp.h - 6; m._barY = top;   // v2.20 堅忍條畫在血條下面（poise.js）
   if (m.boss) return;
   if (m.life < m.maxLife || m.rarity !== 'normal') lifeBar(g, m.x, top, Math.max(26, m.r * 2.4), m.life / m.maxLife, m.rarity === 'rare' ? '#e8d040' : m.rarity === 'magic' ? '#8088ff' : '#d03030');
   if (m.rarity === 'rare' || m.rarity === 'magic') {
@@ -591,8 +594,8 @@ function drawLootLabels(g, cx, cy) {
   //   以前每一格畫面都用螢幕座標重排一次：角色一走動，畫面邊緣有物品進出、或鏡頭的小數點進位不同，
   //   「誰跟誰重疊」的判斷就會變來變去，標籤就上下跳。現在用地圖座標排、排好就記住（l.wr），走路時整組一起平移。
   const H = IS_TOUCH ? 22 : 16, GAP = 2, FS = IS_TOUCH ? 15 : 11;   // v2.18.2 手機：字放大、標籤加高，比較好點
-  const shown = l => !l.gone && !(l.item && l.item.rarity === 'normal' && !G.showNormal) && !lootHidden(l);
-  const fkey = G.showNormal + '|' + lootFilterKey();
+  const shown = l => !l.gone && lootCanPick(l);   // v2.20 篩掉的沒有名稱（按住 Alt／手機「顯示全部」時才有）
+  const fkey = G.showNormal + '|' + lootFilterKey() + '|' + (typeof lootShowAll === 'function' && lootShowAll());
   if (G.lootShowNormal !== fkey) { G.lootShowNormal = fkey; for (const l of G.loot) l.wr = null; }   // 切換「顯示白裝」時才全部重排
   const rects = [];
   for (const l of G.loot) { if (!shown(l)) { l.wr = null; l.rect = null; } else if (l.wr) rects.push(l.wr); }

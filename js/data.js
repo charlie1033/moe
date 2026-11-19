@@ -541,7 +541,7 @@ UNIQUES.forEach(u => UNIQUE_BY_ID[u.id] = u);
 // ---------- 通貨（工藝石） ----------
 // 通貨＝改造裝備的材料（這個遊戲沒有金錢，商人也用這些交易）
 const CURRENCY = {
-  portal: { name: '傳送卷軸', color: '#7fc8ff', weight: 30, scroll: true, desc: '在地圖裡按 T 使用：打開傳送門回城鎮，之後可以從城鎮的藍色傳送門回到同一張地圖繼續打。' },
+  portal: { name: '傳送卷軸', color: '#7fc8ff', weight: 30, scroll: true, desc: '在地圖裡按 T 使用：原地詠唱 1.6 秒（移動、放技能、被打到會中斷）後打開傳送門，走進去回營地，之後可以從城鎮的藍色傳送門回到同一張地圖繼續打。' },
   transmute: { name: '蛻變石', color: '#8fb8ff', weight: 36, desc: '普通 → 魔法（1–2 條詞綴）' },
   alter: { name: '改造石', color: '#b0d0ff', weight: 28, desc: '重骰魔法物品的全部詞綴' },
   aug: { name: '增幅石', color: '#9ad0ff', weight: 22, desc: '魔法物品只有 1 條詞綴時，再加 1 條' },

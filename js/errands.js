@@ -58,9 +58,17 @@ const ERRANDS = [
 ];
 // 日誌頁（er_*）和 B 回話的那一段（er_*_b，不進日誌）
 for (const e of ERRANDS) {
-  STORY[e.id + '_b'] = { title: e.title, pages: e.reply };
-  STORY[e.id] = { title: e.title, pages: e.back, journal: { title: e.title, text: e.text } };
+  STORY[e.id + '_b'] = { title: e.title, pages: e.reply, goal: () => erGoalBack(e) };   // v2.20 最後一頁的「目標」（goals.js）
+  STORY[e.id] = { title: e.title, pages: e.back, journal: { title: e.title, text: e.text }, goal: { done: true, t: '帶話' } };
 }
+const erGoalTo = e => { const to = erWho(e.to); return `把${erShort(e.from)}的話帶給${to.hub ? to.hub + '的' : ''}${erShort(e.to)}`; };
+const erGoalBack = e => `回${erWho(e.from).hub || '營地'}，把回話告訴${erShort(e.from)}`;
+// 狀態列：在營地時顯示第一件進行中的帶話（其他的算件數）
+Goal.live(() => {
+  const P = G.P, w = G.world; if (!P || !w || w.kind !== 'town') return null;
+  const st = erState(P), act = ERRANDS.filter(e => st[e.id] === 'got' || st[e.id] === 'told'); if (!act.length) return null;
+  const e = act[0]; return { t: (st[e.id] === 'got' ? erGoalTo(e) : erGoalBack(e)) + (act.length > 1 ? `（還有 ${act.length - 1} 件帶話）` : ''), c: '#9fd8ff' };
+});
 // 人物在哪裡、叫什麼（營地的 NPC 和路人都找）
 function erWho(id) {
   for (const h of HUBS) { const n = h.npcs.find(x => x.id === id); if (n && h.id !== 'village') return { name: n.name, hub: h.name }; }
@@ -101,9 +109,9 @@ function erRun(id0, P) {
     erGive(P, e.gift, erShort(e.from)); UI.msg(`日誌多了一頁：${e.title}`, '#9fd8ff'); burst(G.pl.x, G.pl.y, '#9fd8ff', 24, 160);
   } else {
     const to = erWho(e.to);
-    gameAsk(`${erWho(e.from).name}：\n${e.ask}\n\n（帶話給${to.hub ? to.hub + '的' : ''}${erShort(e.to)}）`, () => {
+    gameAsk(`${erWho(e.from).name}：\n${e.ask}`, () => {   // v2.20 要帶給誰改寫在底下的「目標」
       st[e.id] = 'got'; UI.msg(`接下帶話：去${to.hub}找${erShort(e.to)}`, '#9fd8ff'); saveGame(); UI.renderQuest();
-    }, { yes: '我幫你帶', no: '下次吧', onNo: () => { G.erLater[e.id] = true; } });
+    }, { yes: '我幫你帶', no: '下次吧', onNo: () => { G.erLater[e.id] = true; }, goal: erGoalTo(e) });
     return true;
   }
   saveGame(); UI.refresh(); UI.renderQuest();

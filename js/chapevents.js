@@ -127,6 +127,41 @@ Hook.on('update', dt => {
     }
   }
 });
+// —— v2.20 目標行（goals.js）：劇情最後一頁＋小地圖下方的狀態列 ——
+const chapNum = n => ['零', '一', '兩', '三', '四', '五'][n] || n;
+// 收集：還沒撿的碎片在第幾區（同一夜）
+function chapCollectGoal(P, t, u) {
+  const got = u.parts.filter(p => P.chapEv[u.id + '#' + p]).length, left = [];
+  let nm = '';   // 碎片的名字：「王的詔書（一）」→「王的詔書」
+  for (let s = 1; s <= 3; s++) { const d = CHAPTER_MAPS[t + '-' + s]; for (const n in (d && d.events) || {}) { const e = d.events[n]; if (!e || e.id !== u.id) continue; nm = nm || (e.title || '').replace(/（[^）]*）$/, ''); if (!P.chapEv[u.id + '#' + (e.part || 1)]) left.push(s); } }
+  const zs = [...new Set(left)].sort().join('、'), rest = u.of - got;
+  return { t: `找齊${nm || u.title}（${got} / ${u.of}）` + (rest > 0 && zs ? `——另外${chapNum(rest)}片在第 ${t} 夜的第 ${zs} 區` : '') };
+}
+// 依劇情代號找事件資料：chev_代號、chev_代號#片、chev_代號#after
+function chapGoal(key) {
+  const m = /^chev_(.+?)(?:#(\w+))?$/.exec(key), P = G.P; if (!m || !P) return null;
+  const id = m[1], part = m[2], done = { done: true, t: '夢裡的故事' };
+  let t = 0, d = null;
+  for (const k in CHAPTER_MAPS) for (const n in CHAPTER_MAPS[k].events || {}) { const e = CHAPTER_MAPS[k].events[n]; if (e && e.id === id && !d) { d = e; t = +k.split('-')[0]; } }
+  if (!d) return done;   // 只綁在區域首領身上的劇情
+  if (part === 'after' || P.chapEv[id]) return done;
+  if (d.kind === 'collect') {   // 撿到最後一片：接著播完整的故事、記進日誌
+    const u = ChapterMaps.units(t).find(x => x.id === id);
+    return u && u.parts.filter(p => P.chapEv[id + '#' + p]).length < u.of ? chapCollectGoal(P, t, u) : done;
+  }
+  if (d.kind === 'ambush') return { t: `擋住${chapNum(clamp(d.waves || 2, 1, 4))}波伏擊的敵人` };
+  return done;   // 查看、說話：播的時候就完成了
+}
+Goal.add(chapGoal);
+Goal.live(() => {   // 正在打伏擊
+  const w = G.world, c = w && w.chap; if (!c) return null;
+  const ev = c.evs.find(e => e.amb); return ev ? { t: `擋住伏擊（第 ${Math.max(1, ev.wave)} / ${ev.waves} 波）`, c: '#ff9a6a' } : null;
+});
+Goal.live(() => {   // 這一夜撿到一半的收集
+  const w = G.world, P = G.P; if (!P || !P.chapEv || !w || w.kind !== 'map' || !w.chap) return null;
+  const u = ChapterMaps.units(w.tier).find(x => x.kind === 'collect' && !P.chapEv[x.id] && x.parts.some(p => P.chapEv[x.id + '#' + p]));
+  return u ? chapCollectGoal(P, w.tier, u) : null;
+});
 // —— 任務面板：這一夜的劇情事件進度 ——
 function chapProgress(P, tier) {
   const us = ChapterMaps.units(tier); if (!us.length) return null;

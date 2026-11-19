@@ -168,7 +168,7 @@ const Pause = {
       body += row('藥劑', chk('lootFlask'));
       body += row('白裝、藍裝的最低基底', sel('lootMinTier', BASE_TIER_NAME.map((n, i) => [i, i ? n + '以上才顯示' : '全部顯示'])), '只影響武器、副手、防具');
       body += row('黃裝只顯示有夢痕的', chk('lootScarOnly'), '傳奇、通貨、寶石、珠寶永遠會顯示');
-      body += `<div class="phint">藏起來的東西還在地上，只是不顯示名稱和圖示；改回來就看得到。</div>`;
+      body += `<div class="phint">篩掉的東西還在地上，只剩一個暗暗的小圖示：沒有名稱、撿不起來。${IS_TOUCH ? '點畫面上的「顯示全部」' : '按住 Alt'}就會顯示名稱、可以撿。</div>`;
     } else {
       body += row('滑鼠左右鍵互換', chk('swapMouse'), '左鍵放「右鍵技能」、右鍵放「左鍵技能」');
       let grp = '';
@@ -253,3 +253,7 @@ function lootHidden(l) {
   return false;
 }
 const lootFilterKey = () => [CFG.lootMagic, CFG.lootFlask, CFG.lootMinTier, CFG.lootScarOnly].join(',');
+// v2.20 篩掉的（含關掉「白裝」時的白裝）：地上照樣畫一個暗、小的圖示，但沒有名稱、F／點擊／自動撿取都撿不到
+//   按住 Alt（手機點「顯示全部」，lootall.js 的 lootShowAll）時全部恢復成一般物品
+const lootFiltered = l => lootHidden(l) || !!(l.item && l.item.rarity === 'normal' && !G.showNormal && !isFlask(l.item));
+const lootCanPick = l => !lootFiltered(l) || (typeof lootShowAll === 'function' && lootShowAll());

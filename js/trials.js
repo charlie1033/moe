@@ -7,15 +7,16 @@
 //    第三章 漲潮之前 tide：殺第一隻開始倒數 60 秒，時間內擊殺 25 隻
 //    第四章 別喝藥 nodrink：擊殺 25 隻，途中喝了任何藥劑就重來
 //    第五章 燈不能滅 lamp：諾娃的光圈（半徑 170）以每秒 120 的速度跟著你走；人在圈外累計超過 4 秒就重來，擊殺 20 隻
+//  ・v2.20 進圖 2.5 秒後跳一次大橫幅「目標：……」（TRIALS 的 goal）；狀態列寫「目標：夢境試煉「名稱」 進度」
 //  ・進度只在這次地圖裡有效（回營地、換一張圖就從 0 開始）；完成記在 G.P.trials[代號] = true（會存檔）
 //  ・舊存檔：原本那一步已完成的照樣算完成（quests.js 用同一個步驟位置）
 // =============================================================
 const TRIALS = {
-  onlyone: { name: '只用一招', need: 15, color: '#e8c0ff' },
-  nostop: { name: '別停下來', need: 20, color: '#bfe8ff', still: 2 },
-  tide: { name: '漲潮之前', need: 25, color: '#9fe0d8', time: 60 },
-  nodrink: { name: '別喝藥', need: 25, color: '#c8f090' },
-  lamp: { name: '燈不能滅', need: 20, color: '#fff0b0', R: 170, spd: 120, out: 4 },
+  onlyone: { name: '只用一招', need: 15, color: '#e8c0ff', goal: '只用同一個技能打倒 15 隻怪（翻滾不算）' },
+  nostop: { name: '別停下來', need: 20, color: '#bfe8ff', goal: '打倒 20 隻怪；身邊有怪時不能站著不動超過 2 秒', still: 2 },
+  tide: { name: '漲潮之前', need: 25, color: '#9fe0d8', goal: '殺第一隻開始倒數 60 秒，時間內打倒 25 隻怪', time: 60 },
+  nodrink: { name: '別喝藥', need: 25, color: '#c8f090', goal: '不喝任何藥劑，打倒 25 隻怪' },
+  lamp: { name: '燈不能滅', need: 20, color: '#fff0b0', goal: '待在諾娃的光圈裡打倒 20 隻怪（圈外累計 4 秒就重來）', R: 170, spd: 120, out: 4 },
 };
 // 現在這一章還沒完成的試煉
 function trialNow() {
@@ -54,9 +55,10 @@ Hook.on('update', dt => {
   const id = w && w.kind === 'map' && pl && P ? trialNow() : null;
   if (!id) { if (G.trialRun || StatusLines.fixed.trialHud) { G.trialRun = null; mechHud('trialHud', 96, '#fff', ''); } return; }
   let r = G.trialRun;
-  if (!r || r.id !== id) r = G.trialRun = { id, kills: 0, t: 0, out: 0, still: 0, sid: null, lx: pl.x, ly: pl.y, px: pl.x, py: pl.y, fl: [], failT: 0 };
+  if (!r || r.id !== id) { r = G.trialRun = { id, kills: 0, t: 0, out: 0, still: 0, sid: null, lx: pl.x, ly: pl.y, px: pl.x, py: pl.y, fl: [], failT: 0, bn: 2.5 }; }
   const T = TRIALS[id], paused = G.dead || (UI.paused && UI.paused());
   if (r.failT > 0) r.failT -= dt;
+  if (r.bn > 0 && !paused && (r.bn -= dt) <= 0) UI.banner(`夢境試煉「${T.name}」`, `目標：${T.goal}`, T.color);   // v2.20 進圖 2.5 秒後（地圖名稱的橫幅過了）大字寫出目標
   let extra = '';
   if (!paused) {
     if (id === 'nostop') {
@@ -80,7 +82,7 @@ Hook.on('update', dt => {
   }
   r.px = pl.x; r.py = pl.y;
   if (id === 'onlyone' && r.sid) extra = `　只用「${SKILLS[r.sid].name}」`;
-  mechHud('trialHud', 96, r.failT > 0 ? '#ff9a7a' : T.color, `夢境試煉「${T.name}」　${r.kills} / ${T.need}${extra}`);
+  mechHud('trialHud', 96, r.failT > 0 ? '#ff9a7a' : T.color, `目標：夢境試煉「${T.name}」　${r.kills} / ${T.need}${extra}`);
 });
 // 第五章：諾娃的光圈
 Hook.on('drawWorld', g => {

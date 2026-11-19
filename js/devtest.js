@@ -362,7 +362,7 @@ const MOE_DEV = {
     },
     '無盡爬塔：贈禮、寶箱': T => {
       const P = T.hero('warrior', 70, 25); P.cur.chaos = 10; enterBossRush();
-      for (let f = 1; f <= 5; f++) { const b = G.mons.find(x => x.boss && !x.dead); b.life = 0; killMonster(b); T.ok(ChoiceBox.open, '沒有跳贈禮'); ChoiceBox.pick(0); G.time += 4; T.run(0.2); }
+      for (let f = 1; f <= 5; f++) { const b = G.mons.find(x => x.boss && !x.dead); b.life = 0; killMonster(b); T.ok(ChoiceBox.open, '沒有跳贈禮'); ChoiceBox.pick(0); T.run(3.8); }
       const R = G.world.rush; T.ok(R.cleared === 5 && R.floor === 6 && G.mons.some(m => m.boss && !m.dead), '爬塔層數不對');
       enterMap(12); T.run(0.1); T.ok(P.climbBest === 5 && !ChoiceBox.open, '爬塔紀錄沒存');
     },
@@ -769,6 +769,81 @@ const MOE_DEV = {
         if (!IS_TOUCH) { TreePlan.cancel(); tap(tgt, 'mouse'); T.ok(P.tree.includes(tgt.id), '電腦版：左鍵沒有直接點上'); }
       } finally { TreePlan.cancel(); UI.toggle('tree', false); }
     },
+    '目標行：劇情最後一頁、確認框、狀態列，完成就消失': T => {
+      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); const w = G.world, P = G.P, def = e => ChapterMaps.evDef(w, e) || {};
+      const gh = () => ((document.querySelector('#story .goalhost') || {}).textContent || '');
+      UI.storyQ = []; ChapEv.use(w.chap.evs.find(e => def(e).id === 'ch1_decree' && def(e).part === 1));
+      UI.storyPage = STORY[UI.storyKey].pages.length - 1; UI.renderStory();
+      T.ok(/目標找齊王的詔書（1 \/ 3）——另外兩片在第 1 夜的第 2 區/.test(gh()), '收集劇情最後一頁沒有目標：' + gh());
+      while (UI.storyOpen) UI.storyNext(); T.run(0.3);
+      T.ok(StatusLines.lines().some(l => /^目標：找齊王的詔書/.test(l.t)), '狀態列沒有收集的目標');
+      for (const e of w.chap.evs.filter(e => def(e).id === 'ch1_decree' && !e.done)) ChapEv.use(e);
+      while (UI.storyOpen) UI.storyNext(); T.run(0.3);
+      T.ok(!StatusLines.lines().some(l => /找齊王的詔書/.test(l.t)), '收集完成後狀態列的目標沒有消失');
+      T.ok(Goal.text(Goal.forStory('chev_ch1_guard')) === '已記進日誌：夢裡的故事', '說話類的最後沒有寫已記進日誌');
+      T.ok(/^目標：擋住.波伏擊的敵人$/.test(Goal.text(Goal.forStory('chev_ch4_cocoon'))) && /^目標：打倒/.test(Goal.text(Goal.forStory('wreq_boneking'))), '伏擊或看守者請託沒有目標');
+      const e = ERRANDS[0]; goTown(); P.errands = { [e.id]: 'got' }; T.run(0.3);
+      T.ok(StatusLines.lines().some(l => /^目標：把.+的話帶給/.test(l.t)) && /^目標：回/.test(Goal.text(Goal.forStory(e.id + '_b'))), '帶話的目標沒有出現');
+      P.errands[e.id] = 'done'; T.run(0.3); T.ok(!StatusLines.lines().some(l => /帶話|話帶給/.test(l.t)), '帶話完成後目標沒有消失');
+      P.errands = {}; G.erLater = {}; P.story.seen.are2 = true; erRun(e.from, P);
+      const box = document.getElementById('gask'); T.ok(box && /目標把.+的話帶給/.test(box.querySelector('.goalhost').textContent), '接帶話的確認框沒有目標');
+      box.querySelector('.gask-no').click();
+    },
+    '掉落篩選：篩掉的有圖示沒標籤、F 撿不到、按住 Alt／手機鈕可以撿': T => {
+      T.hero('warrior', 20, 3); enterMap(1); T.quiet(); G.loot = []; const old = CFG.lootMagic; CFG.lootMagic = false; G.lootAllOn = false; input.keys = {};
+      G.P.inv = G.P.inv.map(() => null);
+      const mk = () => { const l = { x: G.pl.x + 20, y: G.pl.y, t: 1, item: makeItem(BASES.find(b => b.slot === 'helmet').id, 'magic', 12), color: '#88f' }; l.label = l.item.name; G.loot.push(l); return l; };
+      let l = mk(); update(1 / 30); render();
+      T.ok(lootFiltered(l) && !l.rect && !(G.nearAct && G.nearAct.ref === l), '篩掉的還有標籤或會被 F 選到');
+      UI.interact(); T.ok(!l.gone, '篩掉的被 F 撿起來了');
+      input.keys.AltLeft = true; update(1 / 30); render();
+      T.ok(l.rect && G.nearAct && G.nearAct.ref === l, '按住 Alt 沒有顯示標籤或選不到'); UI.interact(); T.ok(l.gone, '按住 Alt 撿不起來');
+      input.keys = {}; l = mk(); G.lootAllOn = true; update(1 / 30); render(); T.ok(l.rect && G.nearAct && G.nearAct.ref === l, '「顯示全部」開著時選不到');
+      G.lootAllOn = false; update(1 / 30); render(); T.ok(!l.rect, '關掉「顯示全部」標籤沒有藏回去');
+      CFG.lootMagic = old; G.loot = [];
+    },
+    '堅忍：擊退只看累積傷害、到門檻打不退': T => {
+      T.hero('warrior', 30, 5); enterMap(3); T.quiet(); G.mons = [];
+      const mk = r => { const m = makeMonster(G.world.theme.monsters[0], G.pl.x + 80, G.pl.y, 20, r, G.world.theme); m.modIds = []; m.mods = []; m.maxLife = m.life = 10000; m.armour = 0; m.res = { fire: 0, cold: 0, light: 0, chaos: 0 }; G.mons.push(m); return m; };
+      const pk = v => ({ d: { phys: [v, v] }, crit: 0, multi: 100, ail: {}, noBlast: true }), src = { x: G.pl.x, y: G.pl.y };
+      const kbAfter = (m, hits) => { hits.forEach(v => hitMonster(m, pk(v), true, null, 1)); m.kx = m.ky = 0; hitMonster(m, pk(1), true, src, 1); return Math.hypot(m.kx, m.ky); };
+      const one = kbAfter(mk('rare'), [1500]), many = kbAfter(mk('rare'), Array(10).fill(150)), fresh = kbAfter(mk('rare'), []);
+      T.ok(fresh > 0 && Math.abs(one - many) < 0.5 && Math.abs(one - fresh / 2) < 1, '擊退不是照累積傷害算');
+      T.ok(kbAfter(mk('rare'), [3000]) === 0 && kbAfter(mk('normal'), [6000]) === 0, '到門檻還會被打退');
+    },
+    '回城：詠唱、移動中斷、開門、走進去回營地、從營地回來': T => {
+      const P = T.hero('warrior', 30, 5); enterMap(4); T.quiet(); G.mons = []; T.run(0.1); P.cur.portal = 3;
+      usePortalScroll(); T.ok(TownPortal.casting && G.world.kind === 'map', '按回城沒有開始詠唱（或直接回去了）');
+      T.run(0.5); G.pl.x += 20; T.run(0.1); T.ok(!TownPortal.casting && P.cur.portal === 3 && !G.world.portal, '移動沒有打斷詠唱或扣了卷軸');
+      usePortalScroll(); T.run(1.8); const w = G.world, p = w.portal; T.ok(p && p.tp && P.cur.portal === 2, '詠唱完沒開門或沒扣卷軸');
+      T.ok(T.near(p, 30).kind === 'exit', '傳送門按 F 選不到');
+      G.pl.x = p.x; G.pl.y = p.y + 4; T.run(0.1); T.ok(G.world.kind === 'town' && G.savedMap && G.savedMap.world === w, '走進傳送門沒回營地');
+      T.near(G.world.retPortal, 5); UI.interact(); T.run(0.2); T.ok(G.world === w, '從營地回不到原地圖');
+    },
+    '看守者倒下：傳送門、掉落物走得到、F 選得到、撿得起來': T => {
+      for (const tier of [1, 4, 7, 10]) {
+        T.hero('warrior', 40, 12); enterMap(tier); T.quiet(); goRegion(G.world.stage.n); BossRoom.skip(); T.quiet();
+        const w = G.world, b = G.mons.find(m => m.boss), W = w.W, seen = new Uint8Array(W * w.H), q = [Math.floor(G.pl.y / TS) * W + Math.floor(G.pl.x / TS)]; seen[q[0]] = 1;
+        for (let h = 0; h < q.length; h++) for (const d of [1, -1, W, -W]) { const j = q[h] + d; if (j >= 0 && j < seen.length && !seen[j] && w.grid[j]) { seen[j] = 1; q.push(j); } }
+        const ok = o => seen[Math.floor(o.y / TS) * W + Math.floor(o.x / TS)] && !blockedCircle(o.x, o.y, 14);
+        killMonster(b); T.run(2); const L = G.loot.slice();
+        T.ok(w.portal && ok(w.portal), `第 ${tier} 夜：傳送門在走不到的地方`);
+        T.ok(L.length && L.every(ok), `第 ${tier} 夜：有掉落物在牆裡或走不到`);
+        for (const l of L) { if (l.gone) continue; const a = T.near(l, 4); if (l.gone) continue; T.ok(a && a.kind === 'loot', `第 ${tier} 夜：掉落物按 F 選不到`); UI.interact(); }
+        T.ok(L.every(l => l.gone), `第 ${tier} 夜：掉落物撿不起來`);
+        T.ok(T.near(w.portal, 5).kind === 'exit', `第 ${tier} 夜：傳送門按 F 選不到`);
+      }
+    },
+    '暫停時：巢穴機關不打人、爬塔下一隻不會先出來': T => {
+      T.hero('warrior', 30, 4); enterMap(3); goRegion(G.world.stage.n); BossRoom.skip(); T.quiet();
+      const b = G.mons.find(m => m.boss); b.awake = true; const H = G.world.haz; H.t = 0.1; UI.storyOpen = true;
+      for (let i = 0; i < 90; i++) update(1 / 30);
+      T.ok(!G.teles.length && !H.pend.length, '暫停時巢穴機關還在放'); UI.storyOpen = false;
+      const P = T.hero('warrior', 70, 25); P.cur.chaos = 10; enterBossRush(); killMonster(G.mons.find(m => m.boss));
+      for (let i = 0; i < 150; i++) update(1 / 30);
+      T.ok(ChoiceBox.open && G.world.portal && !G.mons.some(m => m.boss && !m.dead), '選贈禮時下一隻就出來了、傳送門被收掉');
+      ChoiceBox.pick(0); T.run(3.8); T.ok(G.mons.some(m => m.boss && !m.dead), '選完贈禮下一隻沒出來');
+    },
     '面板、設定頁、夢之門都打得開': T => {
       for (let i = 0; i < 3; i++) applyCfg(); T.ok(document.querySelectorAll('#portalbtn').length === 1, '改設定後回城鈕變成好幾顆');
       T.hero('summoner', 60, 21);
@@ -822,7 +897,7 @@ const MOE_DEV = {
       enterMap(2); T.quiet(); const m = G.mons.find(x => !x.boss); m.curses = [{ id: 'c_enf', v: 20, t: 0.2 }]; T.run(0.5); T.ok(!m.curses.length, '詛咒不會到期');
       const s = G.mons.find(x => !x.boss && !x.dead); s.modIds = ['split']; s.mods = [{ id: 'split' }]; const k0 = G.mons.length; s.life = 0; killMonster(s); T.ok(G.mons.length > k0, '分裂精英死了沒分裂');
       if (!T._kc) { T._kc = 1; Hook.on('kill', m => { if (m.__kc != null) m.__kc++; }); } const tj = G.mons.find(x => !x.boss && !x.dead); tj.__kc = 0; killMonster(tj); killMonster(tj); T.ok(tj.__kc === 1, '同一隻怪的死亡事件發了兩次');
-      P = T.hero('warrior', 60, 16); G.P.cur.chaos = 10; enterBossRush(); const b = G.mons.find(x => x.boss); b.life = 0; killMonster(b); G.time += 4; T.run(0.2); T.ok(G.mons.some(x => x.boss && !x.dead), '首領連戰下一位沒出現');
+      P = T.hero('warrior', 60, 16); G.P.cur.chaos = 10; enterBossRush(); const b = G.mons.find(x => x.boss); b.life = 0; killMonster(b); if (typeof ChoiceBox !== 'undefined' && ChoiceBox.open) ChoiceBox.pick(0); T.run(3.8); T.ok(G.mons.some(x => x.boss && !x.dead), '首領連戰下一位沒出現');
       enterMap(12); leaveMapToTown(); G.savedMap.expireAt = Date.now() - 1; T.run(0.1); T.ok(!G.savedMap, '保留的夢境過期沒關');
     },
   },

@@ -92,6 +92,7 @@ Hook.on('update', dt => {
   if (gate && !gate.open && guardLeft(w) === 0 && G.time > 1) { gate.open = true; UI.banner('首領之門開啟了', ctlText('守護者都倒下了・走到門前{interact}', true), '#ffd36a'); Sfx.play('unique'); burst(gate.x, gate.y, '#ffd36a', 40, 220); }
   if (gate && !gate.open) mechHud('guardHud', 168, '#ffb070', `精英守護者　還剩 ${guardLeft(w)} / ${gate.need}`); else mechHud('guardHud', 168, '#ffb070', '');
   const H = w.haz; if (!w.bossRoom || !H) return;
+  if (UI.paused() || G.dead) { for (const q of H.pend) q.at += dt; return; }   // v2.20 暫停（劇情、看守者三選一）時機關不倒數、不打人（G.time 暫停時還在走）
   const boss = G.mons.find(m => m.boss && !m.dead && !m.twin); if (!boss || !boss.awake) return;
   if ((H.t -= dt) <= 0) {
     H.t = H.every;

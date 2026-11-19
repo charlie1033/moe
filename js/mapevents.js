@@ -93,6 +93,9 @@ Hook.on('update', dt => {
     }
   }
 });
+// v2.20 狀態列的「目標」（goals.js）：深淵裂口的波數、精髓精英還活著
+Goal.live(() => { const w = G.world, ev = w && w.events && w.events.find(e => e.kind === 'abyss' && e.active); return ev ? { t: `撐過深淵裂口的 3 波怪（第 ${Math.max(1, ev.wave)} / 3 波）`, c: '#c090ff' } : null; });
+Goal.live(() => { const m = G.world && G.world.kind === 'map' && G.mons.find(m => m.essence && !m.dead); return m ? { t: `打倒「${m.name}」，牠一定會掉寶`, c: '#9ae8ff' } : null; });
 const EV_LABEL = { tide: '撕開夢潮裂隙', rite: '開始獻祭', mist: '走進迷霧', abyss: '打開深淵裂口', essence: '打碎精髓水晶', vision: '凝視瞻望之柱', chest: '打開寶箱' };
 Interact.add('mapev', (pl, w) => w.events ? w.events.filter(ev => !ev.done).map(ev => ({ ref: ev, label: ev.kind === 'shrine' ? `祈禱（${SHRINES[ev.type].name}）` : EV_LABEL[ev.kind] })) : null, ev => activateEvent(ev));
 // 神殿效果套到能力上

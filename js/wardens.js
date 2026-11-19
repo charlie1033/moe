@@ -67,7 +67,7 @@ function wHud(wd) {
   const g = WARDEN_TEXT[wd.id].gold, ok = v => v ? '✔' : '✘';
   let gt = g.k === 'time' ? `${g.n} 秒內打倒（還剩 ${Math.max(0, Math.ceil(g.n - wd.t))} 秒）` : g.text.replace(/（.*）$/, '');
   if (wd.path && wd.path !== 'name') gt += '（沒有打完全程）';
-  mechHud('wardHud', 146, '#ffe6a0', `請託試煉　銅：不死通過 ${ok(!wd.died)}　　金：${gt} ${ok(wGoldOk(wd) && (!wd.path || wd.path === 'name'))}`);
+  mechHud('wardHud', 146, '#ffe6a0', `目標（選修）請託試煉　銅：不死通過 ${ok(!wd.died)}　　金：${gt} ${ok(wGoldOk(wd) && (!wd.path || wd.path === 'name'))}`);
 }
 // —— ① 進巢穴：請託 ——
 function wAsk(wd) {
@@ -75,8 +75,10 @@ function wAsk(wd) {
   wd.stage = 'asking';
   const txt = `${T.who}的請託\n${T.ask}\n\n請託試煉（選修，失敗不會扣任何東西）：\n・銅：這一場不死通過 → 1 片殘片\n・金：${T.gold.text} → 再 3 片（要選「和解」打完全程才算）\n\n「${bn}的殘片」10 片可以跟歐莉換一件${pr}的專屬傳奇（目前 ${have} 片）。` +
     (f ? `\n\n你第一次面對${pr}時選了「${WCHOICE_NAME[f]}」。這次可以選別的、拿別的獎勵。` : `\n\n${pr}的生命打到一半時，你要從「和解」「了結」「放走」裡選一個。`);
-  gameAsk(txt, () => { wd.trial = true; wd.stage = 'fight'; UI.msg('接下了請託：試煉開始', '#ffe6a0'); }, { yes: '接下請託', no: '不用了', onNo: () => { wd.stage = 'fight'; } });
+  gameAsk(txt, () => { wd.trial = true; wd.stage = 'fight'; UI.msg('接下了請託：試煉開始', '#ffe6a0'); }, { yes: '接下請託', no: '不用了', onNo: () => { wd.stage = 'fight'; }, goal: [`打倒${bn}`, { opt: true, t: `${T.gold.text.replace(/（.*）$/, '')}（金）・不死通過（銅）` }] });   // v2.20 底下的「目標」（goals.js）
 }
+// v2.20 進巢穴的請託故事：最後一頁寫「目標：打倒看守者」（goals.js）
+Goal.add(key => key.startsWith('wreq_') && BOSSES[key.slice(5)] ? { t: `打倒${BOSSES[key.slice(5)].name}` } : null);
 // —— ② 半血轉場 ——
 function wTrans(b, wd) {
   const T = WARDEN_TEXT[wd.id], w = G.world;
