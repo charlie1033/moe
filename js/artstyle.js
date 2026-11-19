@@ -45,6 +45,7 @@ const ArtStyle = {
     safe(() => { if ($('#menu').classList.contains('show')) UI.buildMenu(); });
     if (typeof G !== 'undefined' && G.P) for (const f of ['refreshInv', 'refreshFlasks', 'refreshChar', 'refreshSkills', 'refreshJewels', 'refreshJournal']) safe(() => UI[f]());
     safe(() => { if (UI.storyOpen) UI.renderStory(); });
+    safe(() => { if (G.world && G.world.deco && typeof worldRepaint === 'function') worldRepaint(G.world); });   // v2.19.4 地板貼圖、障礙物新圖跟著切換
   },
   applyTheme() {
     const on = this.on && this.has();

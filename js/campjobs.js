@@ -114,11 +114,11 @@ Hook.on('update', dt => {
 Hook.on('drawWorld', g => {
   const w = G.world, s = fishSpot(w); if (!s) return;
   const t = G.time, a = G.fishAnim, P = G.P;
-  // 一小塊水和木頭棧板（還沒有美術圖：先用程式畫）
+  // 一小塊水和木頭棧板（棧板有美術圖時換成小碼頭：drawFishArt）
   g.save();
   g.fillStyle = 'rgba(40,90,130,0.85)'; g.beginPath(); g.ellipse(s.x, s.y, 30, 14, 0, 0, Math.PI * 2); g.fill();
   g.strokeStyle = `rgba(180,220,255,${0.35 + 0.15 * Math.sin(t * 2)})`; g.lineWidth = 1; g.beginPath(); g.ellipse(s.x, s.y, 22 + Math.sin(t * 1.5) * 3, 9, 0, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = '#6a4a2a'; g.fillRect(s.x - 40, s.y - 4, 12, 3); g.fillRect(s.x - 40, s.y + 1, 12, 3);
+  if (!(typeof drawFishArt === 'function' && drawFishArt(g, s))) { g.fillStyle = '#6a4a2a'; g.fillRect(s.x - 40, s.y - 4, 12, 3); g.fillRect(s.x - 40, s.y + 1, 12, 3); }   // 美術掛鉤：碼頭
   if (!a) {   // 立著的竿子
     g.strokeStyle = '#8a6a3a'; g.lineWidth = 2; g.beginPath(); g.moveTo(s.x - 34, s.y + 2); g.lineTo(s.x - 22, s.y - 30); g.stroke();
     if (P && fishState(P).ok) txt(g, '釣魚點', s.x, s.y + 22, 10, '#9fd8ff', 'center');

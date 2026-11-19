@@ -117,9 +117,11 @@ Hook.on('update', dt => {
 // —— ④ 畫門 ——
 Hook.on('drawWorld', g => {
   const w = G.world, gate = w && w.bossGate; if (!gate) return;
-  if (gate.open) drawPortal(g, gate.x, gate.y, '#ffb050', `首領之門・${BOSSES[gate.id].name}`);
+  const label = gate.open ? `首領之門・${BOSSES[gate.id].name}` : `首領之門（封印：守護者 ${guardLeft(w)} / ${gate.need}）`;
+  if (typeof drawGateArt === 'function' && drawGateArt(g, gate, label)) return;   // 美術掛鉤：畫好門和名字回傳 true
+  if (gate.open) drawPortal(g, gate.x, gate.y, '#ffb050', label);
   else {
-    drawPortal(g, gate.x, gate.y, '#6a4a5a', `首領之門（封印：守護者 ${guardLeft(w)} / ${gate.need}）`);
+    drawPortal(g, gate.x, gate.y, '#6a4a5a', label);
     g.save(); g.strokeStyle = 'rgba(180,140,120,0.85)'; g.lineWidth = 3;   // 封印的鎖鏈
     for (const s of [-1, 1]) { g.beginPath(); g.moveTo(gate.x - 26, gate.y - 34 * s * 0.6 - 8); g.lineTo(gate.x + 26, gate.y + 34 * s * 0.6 - 8); g.stroke(); }
     g.restore();

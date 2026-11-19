@@ -42,6 +42,16 @@ const MOE_DEV = {
   near(ref, dx = 20) { G.pl.x = ref.x + dx; G.pl.y = ref.y; this.quiet(); update(1 / 30); return G.nearAct; },
   ok(c, msg) { if (!c) throw new Error(msg); },
   TESTS: {
+    '營地居民與終局新美術': T => {   // artcamp.js：營地居民換圖（關掉新美術退回怪物圖）、終局事件、首領之門、碼頭不會出錯
+      if (typeof ARTWORK === 'undefined') return;
+      T.ok(WARDEN_TEXT.beast.camp.sprite === 'camp_beast', '營地居民沒接上新美術');
+      const s = getSprite('camp_beast', 2, null, false); T.ok(s && s.w > 0 && s.h > 0, '大白的圖拿不到');
+      const was = ArtStyle.on; ArtStyle.on = false; const o = getSprite('camp_beast', 2, null, false); ArtStyle.on = was; T.ok(o && o.w > 0, '關掉新美術時大白沒有退回原本的圖');
+      const g = document.createElement('canvas').getContext('2d');
+      for (const kind of ['tide', 'rite', 'mist']) drawEventArt(g, { kind, x: 50, y: 50, done: false, cleared: kind === 'mist' });
+      T.ok(typeof drawGateArt === 'function' && typeof drawFishArt === 'function', '首領之門／碼頭的美術掛鉤不見了');
+      drawGateArt(g, { x: 50, y: 50, open: false }, '測試'); drawGateArt(g, { x: 50, y: 50, open: true }, '測試'); drawFishArt(g, { x: 50, y: 50 });
+    },
     '資料完整': T => {
       for (const k in SKILLS) T.ok(SKILLS[k].name && SKILLS[k].tags && SKILLS[k].req, '技能資料不完整 ' + k);
       for (const k in SUPPORTS) T.ok(SUPPORTS[k].req && SUPPORTS[k].mods && SUPPORTS[k].cost, '輔助資料不完整 ' + k);

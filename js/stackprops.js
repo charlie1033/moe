@@ -7,7 +7,8 @@
 //  ・水、岩漿、裂隙、木橋還是原本平面的畫法
 //  ・v2.9.6 角色或怪物走到障礙物正後方：障礙物會擋住他，但在他身上挖一個透明圓，看得到樹後面的人
 //  ・設定 → 介面：「立體障礙物」可以關掉，關掉就回到原本的平面圖
-//  ・模型是程式算出來的（不吃美術圖），切片第一次用到才做、做完留著
+//  ・模型是程式算出來的，切片第一次用到才做、做完留著
+//  ・v2.19.4 美術掛鉤 drawPropArt(g, o, lean, fl)：新美術開著時，有 AI 圖的種類改畫 AI 圖（js\artcamp.js），擋人、透明圓照舊
 //  資料：CFG.stackProps（false＝關）；地圖上的障礙物仍然是 w.deco（stages.js）
 // =============================================================
 const StackProps = (() => {
@@ -101,7 +102,8 @@ const StackProps = (() => {
     return (cache[key] = layers);
   }
   const on = () => CFG.stackProps !== false;
-  const handles = t => on() && !!M[t];
+  const art = t => typeof propArtReady === 'function' && propArtReady(t);   // v2.19.4 新美術有圖的種類：開關關著也畫 AI 圖（比立體模型省）
+  const handles = t => !!M[t] && (on() || art(t));
   function list(w) {
     if (w._stk && w._stk.deco === w.deco) return w._stk.a;
     const a = [];
@@ -128,15 +130,16 @@ const StackProps = (() => {
     const lean = (o.x - mx) / (VW / 2) * 0.28 + (m.sway ? Math.sin(T * 1.4 + o.x * 0.05 + o.y * 0.03) * 0.04 * m.sway : 0);
     const lq = Math.max(-9, Math.min(9, Math.round(lean / LSTEP)));
     const fl = m.float ? Math.sin(T * 2 + o.s) * 2 - 3 : 0;
+    if (typeof drawPropArt === 'function' && drawPropArt(g, o, lean, fl)) return;   // v2.19.4 美術掛鉤：有新美術的障礙物畫成 AI 圖（透明圓、遮擋照舊）
     g.drawImage(comp(o.t, ai, na, lq), Math.round(o.x - PAD - MX), Math.round(o.y - PAD - HMAX + fl));
   }
   const inView = (o, cam) => !(o.x < cam.x - 40 || o.x > cam.x + VW + 40 || o.y < cam.y - 10 || o.y > cam.y + VH + 50);
   function draw(g) {
-    const w = G.world; if (!on() || !w || !w.deco) return;
+    const w = G.world; if (!w || !w.deco) return;
     const cam = G.cam, mx = cam.x + VW / 2, my = cam.y + VH / 2, T = G.time;
     g.save(); g.imageSmoothingEnabled = false;
     for (const o of list(w)) {
-      if (!inView(o, cam)) continue;
+      if (!inView(o, cam) || !handles(o.t)) continue;
       g.fillStyle = 'rgba(0,0,0,0.32)'; g.beginPath(); g.ellipse(o.x, o.y + 1, 13, 5, 0, 0, Math.PI * 2); g.fill();
       drawOne(g, o, mx, my, T);
     }
@@ -147,12 +150,12 @@ const StackProps = (() => {
   let OV = null;
   const behind = (o, e) => e.y < o.y && o.y - e.y < M[o.t].H + 18 && Math.abs(e.x - o.x) < 24;
   function drawOver(g) {
-    const w = G.world; if (!on() || !w || !w.deco || !G.pl) return;
+    const w = G.world; if (!w || !w.deco || !G.pl) return;
     const cam = G.cam, mx = cam.x + VW / 2, my = cam.y + VH / 2, T = G.time;
     const ents = [G.pl, ...G.mons.filter(m => !m.dead), ...(G.mins || [])];
     const front = [], hid = new Set();
     for (const o of list(w)) {
-      if (!inView(o, cam)) continue;
+      if (!inView(o, cam) || !handles(o.t)) continue;
       let any = false; for (const e of ents) if (behind(o, e)) { any = true; hid.add(e); }
       if (any) front.push(o);
     }
@@ -176,7 +179,7 @@ const StackProps = (() => {
 })();
 Hook.on('drawWorld', g => { try { StackProps.draw(g); } catch (e) { } });
 Hook.on('drawOver', g => { try { StackProps.drawOver(g); } catch (e) { } });
-SettingsRows.add('ui', () => `<div class="prow"><div class="pname">立體障礙物<small>樹、岩石、石柱這些障礙物用一層一層疊起來的方式畫，看起來有立體感；電腦比較慢可以關掉</small></div><div class="pctl"><label class="pswitch"><input type="checkbox" data-stk ${StackProps.on() ? 'checked' : ''}><span></span></label></div></div>`, root => {
+SettingsRows.add('ui', () => `<div class="prow"><div class="pname">立體障礙物<small>樹、岩石、石柱這些障礙物用一層一層疊起來的方式畫，看起來有立體感；電腦比較慢可以關掉（新美術開著時，樹、岩石這些一律畫成新圖，不受這個開關影響）</small></div><div class="pctl"><label class="pswitch"><input type="checkbox" data-stk ${StackProps.on() ? 'checked' : ''}><span></span></label></div></div>`, root => {
   const c = root.querySelector('[data-stk]');
   if (c) c.onchange = () => { CFG.stackProps = c.checked; saveCfg(); if (G.world) worldRepaint(G.world); };
 });

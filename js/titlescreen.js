@@ -263,7 +263,7 @@ const TitleScreen = (() => {
   function build() {
     root = document.getElementById('title');
     if (!root) { root = document.createElement('div'); root.id = 'title'; document.body.appendChild(root); }
-    root.innerHTML = `<img class="ts-art" alt=""><canvas id="tsCv"></canvas><div class="ts-shade"></div><div class="ts-left"><div class="tp-wrap ts-logo"><div class="tplaque"></div><div class="title">夢疑 <span class="title-en"><i>M</i><i>O</i><i>E</i></span></div></div>
+    root.innerHTML = `<img class="ts-art" alt=""><canvas id="tsCv"></canvas><div class="ts-shade"></div><div class="ts-left"><div class="tp-wrap ts-logo"><div class="title logo-title"><img src="img/logo.png" alt="夢疑 MOE"></div></div>
       <div class="ts-sub">一次又一次入夢，直到你想起怎麼醒來</div><nav class="ts-menu"></nav></div><div class="ts-ver">v${ver()}</div>
       <div class="ts-cred"><div class="ts-card"><div class="ts-ct">夢疑 MOE</div><div class="ts-cv">版本 v${ver()}</div>
       <p><b>企劃</b>使用者</p><p><b>程式與美術協作</b>Claude</p><p><b>美術生成</b>Higgsfield</p><p><b>背景音樂、音效</b>遊戲內即時合成</p>
