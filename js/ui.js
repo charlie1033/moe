@@ -684,7 +684,8 @@ const UI = {
       el.classList.toggle('canDrop', !!this.gemPick && this.gemAccepts(this.gemPick, el.dataset.drop));
       // v2.18.2 空的孔（大格、小格）和寶石袋也接住「點一下」：手上選了寶石，再點空孔就放進去（手機以前只能用拖的）
       if (!el.dataset.gem) el.onclick = e => {
-        if (!this.gemPick || e.target.closest('[data-gem]') || e.target.closest('button')) return;
+        if (e.target.closest('[data-gem]') || e.target.closest('button')) return;
+        if (!this.gemPick) { if (/^sup:/.test(el.dataset.drop) && typeof SupQuick !== 'undefined') SupQuick.open(el.dataset.drop, el); return; }   // v2.19.14 空的輔助孔：跳出可以裝的清單（supquick.js）
         if (this.gemAccepts(this.gemPick, el.dataset.drop)) { this.gemDrop(this.gemPick, el.dataset.drop); this.gemPick = null; this.refreshSkills(); }
         else if (el.dataset.drop !== 'bag') { this.gemDrop(this.gemPick, el.dataset.drop); }   // 放錯格：說明要放哪裡
       };
@@ -734,7 +735,7 @@ const UI = {
     const fit = Object.keys(SKILLS).filter(s => supportFits(id, s)).map(s => SKILLS[s].name).join('、');
     return `<div class="tip-name" style="color:${sp.color}"><img class="skico" src="${supportIconURL(id, 48)}">${sp.name}</div><div class="tip-sub">輔助寶石 · <span style="color:#8fb8ff">${manaEffTxt(sp.cost)}</span>${kind === 'sup' ? ` · 還有 ${supHave(id)} 顆` : ''}</div>
       <div class="tip-mod" style="color:#d8ccb4">${sp.desc}</div><div class="tip-mod" style="color:#a89878">可搭配：${fit}</div>
-      <div class="tip-hint">${kind === 'link' ? byCtl('右鍵或拖回寶石袋＝拿下來', '點一下選起來，再點寶石袋＝拿下來') : byCtl('拖到裝備旁邊的小格（輔助孔）', '點一下選起來，再點裝備旁邊的小格（輔助孔）')}</div>`;
+      <div class="tip-hint">${kind === 'link' ? byCtl('點一下換成別顆或拿下來；右鍵＝直接拿下', '點一下換成別顆或拿下來') : byCtl('拖到裝備旁邊的小格（輔助孔）；也可以直接點小格，從清單挑', '點一下選起來，再點小格；也可以直接點小格，從清單挑')}</div>`;
   },
   gemAccepts(p, drop) {
     const kind = p.split(':')[0], t = drop.split(':')[0];
@@ -758,6 +759,8 @@ const UI = {
       const target = document.elementFromPoint(ev.clientX, ev.clientY);
       const drop = target && target.closest('[data-drop]');
       if (d.moved) { if (drop) this.gemDrop(payload, drop.dataset.drop); this.gemPick = null; this.refreshSkills(); return; }
+      // v2.19.14 手上沒選寶石、點一下已經裝好的輔助寶石：跳出「換成別顆／拿下來」清單（supquick.js）
+      if (!this.gemPick && /^link:/.test(payload) && typeof SupQuick !== 'undefined') { const [, i, k] = payload.split(':'); SupQuick.open(`sup:${i}:${k}`, target && target.closest('[data-gem]')); return; }
       // 只點一下：如果手上已經選了寶石、點到的是可以放的格子 → 放進去；不然就選起這顆
       if (this.gemPick && drop && this.gemPick !== payload && this.gemAccepts(this.gemPick, drop.dataset.drop)) { this.gemDrop(this.gemPick, drop.dataset.drop); this.gemPick = null; }
       else this.gemPick = this.gemPick === payload ? null : payload;

@@ -515,6 +515,24 @@ const MOE_DEV = {
       if (el) el.click(); T.ok(P.links[0][0] === id, '點空孔沒有放進去'); T.ok(!UI.gemPick, '放完還選著');
       UI.toggle('skills', false);
     },
+    '技能頁：點輔助孔跳清單、點一下裝上、點已裝的可以換或拿下、補滿推薦': T => {
+      T.hero('druid', 30, 3); const P = G.P, sid = P.skills[0]; P.links = P.links.map(() => []); P.supports = {};
+      const fit = Object.keys(SUPPORTS).filter(s => supportFits(s, sid) && supGoodFor(s, sid)); fit.forEach(s => P.supports[s] = 2);
+      T.ok(fit.length >= 2, '測試技能找不到兩顆推薦輔助');
+      UI.toggle('skills', true); UI.refreshSkills(); UI.gemPick = null;
+      document.querySelector('#skillSlots [data-drop="sup:0:0"]').click();
+      const box = document.getElementById('supQuick'); T.ok(box && box.querySelectorAll('[data-sq]').length >= 2, '點空的輔助孔沒有跳出清單');
+      T.ok(/每秒傷害|傷害不變/.test(box.textContent), '清單沒寫傷害變化');
+      const first = box.querySelector('[data-sq]').dataset.sq; box.querySelector('[data-sq]').click();
+      T.ok(P.links[0][0] === first && !document.getElementById('supQuick'), '點清單沒有裝上或清單沒關');
+      SupQuick.open('sup:0:0', document.querySelector('#skillSlots [data-gem="link:0:0"]'));
+      const b2 = document.getElementById('supQuick'); T.ok(b2 && b2.querySelector('[data-sqoff]'), '點已裝的沒有「拿下來」');
+      const other = b2.querySelector('[data-sq]').dataset.sq; b2.querySelector('[data-sq]').click(); T.ok(P.links[0][0] === other && P.supports[first] === 2, '換成別顆沒換好或舊的沒還回來');
+      SupQuick.open('sup:0:0', null); document.querySelector('#supQuick [data-sqoff]').click(); T.ok(!P.links[0][0] && P.supports[other] === 2, '拿下來沒拿下');
+      const fb = document.querySelector('#skillSlots .sq-fill'); T.ok(fb, '沒有「補滿推薦」鈕'); fb.click();
+      const n = linkSlots(P.lvl); T.ok(P.links[0].slice(0, n).filter(Boolean).length === Math.min(n, fit.length) && new Set(P.links[0].filter(Boolean)).size === P.links[0].filter(Boolean).length, '補滿推薦沒補滿或放了重複的');
+      UI.toggle('skills', false); T.run(0.1); T.ok(!document.getElementById('supQuick'), '關技能頁清單還在');
+    },
     '普通攻擊：開局左鍵、不耗魔、舊存檔補上、前 10 級魔力回復': T => {
       for (const c of ['warrior','samurai','ranger','druid','mage','summoner']) { const P = T.hero(c, 1, 1); const sid = BASIC_ATK[c]; T.ok(P.skills[0] === sid && G.slotCalc[0].cost === 0 && !skillUsable(G.S, sid), c + ' 開局左鍵不是不耗魔的普通攻擊'); }
       enterMap(1); T.quiet(); G.pl.mana = 0; G.pl.act = 0; G.pl.cd = {}; const n = G.projs.length; input.wx = G.pl.x + 100; input.wy = G.pl.y; useSkill(0); T.ok(G.projs.length > n, '魔力 0 時普通攻擊放不出來');
