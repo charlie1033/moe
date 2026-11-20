@@ -50,7 +50,7 @@ UI.refreshStash = function () {
     d.onmouseenter = e => {
       const items = G.stash.spec.uniq.filter(it => it.uniqueId === id);
       if (!items.length) return this.showTip(`<div class="tip-name c-unique">${u.name}</div><div class="tip-sub">${BASE_BY_ID[u.base].name}・還沒收集到</div>${u.dropNote ? `<div class="tip-mod" style="color:#a89878">${u.dropNote}</div>` : ''}${u.boss ? `<div class="tip-mod" style="color:#a89878">${u.boss === 'w_token' && typeof uniqueSourceText === 'function' ? uniqueSourceText(u) : `只有首領「${BOSSES[u.boss] ? BOSSES[u.boss].name : u.boss}」會掉`}</div>` : ''}${u.flavor ? `<div class="tip-mod" style="color:#8a7a60;font-style:italic">${u.flavor}</div>` : ''}`, e.clientX, e.clientY);
-      const cols = items.slice(0, 3).map((it, i) => `<div class="tipcol">${i ? '' : `<div class="tip-cmp">${byCtl('左鍵', '點一下')}拿這件</div>`}${itemTipHTML(it)}</div>`).join('');
+      const cols = items.slice(0, 3).map((it, i) => `<div class="tipcol">${i ? '' : `<div class="tip-cmp">${byCtl('左鍵', '點一下')}拿這件</div>`}${itemTipHTML(it, { lore: !i })}</div>`).join('');   // v2.19.13 收藏冊裡看得到整段故事
       this.showTip(`<div class="tipcols">${cols}</div>${items.length > 3 ? `<div class="thint" style="padding:4px">還有 ${items.length - 3} 件</div>` : ''}`, e.clientX, e.clientY);
     };
     d.onmousemove = e => this.moveTip(e); d.onmouseleave = () => this.hideTip();

@@ -831,6 +831,13 @@ const MOE_DEV = {
       for (const pid in SET_PIECES) chk(pid, () => makeSetItem(pid, 80));
       T.ok(!bad.length, bad.slice(0, 6).join('；'));
       const tok = UNIQUES.find(u => u.boss === 'w_token' && u.from); T.ok(tok && /看守者的信物/.test(itemTipHTML(makeUnique(tok.id, 80))), '看守者信物沒寫來源');
+      // v2.19.13 每件傳奇都有一段故事；說明欄只放一行提示，收藏冊（opts.lore）才放整段；日誌那一頁撿過才顯示
+      const noLore = UNIQUES.filter(u => { const t = UniqueLore.of(u.id); return !t || t.length < 40 || t.length > 110; }).map(u => u.id);
+      T.ok(!noLore.length, '這些傳奇沒有故事或長度不對：' + noLore.join('、'));
+      const it = makeUnique('u_dusk', 80), short = itemTipHTML(it), full = itemTipHTML(it, { lore: true });
+      T.ok(/tip-lorehint/.test(short) && !/tip-lore"/.test(short) && full.includes(UNIQUE_LORE.u_dusk), '說明欄跟收藏冊的故事顯示不對');
+      const F = EvoCodex.found(), had = F.u_dusk; delete F.u_dusk; T.ok(!UniqueLore.html().includes(UNIQUE_LORE.u_dusk), '沒撿過也看得到故事');
+      F.u_dusk = true; T.ok(UniqueLore.html().includes(UNIQUE_LORE.u_dusk), '撿過了日誌裡沒有故事'); if (!had) delete F.u_dusk;
     },
     '看守者倒下：傳送門、掉落物走得到、F 選得到、撿得起來': T => {
       for (const tier of [1, 4, 7, 10]) {

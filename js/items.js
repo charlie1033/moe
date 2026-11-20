@@ -588,6 +588,7 @@ function itemTipHTML(item, opts = {}) {
     if (u) h += `<div class="tip-flavor">「${u.flavor}」</div>`;
     const src = !u || !u.boss ? '' : typeof uniqueSourceText === 'function' ? uniqueSourceText(u) : BOSSES[u.boss] ? `首領專屬掉落：${BOSSES[u.boss].name}` : '';   // v2.19.12 看守者信物沒有對應的首領：以前這裡出錯，整個說明都出不來
     if (src) h += `<div class="tip-boss">${src}</div>`;
+    if (u && typeof UniqueLore !== 'undefined' && UniqueLore.of(u.id)) h += opts.lore ? UniqueLore.storyHTML(u) : '<div class="tip-lorehint">它的故事收在日誌的「傳奇故事」</div>';   // v2.19.13 說明欄維持短，整段故事放日誌和傳奇收藏
   }
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;
