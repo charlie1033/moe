@@ -7,7 +7,8 @@
 //  ・首領之門：封印中／開啟兩張圖（bossroom.js 的掛鉤 drawGateArt，名字照畫）
 //  ・海風驛站：莫的釣魚點換成小碼頭（campjobs.js 的掛鉤 drawFishArt）；營地多幾樣擺設（木箱、木桶、漁網、燈柱、浮標，只是畫、不擋路）
 //  ・地圖障礙物：樹、岩石、仙人掌、石柱、冰晶、骨堆、石筍、巨菇、灌木、枯樹、虛空水晶換成 AI 圖（stackprops.js 的掛鉤 drawPropArt；
-//    設定裡關掉「立體障礙物」時照舊用平面圖；水、岩漿、裂隙、木橋不換）
+//    水、岩漿、裂隙不換）
+//  ・木橋（v2.19.11）：新圖的橋面拉正成木板紋路，一格一格鋪在橋上；靠水的邊加木樑、木樁
 //  ・看守者巢穴：冰封峽谷的冰錐、幽暗洞穴的落石，預警圈出現時從頭頂掉下來；黑森林的荊棘毒池上長出藤蔓
 //  ・圖在 js\artwork.js：spr_camp_*、ev_*（assets\art\build_artwork.ps1 產生；ev_* 由 artui.js 載好放在 ArtUI.EV）
 //  ・載入順序：core-end.js 前面（要等 wardentext、bossroom、dreamtide、dreamrites、campjobs 都載好）
@@ -172,5 +173,88 @@
       const k = Math.min(1, z.t / 0.35, (z.dur - z.t) / 0.5); if (k <= 0) continue;
       g.globalAlpha = Math.max(0, k); put(g, im, z.x, z.y + z.r * 0.35, z.r * 1.7 * (0.6 + 0.4 * k)); g.globalAlpha = 1;
     }
+  });
+
+  // —— ⑦ 木橋（v2.19.11）：新圖的橋面「拉正」成俯看的木板花紋，一格一格鋪在橋上 ——
+  //   橋的形狀很多（一格寬的小橋、三格寬的長橋、大地圖整條彎來彎去的棧道），所以不貼整張圖，只取橋面的木板紋路
+  //   木板一律跟走的方向垂直；靠水的那一邊加一條橋邊木樑和落影，轉角、每隔幾格立一根木樁（從原圖裁下來）
+  let BR = null;
+  load('ev_bridge', im => {
+    const s = im.width / 661;   // 原圖 661×491；橋面四個角裡的三個：A 左後、B 右後、D 左前
+    const A = [195 * s, 66 * s], B = [655 * s, 295 * s], D = [3 * s, 165 * s];
+    const TW = 56, TL = 84, u0 = 0.2, u1 = 0.7, v0 = 0.1, v1 = 0.9;   // 只取橋面中間（避開兩頭的木樁；右前那根的樁頭在 u 0.72～0.8）
+    const ex = [(D[0] - A[0]) * (v1 - v0) / TW, (D[1] - A[1]) * (v1 - v0) / TW], ey = [(B[0] - A[0]) * (u1 - u0) / TL, (B[1] - A[1]) * (u1 - u0) / TL];
+    const ox = A[0] + u0 * (B[0] - A[0]) + v0 * (D[0] - A[0]), oy = A[1] + u0 * (B[1] - A[1]) + v0 * (D[1] - A[1]);
+    const det = ex[0] * ey[1] - ey[0] * ex[1], a = ey[1] / det, b = -ex[1] / det, c = -ey[0] / det, d = ex[0] / det;
+    const v = document.createElement('canvas'); v.width = TW; v.height = TL;   // 直著走的橋：木板橫放
+    const vx = v.getContext('2d'); vx.imageSmoothingEnabled = true; vx.imageSmoothingQuality = 'high';
+    vx.setTransform(a, b, c, d, -(a * ox + c * oy), -(b * ox + d * oy)); vx.drawImage(im, 0, 0);
+    vx.setTransform(1, 0, 0, 1, 0, 0); vx.fillStyle = 'rgba(34,20,8,0.2)'; vx.fillRect(0, 0, TW, TL);   // 壓暗一點、偏暖（原圖在地圖上看起來太白）
+    const h =document.createElement('canvas'); h.width = TL; h.height = TW;   // 橫著走的橋：轉 90 度
+    const hx = h.getContext('2d'); hx.translate(TL, 0); hx.rotate(Math.PI / 2); hx.drawImage(v, 0, 0);
+    const post = document.createElement('canvas'); post.width = 12; post.height = 22;   // 木樁：右前那根的上半截
+    const px = post.getContext('2d'); px.imageSmoothingEnabled = true; px.imageSmoothingQuality = 'high'; px.drawImage(im, 400 * s, 288 * s, 50 * s, 92 * s, 0, 0, 12, 22);
+    BR = { v, h, post, pv: null, ph: null };
+  });
+  const ORI = new WeakMap();
+  // 每格木橋往哪個方向走：1 直走、2 橫走（看橋面左右、上下延伸到哪裡：兩頭接到陸地的那個方向就是路；一樣的話看哪邊長）
+  const oriOf = w => {
+    let o = ORI.get(w); if (o && o.n === w.deco.length) return o.a;
+    const W = w.W, d = w.deco, N = d.length, a = new Uint8Array(N);
+    const land = i => i >= 0 && i < N && w.grid[i] && d[i] !== 15 && d[i] !== 2;
+    for (let i = 0; i < N; i++) if (d[i] === 15) {
+      const x = i % W, y = (i / W) | 0; let l = x, r = x, t = y, bt = y;
+      while (l > 0 && d[i - (x - l) - 1] === 15) l--;
+      while (r < W - 1 && d[i + (r - x) + 1] === 15) r++;
+      while (t > 0 && d[(t - 1) * W + x] === 15) t--;
+      while ((bt + 1) * W + x < N && d[(bt + 1) * W + x] === 15) bt++;
+      const hl = (l > 0 && land(y * W + l - 1) ? 1 : 0) + (r < W - 1 && land(y * W + r + 1) ? 1 : 0);
+      const vl = (land((t - 1) * W + x) ? 1 : 0) + (land((bt + 1) * W + x) ? 1 : 0);
+      a[i] = vl > hl ? 1 : hl > vl ? 2 : (bt - t >= r - l ? 1 : 2);
+    }
+    ORI.set(w, { n: N, a }); return a;
+  };
+  if (typeof Hook !== 'undefined') Hook.on('drawWorld', g => {
+    const w = G.world; if (!on() || !BR || !w || !w.deco || !w.grid) return;
+    const W = w.W, d = w.deco, N = d.length;
+    const x0 = Math.max(0, Math.floor(G.cam.x / TS) - 1), y0 = Math.max(0, Math.floor(G.cam.y / TS) - 1);
+    const x1 = Math.min(W - 1, Math.ceil((G.cam.x + VW) / TS) + 1), y1 = Math.min(w.H - 1, Math.ceil((G.cam.y + VH) / TS) + 1);
+    const cells = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (d[y * W + x] === 15) cells.push(y * W + x);
+    if (!cells.length) return;
+    const o = oriOf(w), wet = i => i >= 0 && i < N && d[i] === 2;
+    if (!BR.pv) { BR.pv = g.createPattern(BR.v, 'repeat'); BR.ph = g.createPattern(BR.h, 'repeat'); }
+    g.save();
+    for (const k of [1, 2]) {   // 橋面
+      g.beginPath(); let n = 0;
+      for (const i of cells) if (o[i] === k) { g.rect((i % W) * TS, ((i / W) | 0) * TS, TS, TS); n++; }
+      if (n) { g.fillStyle = k === 1 ? BR.pv : BR.ph; g.fill(); }
+    }
+    const posts = [];
+    for (const i of cells) {   // 靠水的邊：水面上的落影、橋邊木樑；轉角和每隔幾格立木樁
+      const x = i % W, y = (i / W) | 0, X = x * TS, Y = y * TS, k = o[i];
+      const L = x > 0 && wet(i - 1), R = x < W - 1 && wet(i + 1), U = wet(i - W), Dn = wet(i + W);
+      g.fillStyle = 'rgba(0,0,0,0.28)';
+      if (L) g.fillRect(X - 4, Y + 2, 4, TS); if (R) g.fillRect(X + TS, Y + 2, 4, TS); if (Dn) g.fillRect(X + 2, Y + TS, TS, 5);
+      g.fillStyle = '#3a2c20';
+      if (L) g.fillRect(X, Y, 3, TS); if (R) g.fillRect(X + TS - 3, Y, 3, TS); if (U) g.fillRect(X, Y, TS, 3); if (Dn) g.fillRect(X, Y + TS - 4, TS, 4);
+      g.fillStyle = 'rgba(230,210,160,0.22)';
+      if (L) g.fillRect(X + 3, Y, 1, TS); if (R) g.fillRect(X + TS - 4, Y, 1, TS); if (U) g.fillRect(X, Y + 3, TS, 1);
+      if (k === 1) {
+        const top = d[i - W] !== 15, bot = d[i + W] !== 15, mid = !top && !bot && y % 4 === 0;
+        for (const [side, px] of [[L, X + 3], [R, X + TS - 3]]) if (side) {
+          if (top) posts.push([px, Y + 6]); if (bot) posts.push([px, Y + TS]); if (mid) posts.push([px, Y + TS / 2 + 4]);
+        }
+      } else {
+        const lf = d[i - 1] !== 15, rt = d[i + 1] !== 15, mid = !lf && !rt && x % 4 === 0;
+        for (const [side, py] of [[U, Y + 6], [Dn, Y + TS]]) if (side) {
+          if (lf) posts.push([X + 4, py]); if (rt) posts.push([X + TS - 4, py]); if (mid) posts.push([X + TS / 2, py]);
+        }
+      }
+    }
+    g.imageSmoothingEnabled = true;
+    posts.sort((p, q) => p[1] - q[1]);
+    for (const [px, py] of posts) g.drawImage(BR.post, px - 6, py - 22);
+    g.restore();
   });
 })();
