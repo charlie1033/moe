@@ -840,6 +840,19 @@ const MOE_DEV = {
       G.pl.x = p.x; G.pl.y = p.y + 4; T.run(0.1); T.ok(G.world.kind === 'town' && G.savedMap && G.savedMap.world === w, '走進傳送門沒回營地');
       T.near(G.world.retPortal, 5); UI.interact(); T.run(0.2); T.ok(G.world === w, '從營地回不到原地圖');
     },
+    '特殊掉落高亮：傳奇套裝鑰匙有光柱和染色標籤、技能寶石加粗框、白裝不變、小地圖畫得出來': T => {
+      T.hero('warrior', 40, 5); enterMap(3); T.quiet(); G.mons = []; G.loot = [];
+      const at = (o) => { dropLoot(G.pl.x + 60, G.pl.y, o); return G.loot[G.loot.length - 1]; };
+      const u = at({ item: makeUnique('u_dusk', 40) }), st = at({ item: makeSetItem(Object.keys(SET_PIECES)[0], 40) }), k = at({ key: Object.keys(NIGHTMARES)[0] });
+      const sk = at({ skill: Object.keys(SKILLS).find(s => SKILLS[s].lvl > 1) }), w = at({ item: makeItem(BASES[0].id, 'normal', 5) }), ex = at({ cur: 'exalt' });
+      T.run(0.1);
+      T.ok([u, st, k].every(l => l.special && l.special.tier === 1 && l.special.beam && l.special.bg), '傳奇／套裝／鑰匙沒有光柱或染色標籤');
+      T.ok(u.special.beam !== st.special.beam, '傳奇和套裝光柱同色');
+      T.ok(sk.special && sk.special.tier === 2 && !sk.special.beam, '技能寶石沒有加粗框（或多了光柱）');
+      T.ok(!w.special && w._hl === null, '白裝也被高亮了'); T.ok(ex._hl && ex._hl.mm, '頂級通貨沒有小地圖標記');
+      const c = document.createElement('canvas'); c.width = c.height = 200; Hook.emit('drawMinimap', c.getContext('2d'), 0, 0, 1);
+      render(); T.ok(true);
+    },
     '每一件傳奇、套裝的說明都出得來、有介紹、詞綴都有文字': T => {
       T.hero('warrior', 60, 10); const bad = [];
       const chk = (id, make) => { let it, h; try { it = make(); h = itemTipHTML(it); } catch (e) { return bad.push(`${id} 說明出錯：${e.message}`); }
