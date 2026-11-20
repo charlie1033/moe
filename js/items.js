@@ -586,7 +586,8 @@ function itemTipHTML(item, opts = {}) {
   if (item.rarity === 'unique') {
     const u = UNIQUE_BY_ID[item.uniqueId];
     if (u) h += `<div class="tip-flavor">「${u.flavor}」</div>`;
-    if (u && u.boss) h += `<div class="tip-boss">首領專屬掉落：${BOSSES[u.boss].name}</div>`;
+    const src = !u || !u.boss ? '' : typeof uniqueSourceText === 'function' ? uniqueSourceText(u) : BOSSES[u.boss] ? `首領專屬掉落：${BOSSES[u.boss].name}` : '';   // v2.19.12 看守者信物沒有對應的首領：以前這裡出錯，整個說明都出不來
+    if (src) h += `<div class="tip-boss">${src}</div>`;
   }
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;

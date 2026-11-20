@@ -822,6 +822,16 @@ const MOE_DEV = {
       G.pl.x = p.x; G.pl.y = p.y + 4; T.run(0.1); T.ok(G.world.kind === 'town' && G.savedMap && G.savedMap.world === w, '走進傳送門沒回營地');
       T.near(G.world.retPortal, 5); UI.interact(); T.run(0.2); T.ok(G.world === w, '從營地回不到原地圖');
     },
+    '每一件傳奇、套裝的說明都出得來、有介紹、詞綴都有文字': T => {
+      T.hero('warrior', 60, 10); const bad = [];
+      const chk = (id, make) => { let it, h; try { it = make(); h = itemTipHTML(it); } catch (e) { return bad.push(`${id} 說明出錯：${e.message}`); }
+        if (!/tip-flavor">「[^」]{4,}」/.test(h)) bad.push(`${id} 沒有介紹`);
+        const raw = it.mods.concat(it.implicit).filter(m => !STAT_TEXT[m.stat]).map(m => m.stat); if (raw.length) bad.push(`${id} 詞綴沒文字：${raw}`); };
+      for (const u of UNIQUES) chk(u.id, () => makeUnique(u.id, 80));
+      for (const pid in SET_PIECES) chk(pid, () => makeSetItem(pid, 80));
+      T.ok(!bad.length, bad.slice(0, 6).join('；'));
+      const tok = UNIQUES.find(u => u.boss === 'w_token' && u.from); T.ok(tok && /看守者的信物/.test(itemTipHTML(makeUnique(tok.id, 80))), '看守者信物沒寫來源');
+    },
     '看守者倒下：傳送門、掉落物走得到、F 選得到、撿得起來': T => {
       for (const tier of [1, 4, 7, 10]) {
         T.hero('warrior', 40, 12); enterMap(tier); T.quiet(); goRegion(G.world.stage.n); BossRoom.skip(); T.quiet();

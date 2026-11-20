@@ -47,6 +47,7 @@ const EvoCodex = {
     const b = BASE_BY_ID[u.base]; if (!b) return '';
     const slot = `傳奇${b.clsName || '裝備'}`;
     if (u.noDrop) return `${slot}・不會從怪物身上掉`;
+    if (u.boss === 'w_token' && typeof uniqueSourceText === 'function') return `${slot}・${uniqueSourceText(u)}`;   // v2.19.12
     if (u.boss) { const n = typeof BOSSES !== 'undefined' && BOSSES[u.boss] && BOSSES[u.boss].name; return `${slot}・${n || '某位看守者'}的專屬掉落`; }
     if (u.wr) return `${slot}・深層夢境帶特殊世界規則的夜才會掉`;
     let t = 1; while (t < ENDING_TIER && mapLevel(t) + 5 < b.lvl) t++;

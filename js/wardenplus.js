@@ -87,8 +87,14 @@ const W_FLAGS = { wKey: '殺死藍色、黃色精英時，牠的骸骨爬起來�
 for (const f in W_FLAGS) { FLAG_STATS.add(f); STAT_TEXT[f] = () => W_FLAGS[f]; }
 const W_SPARE = [{ id: 'u_w_collar', name: '大白的項圈', base: 'amulet0', flavor: '大白以前會舔我的手。', mods: [['minion_dmg_inc', 20, 30], ['minion_life_inc', 20, 30], ['life', 30, 50], ['move_inc', 5, 8]] },
   { id: 'u_w_crown', name: '生鏽的小王冠', base: 'helmet_es0', flavor: '爸爸說，我是公主。', mods: [['es', 30, 50], ['all_attr', 8, 12], ['res_cold', 20, 30]] }];
-for (const u of W_SPARE.concat(WARDEN_IDS.map(id => WARDEN_TEXT[id].token).filter(Boolean)))
-  if (!UNIQUE_BY_ID[u.id] && BASE_BY_ID[u.base]) { const v = Object.assign({ boss: 'w_token' }, u); UNIQUES.push(v); UNIQUE_BY_ID[u.id] = v; }
+for (const [u, from] of W_SPARE.map(u => [u, 'beast']).concat(WARDEN_IDS.filter(id => WARDEN_TEXT[id].token).map(id => [WARDEN_TEXT[id].token, id])))   // v2.19.12 記下是哪一位看守者的信物（說明欄用）
+  if (!UNIQUE_BY_ID[u.id] && BASE_BY_ID[u.base]) { const v = Object.assign({ boss: 'w_token', from }, u); UNIQUES.push(v); UNIQUE_BY_ID[u.id] = v; }
+// 傳奇說明欄的來源一行（看守者信物沒有對應的首領掉落）
+function uniqueSourceText(u) {
+  if (!u || !u.boss) return '';
+  if (u.boss === 'w_token') { const b = BOSSES[u.from]; return b ? `看守者的信物：在「${b.name}」的請託裡選擇和解時得到` : '看守者的信物'; }
+  return BOSSES[u.boss] ? `首領專屬掉落：${BOSSES[u.boss].name}` : '';
+}
 function wTokenItem(id, ilvl) {
   if (id === 'beast') return typeof makeSetItem === 'function' ? makeSetItem('set_dabai_collar', ilvl) : makeUnique('u_w_collar', ilvl);
   const t = WARDEN_TEXT[id].token; return t && UNIQUE_BY_ID[t.id] ? makeUnique(t.id, ilvl) : null;
