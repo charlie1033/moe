@@ -11,6 +11,7 @@
 //     'preHit'(ctx)／'crit'(m, 技能欄) 打中怪之前可改暴擊與倍率／打出暴擊之後（gems4.js 發的，ctx 見那個檔頭）
 //     'monKb'(ctx) 怪被打中、算擊退之前（game.js hitMonster 發的）：ctx = { m, dmg 這一下的傷害, kb 擊退倍率（可以改，堅忍用） }
 //     'stats'(S, P) 能力算好之後、技能數值算之前（要影響技能傷害的加成放這裡；生命上限、移動速度已經算完，要改就直接改 S.maxLife／S.moveSpeed）
+//     'treeStats'(S, P) 天賦、職業之路加完之後、裝備之前（能力用 addStat(S, 代號, 值) 加；生命、移動速度這時還沒算完，加了會生效）
 //     'dropItem'(item, l) 裝備掉到地上時（dropLoot 裡發；可以在這裡改這件裝備，例如深層傳奇升級底材）
 //  Interact.add(種類, find, use)   按 F 互動：find(pl, w) 回傳 [{ ref, label, r? }]（r＝互動距離，預設 60）
 //     系統會挑「離角色最近」的那個放進 G.nearAct，按 F 時呼叫 use(ref)

@@ -387,6 +387,7 @@ function computeStats(P) {
     for (const f of n.flags) S.flags[f] = true;
   }
   if (typeof ClassPath !== 'undefined') ClassPath.apply(S, P);   // v2.20 職業之路（classtree.js）：選了的分支加到能力上
+  Hook.emit('treeStats', S, P);   // v2.20.8 跟天賦同一時間加上去的能力（137 個我的習慣、早晨的小事）：生命、移動速度這些也來得及算
   let weapon = null, hasShield = false;
   for (const slot in P.equip) {
     const it = P.equip[slot]; if (!it) continue;
