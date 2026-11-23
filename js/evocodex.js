@@ -77,19 +77,8 @@ const EvoCodex = {
 };
 Hook.on('start', () => { EvoCodex.scan(true); });
 let _evoT = 0;
-Hook.on('update', dt => { if ((_evoT -= dt) > 0) return; _evoT = 1; if (EvoCodex.scan(false) && UI.open && UI.open.skills) UI.refreshSkills(); });
-Hook.on('skillsPanel', root => {
-  if (!root || !UI.open.skills) return;
-  let box = document.getElementById('evoCodex');
-  if (!box) { box = document.createElement('div'); box.id = 'evoCodex'; const bag = document.getElementById('gemBag'); if (bag) bag.after(box); else root.appendChild(box); }
-  box.innerHTML = EvoCodex.html();
-  const od = box.querySelector('details.evoother'); if (od) od.ontoggle = () => { EvoCodex.otherOpen = od.open; };   // 重畫技能頁時記得有沒有點開
-  root.querySelectorAll('#skillSlots .evocell[data-evo]').forEach(el => el.onclick = e => {
-    e.stopPropagation(); const r = box.querySelector(`[data-evorow="${el.dataset.evo}"]`); if (!r) return;
-    const dt = r.closest('details'); if (dt && !dt.open) { dt.open = true; EvoCodex.otherOpen = true; }
-    r.scrollIntoView({ block: 'center', behavior: 'smooth' }); r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash');
-  });
-});
+Hook.on('update', dt => { if ((_evoT -= dt) > 0) return; _evoT = 1; EvoCodex.scan(false); });
+// v2.20.10 技能頁不再顯示進化圖鑑（使用者覺得技能頁太雜）：這裡只留「撿過哪些傳奇」的紀錄（傳奇故事、傳奇收藏冊會用）
 (() => { const st = document.createElement('style'); st.textContent = `
   .evocell { flex:none; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:1px dashed #6a5a40; border-radius:6px; color:#8a7a58; font-size:14px; background:#0b090d; cursor:pointer; }
   .evocell.on { border:1px solid #e8803a; box-shadow:0 0 6px rgba(232,128,58,.5); } .evocell img { width:26px; height:26px; pointer-events:none; }

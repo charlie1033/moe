@@ -117,7 +117,7 @@ const OUTER_CONSTS = [
 //   [角度, 武器種類, 武器小點, 選擇 A, 選擇 B]
 const WEAPON_RING = [
   [-28, 'bow', [['弓・暴擊率', { crit_inc: 12 }], ['弓・投射物傷害', { proj_inc: 12 }]], ['鷹眼準星', { crit_base: 2 }], ['穿心', { crit_multi: 40 }]],
-  [30, 'dagger', [['匕首・暴擊率', { crit_inc: 12 }], ['匕首・攻擊速度', { aspd_inc: 4 }]], ['暗殺', { crit_base: 1.5, crit_multi: 20 }], ['淬毒', { poison_ch: 25, chaos_inc: 25 }]],
+  [23, 'dagger', [['匕首・暴擊率', { crit_inc: 12 }], ['匕首・攻擊速度', { aspd_inc: 4 }]], ['暗殺', { crit_base: 1.5, crit_multi: 20 }], ['淬毒', { poison_ch: 25, chaos_inc: 25 }]],
   [86, 'katana', [['太刀・近戰傷害', { melee_inc: 10 }], ['太刀・暴擊傷害', { crit_multi: 8 }]], ['拔刀', { crit_inc: 50 }], ['斬鐵', { phys_inc: 30, area_inc: 10 }]],
   [128, 'sword', [['單手劍・攻擊速度', { aspd_inc: 4 }], ['單手劍・攻擊傷害', { attack_inc: 10 }]], ['劍舞', { aspd_inc: 12, move_inc: 5 }], ['劍盾', { block: 6, armour_inc: 30 }]],
   [166, 'axe', [['雙手斧・物理傷害', { phys_inc: 12 }], ['雙手斧・技能範圍', { area_inc: 6 }]], ['劈山', { more_attack: 15 }], ['裂傷', { bleed_ch: 20, dot_inc: 25 }]],
@@ -259,11 +259,39 @@ function buildTree() {
     if (!moved) break;
   }
   untangleTree();   // v2.5.4 連線不交叉、不穿過星星
+  straightenChains();   // v2.20.10 一串一串的天賦重新排成直線、間距平均（推開星星時會把路擠歪、擠在一起）
   // v2.7 互斥的誓言：投射物「數量」的取捨只能選一邊（不然狙擊手＋多重箭矢＝支數不變、傷害白賺）
   const byName = nm => TREE.list.find(n => n.name === nm && n.kind === 'keystone');
   for (const [a, b] of [['狙擊手', '多重箭矢'], ['狙擊手', '箭雨風暴']]) { const A = byName(a), B = byName(b); if (A && B) { (A.excl = A.excl || []).push(B.id); (B.excl = B.excl || []).push(A.id); } }
   for (const n of TREE.list) { n.rad = Math.hypot(n.x, n.y); n.ang = Math.atan2(n.y, n.x) * 180 / Math.PI; }
   for (const n of TREE.list) n.cat = treeCat(n);
+}
+// v2.20.10 把每一串天賦重新排直、間距平均（使用者：節點跟節點的距離要好讀，有些擠在一起很醜）
+//  串＝從起點一路接到終點的那幾顆：內圈星座（第一顆→核心）、內圈接到外環的過路點、外圈星座（第一顆→核心／誓言）、最外圈武器路（外環→最後一顆武器小點）
+//  中間的點照順序平均放在「起點→終點」的直線上；長在串上的分支（_s、_c0、_c1）跟著它接的那一顆一起移動
+function straightenChains() {
+  const N = TREE.nodes, moved = {};
+  const run = ids => {
+    ids = ids.filter(id => N[id]); if (ids.length < 3) return;
+    const a = N[ids[0]], b = N[ids[ids.length - 1]];
+    for (let i = 1; i < ids.length - 1; i++) {
+      const n = N[ids[i]], t = i / (ids.length - 1), x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+      moved[n.id] = [x - n.x, y - n.y]; n.x = x; n.y = y;
+    }
+  };
+  const outerOf = id => (N[id] ? N[id].links.find(l => /^OR\d+$/.test(l)) : null);
+  INNER_CONSTS.forEach((c, i) => {
+    const p = `A${i}_`, L = []; for (let k = 0; N[p + k]; k++) L.push(p + k); run(L.concat(p + 'N'));
+    const B = [p + 'N', p + 'b']; for (let k = 2; N[`${p}b${k}`]; k++) B.push(`${p}b${k}`);
+    const end = outerOf(B[B.length - 1]); if (end) run(B.concat(end));
+  });
+  OUTER_CONSTS.forEach((c, i) => { const p = `B${i}_`, L = []; for (let k = 0; N[p + k]; k++) L.push(p + k); const st = outerOf(p + 0); run((st ? [st] : []).concat(L, p + 'N')); });
+  WEAPON_RING.forEach((c, i) => { const p = `W${i}_`, L = []; for (let k = 0; N[`${p}t${k}`]; k++) L.push(`${p}t${k}`); for (let k = 0; N[p + k]; k++) L.push(p + k); const st = outerOf(L[0]); run((st ? [st] : []).concat(L)); });
+  // 分支跟著接的那一顆走
+  for (const n of TREE.list) {
+    const m = /^([ABW]\d+_)(s|c0|c1)$/.exec(n.id); if (!m) continue;
+    const par = n.links.find(l => moved[l]); if (par) { n.x += moved[par][0]; n.y += moved[par][1]; }
+  }
 }
 // v2.5.4 整理連線：讓整張樹像一張網，但線不會交叉、也不會穿過別的星星
 //  ① 星星如果壓在別人的連線上，把它往旁邊推開

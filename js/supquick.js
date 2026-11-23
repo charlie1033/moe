@@ -110,3 +110,5 @@ const SupQuick = (() => {
   })();
   return { open, close, fill, choices, get openAt() { return at; } };
 })();
+// v2.20.10 技能頁清爽一點：「自動升級／鎖住等級」鈕平常藏起來，滑鼠移到那一列才出現；鎖住的（🔒）一直顯示
+(() => { const st = document.createElement('style'); st.textContent = `#skillSlots .gearrow .glock:not(.on) { visibility:hidden; } #skillSlots .gearrow:hover .glock { visibility:visible; } body.touch #skillSlots .gearrow .glock:not(.on) { display:none; }`; document.head.appendChild(st); })();

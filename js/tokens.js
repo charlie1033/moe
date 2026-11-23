@@ -82,7 +82,7 @@ Hook.on('kill', m => {
   if (Tokens.cur() !== 'mo' || !Tokens.inDream() || !m || m.boss || !['magic', 'rare'].includes(m.rarity)) return;
   const w = G.world, k = (w.stage && w.stage.i) || 1; if (!w.tokFloat) w.tokFloat = {}; if (w.tokFloat[k]) return; w.tokFloat[k] = true;
   const lv = Tokens.lv('mo'), il = (w.mlvl || 1) + 2;
-  for (let n = 0; n < (lv >= 3 ? 2 : 1); n++) { let it = null; for (let j = 0; j < 12 && (!it || !['rare', 'unique'].includes(it.rarity)); j++) it = randomItem(il, 2); if (it) dropLoot(m.x, m.y, { item: it }); }
+  for (let n = 0; n < (lv >= 3 ? 2 : 1); n++) { let it = null; for (let j = 0; j < 40 && (!it || !['rare', 'unique'].includes(it.rarity)); j++) it = randomItem(il, 4); if (it) dropLoot(m.x, m.y, { item: it }); }
   if (lv >= 2) for (const c of ['chaos', 'alch']) dropLoot(m.x, m.y, { cur: c });
   G.texts.push({ x: m.x, y: m.y - 40, txt: '浮標動了', color: TOKENS.mo.color, size: 13, t: 0, dur: 1.2 });
 });

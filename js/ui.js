@@ -659,8 +659,8 @@ const UI = {
       h += `<div class="gearrow ${sid ? '' : 'empty'}">
         <div class="gearbox ${gear ? 'r-' + gear.rarity : ''}" title="${gear ? gear.name : '沒有裝備（寶石還是可以放）'}">${gearIcon}<b class="gkey">${skillKeyNames()[i]}</b></div>
         <span class="gsock skill ${sid ? (err ? 'bad' : '') : 'empty'}" data-drop="skill:${i}" ${sid ? `data-gem="slot:${i}"` : ''}>${sid ? `<img src="${skillIconURL(sid, 64)}">` : '技能'}</span>
-        <div class="gsocks">${socks}</div>${sid && typeof EvoCodex !== 'undefined' ? EvoCodex.cell(sid) : ''}
-        <div class="ginfo">${sid ? this.gemLine(sid, err) : `<span class="thint">${gname}：${byCtl('把技能寶石拖到大格', '點一下技能寶石，再點這一列的大格')}</span>`}</div></div>`;
+        <div class="gsocks">${socks}</div>
+        <div class="ginfo">${sid ? this.gemLine(sid, err) : ``}</div></div>`;
     });
     $('#skillSlots').innerHTML = h;
     // 寶石袋：還沒放上去的技能寶石，和習慣（數字＝還有幾顆）
@@ -673,7 +673,7 @@ const UI = {
     }).join('') || '<span class="thint">（都放在裝備上了）</span>'}</div>`;
     // v2.17 預設只顯示「推薦」的（gems4.js 的 supBagFilter），按「顯示全部」切換
     const supShow = supBagFilter(supIds, this.gemPick), supHid = supIds.length - supShow.length, all = supShowAll();
-    g += `<div class="bagrow" data-drop="bag"><span class="bagt">習慣<small>${all ? '全部' : '推薦的'}</small><button class="supall ${all ? 'on' : ''}" data-supall="1">${all ? '只看推薦' : `顯示全部${supHid ? `（還有 ${supHid}）` : ''}`}</button></span>${supShow.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}<br><span class="mpct">耗魔 ×${+SUPPORTS[id].cost.toFixed(2)}</span></i><b>${supHave(id)}</b></span>`).join('')
+    g += `<div class="bagrow" data-drop="bag"><span class="bagt">習慣<small>${all ? '全部' : '推薦的'}</small><button class="supall ${all ? 'on' : ''}" data-supall="1">${all ? '只看推薦' : `顯示全部${supHid ? `（還有 ${supHid}）` : ''}`}</button></span>${supShow.map(id => `<span class="bgem ${this.gemPick === 'sup:' + id ? 'picked' : ''}" data-gem="sup:${id}"><img src="${supportIconURL(id, 48)}"><i>${SUPPORTS[id].name}</i><b>${supHave(id)}</b></span>`).join('')
       || (supIds.length ? `<span class="thint">（沒有適合技能欄上技能的寶石，按「顯示全部」看其他 ${supHid} 種）</span>` : '<span class="thint">（沒有多的習慣。打怪會掉，首領一定掉 2 個）</span>')}</div>`;
     $('#gemBag').innerHTML = g;
     $('#gemBag').querySelectorAll('[data-supall]').forEach(b => b.onclick = e => { e.stopPropagation(); supSetShowAll(!supShowAll()); this.refreshSkills(); });
@@ -710,7 +710,7 @@ const UI = {
     if (err) h += `<span class="c-bad">${err}</span>`;
     else if (full && !lack) h += `<button class="gupbtn" data-gemup="${sid}">升級到 ${d.lv + 1} 級</button>`;
     else if (full) h += `<span class="c-bad">升級${lack}</span>`;
-    else h += `<span class="thint">${d.lv >= GEM_MAX ? '已經最高等級' : `經驗 ${pct}%${byCtl('　滑鼠移到寶石上看詳細數字', '')}`}</span>`;
+    else h += `<span class="thint">${d.lv >= GEM_MAX ? '已經最高等級' : `經驗 %`}</span>`;
     return h;
   },
   // 寶石說明
