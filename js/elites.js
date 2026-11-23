@@ -6,7 +6,7 @@
 MONSTER_MODS.push(
   { id: 'split', name: '分裂', minLvl: 12, life: 0.85 },
   { id: 'caller', name: '召喚', minLvl: 18 },
-  { id: 'shield', name: '護盾', minLvl: 15 },
+  { id: 'shield', name: '夢殼', minLvl: 15 },
   { id: 'enrage', name: '狂暴', minLvl: 10 },
   { id: 'blinker', name: '閃爍', minLvl: 20, speed: 0.9 },
   { id: 'reflect', name: '反射', minLvl: 30 },
@@ -16,14 +16,14 @@ MONSTER_MODS.push(
   { id: 'unyield', name: '不屈', minLvl: 25, life: 1.15 },
 );
 const ELITE_MOD_DESC = {
-  split: '死掉時分裂成 2 隻比較小的', caller: '每 8 秒叫來 2 隻同伴', shield: '有一層護盾（40% 生命），4 秒沒被打就回滿',
+  split: '死掉時分裂成 2 隻比較小的', caller: '每 8 秒叫來 2 隻同伴', shield: '有一層夢殼（40% 生命），4 秒沒被打就回滿',
   enrage: '生命低於 40% 時，速度和傷害 +50%', blinker: '會瞬間移動到你身邊', reflect: '把受到傷害的 15% 反彈給你（打太快會痛）',
   haste: '身邊的怪物移動和攻擊速度 +30%', toxic: '走過的地方留下毒池', frostaura: '靠近牠會被冰緩（移動變慢）', unyield: '不會被冰凍、冰緩，也不會被擊退',
 };
 const MON_MOD_ID = Object.fromEntries(MONSTER_MODS.map(m => [m.name, m.id]));
 const hasMod = (m, id) => m.modIds && m.modIds.includes(id);
 
-// 每隻怪記下能力的代號，護盾先填滿
+// 每隻怪記下能力的代號，夢殼先填滿
 const _makeMonEl = makeMonster;
 makeMonster = function (type, x, y, mlvl, rarity, theme) {
   const m = _makeMonEl(type, x, y, mlvl, rarity, theme);
@@ -33,7 +33,7 @@ makeMonster = function (type, x, y, mlvl, rarity, theme) {
   m.baseSpeed = m.speed; m.baseAspd = m.aspd; m.baseDmg = m.dmg.slice();
   return m;
 };
-// 打怪：護盾先吸收、不屈免疫冰凍、反射
+// 打怪：夢殼先吸收、不屈免疫冰凍、反射
 const _hitEl = hitMonster;
 hitMonster = function (m, pk, fromMinion, src, kb) {
   { const F = G.world && G.world.mm && G.world.mm.flags; if (F && F.mnoleech && (pk.leech || pk.mleech)) pk = Object.assign({}, pk, { leech: 0, mleech: 0 }); }
@@ -89,7 +89,7 @@ Hook.on('update', dt => {
   const F = G.world.mm && G.world.mm.flags;
   if (F && F.mburn && G.time > (G.burnT || 0)) { G.burnT = G.time + 5; const p = randomFloorNear(pl.x + rnd(-120, 120), pl.y + rnd(-90, 90), 30); G.teles.push({ shape: 'circle', x: p.x, y: p.y, r: 60, dur: 1.0, t: 0, color: '#ff7030' }); G.delayQ.push({ t: 1.0, fn: () => { G.zones.push({ x: p.x, y: p.y, r: 60, dps: G.S.maxLife * 0.06, elem: 'fire', t: 0, dur: 3, color: '#ff7030' }); } }); }
 });
-// 護盾條（畫在怪物頭上）：用資訊列顯示，另外在怪物身上畫一圈
+// 夢殼條（畫在怪物頭上）：用資訊列顯示，另外在怪物身上畫一圈
 const _drawMonEl = typeof drawMonster === 'function' ? drawMonster : null;
 if (_drawMonEl) drawMonster = function (g, m) { _drawMonEl(g, m); if (m.shield > 0 && !m.dead) { g.strokeStyle = `rgba(150,210,255,${0.3 + 0.5 * m.shield / m.shieldMax})`; g.lineWidth = 2; g.beginPath(); g.arc(m.x, m.y - 4, m.r + 6, 0, Math.PI * 2); g.stroke(); } if (m.treasure) { g.strokeStyle = '#ffd36a'; g.lineWidth = 1.5; g.beginPath(); g.arc(m.x, m.y - 4, m.r + 4 + Math.sin(G.time * 6) * 2, 0, Math.PI * 2); g.stroke(); } };
 

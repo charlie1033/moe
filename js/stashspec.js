@@ -1,11 +1,11 @@
 // =============================================================
-//  v2.7 倉庫專屬分頁：通貨、輔助寶石、珠寶各有一頁（材料系統已拿掉：舊存檔的 spec.mat 資料留著，只是不顯示）
+//  v2.7 倉庫專屬分頁：通貨、習慣、珠寶各有一頁（材料系統已拿掉：舊存檔的 spec.mat 資料留著，只是不顯示）
 //  ・每一種東西有固定的位置，沒有的會顯示成暗格（數量 0），一眼看出缺什麼
 //  ・專屬分頁沒有容量上限，所有角色共用
 //  ・存：在背包右鍵、或按「一鍵存入」→ 自動進專屬分頁
 //  ・拿：左鍵拿一疊、Shift＋左鍵全部拿（背包放得下為止）、右鍵拿 1 個
 // =============================================================
-const SPEC_TABS = [['cur', '通貨'], ['sup', '輔助寶石'], ['jewel', '珠寶']];
+const SPEC_TABS = [['cur', '通貨'], ['sup', '習慣'], ['jewel', '珠寶']];
 function specEnsure(s) {
   if (!s) return s;
   if (!s.spec) s.spec = { cur: {}, mat: {}, sup: {}, jewel: {} };
@@ -38,7 +38,7 @@ stashAllStacks = function (types) {
 
 // —— 介面 ——
 const SUP_GROUP = { '#e05a4f': '力量（紅）', '#5cc45c': '敏捷（綠）', '#5b8cff': '智慧（藍）' };
-const CUR_GROUPS = [['卷軸', ['portal']], ['改造魔法裝', ['transmute', 'alter', 'aug', 'chance']], ['稀有裝', ['alch', 'regal', 'chaos', 'annul', 'scour']], ['高價', ['divine', 'exalt', 'socket']], ['強化', ['whet', 'whet2', 'hone', 'lam', 'lam2', 'thread']]];
+const CUR_GROUPS = [['燈', ['portal']], ['改造魔法裝', ['transmute', 'alter', 'aug', 'chance']], ['稀有裝', ['alch', 'regal', 'chaos', 'annul', 'scour']], ['高價', ['divine', 'exalt', 'socket']], ['強化', ['whet', 'whet2', 'hone', 'lam', 'lam2', 'thread']]];
 Object.assign(UI, {
   specCell(type, k, big) {
     const n = G.stash.spec[type][k] || 0, T = STACK_TYPES[type];

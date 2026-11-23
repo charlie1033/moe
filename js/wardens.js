@@ -73,6 +73,9 @@ function wHud(wd) {
 function wAsk(wd) {
   const T = WARDEN_TEXT[wd.id], P = G.P, bn = BOSSES[wd.id].name, have = wShardHave(wd.id), f = P.wardens.first[wd.id], pr = T.pr || '牠';
   wd.stage = 'asking';
+  // v2.20.2 看過一次的請託，再進來只給一行重點（試玩回報：死了重打還會整段重播）
+  const asked = P.wardens.asked || (P.wardens.asked = {}), seen = asked[wd.id]; asked[wd.id] = 1;
+  if (seen) return gameAsk(`${T.who}的請託（選修，失敗不扣任何東西）\n銅：這一場不死通過　金：${T.gold.text}`, () => { wd.trial = true; wd.stage = 'fight'; UI.msg('接下了請託：試煉開始', '#ffe6a0'); }, { yes: '接下請託', no: '不用了', onNo: () => { wd.stage = 'fight'; } });
   const txt = `${T.who}的請託\n${T.ask}\n\n請託試煉（選修，失敗不會扣任何東西）：\n・銅：這一場不死通過 → 1 片殘片\n・金：${T.gold.text} → 再 3 片（要選「和解」打完全程才算）\n\n「${bn}的殘片」10 片可以跟歐莉換一件${pr}的專屬傳奇（目前 ${have} 片）。` +
     (f ? `\n\n你第一次面對${pr}時選了「${WCHOICE_NAME[f]}」。這次可以選別的、拿別的獎勵。` : `\n\n${pr}的生命打到一半時，你要從「和解」「了結」「放走」裡選一個。`);
   gameAsk(txt, () => { wd.trial = true; wd.stage = 'fight'; UI.msg('接下了請託：試煉開始', '#ffe6a0'); }, { yes: '接下請託', no: '不用了', onNo: () => { wd.stage = 'fight'; }, goal: [`打倒${bn}`, { opt: true, t: `${T.gold.text.replace(/（.*）$/, '')}（金）・不死通過（銅）` }] });   // v2.20 底下的「目標」（goals.js）

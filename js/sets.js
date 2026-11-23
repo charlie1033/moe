@@ -16,7 +16,7 @@
 //  資料：套裝物品＝rarity 'unique'＋item.set＝套裝代號＋item.uniqueId＝套件代號（套件登記在 UNIQUE_BY_ID，不進 UNIQUES，
 //    所以不會被當一般傳奇隨機掉，也不進傳奇收藏冊）。底材跟著物品等級升到最高可用階（setBestBase，深層傳奇也用）。
 //  v2.17.4：套裝另外骰 4 條一般詞綴（前後綴照稀有裝備規則；說明裡跟固定效果分開），不能用通貨改造（items.js 擋），
-//    只能用神聖石重骰數值；舊存檔的套裝讀檔時補骰（setUpgradeOld）。件數只算「不同的套件」，
+//    只能用重溫重骰數值；舊存檔的套裝讀檔時補骰（setUpgradeOld）。件數只算「不同的套件」，
 //    戴第一百三十八枚指環（SET_RING_ID，資料在 sets6.js）時每一套有穿的 +1（兩枚不疊加），說明顯示「身上 5（+1）/ 6」。
 //    六件套裝（2／4／6 件）四套在 sets6.js。
 //  對外：SETS、SET_PIECES、makeSetItem(套件代號, 物品等級)、setCounts(P)、setBestBase(底材, 物品等級)、setRingBonus(P)、setAddAffixes(物品)

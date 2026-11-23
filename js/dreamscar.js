@@ -2,7 +2,7 @@
 //  v2.7 夢痕詞綴：會改變玩法的特殊詞綴
 //  ・只出現在黃裝（稀有）上，每件最多 1 條，紫色顯示；物品等級 30 以上才會有
 //  ・每個部位有自己的一組（鞋子＝移動、胸甲＝防禦……），想要哪個效果就刷哪個部位
-//  ・分解有夢痕的裝備：會「記住」這條詞綴；之後可以在工坊（B）花混沌石拓印到同部位的黃裝上
+//  ・分解有夢痕的裝備：會「記住」這條詞綴；之後可以在工坊（B）花亂夢拓印到同部位的黃裝上
 //  ・效果都在這個檔案裡實作（用包裝原本函式的方式加進去）
 // =============================================================
 const SCAR_SLOT_GROUP = { weapon: 'weapon', offhand: 'offhand', helmet: 'helmet', body: 'body', gloves: 'gloves', boots: 'boots', amulet: 'amulet', ring: 'ring', ring1: 'ring', ring2: 'ring', belt: 'belt' };
@@ -27,7 +27,7 @@ const SCARS = [
   { id: 'sc_laststand', slot: 'body', name: '絕境', r: [15, 25], text: v => `一下被打掉 30% 以上生命時，立刻回復 ${v}% 生命（10 秒一次）` },
   { id: 'sc_phalanx', slot: 'body', name: '方陣', r: [2, 3], text: v => `身邊每有 1 隻敵人，受到的傷害 −${v}%（最多 −20%）` },
   { id: 'sc_thorns', slot: 'body', name: '荊甲', r: [40, 60], text: v => `被近戰打到時，把 ${v}% 傷害反彈給攻擊者` },
-  { id: 'sc_soulward', slot: 'body', name: '魂護', r: [100, 100], text: () => '生命自然回復時，能量護盾也一起回復' },
+  { id: 'sc_soulward', slot: 'body', name: '魂護', r: [100, 100], text: () => '生命自然回復時，夢殼也一起回復' },
   // 鞋子
   { id: 'sc_wind', slot: 'boots', name: '乘風', r: [25, 35], text: v => `用${ctl('dodgeKey')}的「瞬移」「一閃」或「猛衝」之後，2 秒內移動速度 +${v}%` },
   { id: 'sc_rooted', slot: 'boots', name: '紮根', r: [12, 18], text: v => `站著不動 1.5 秒後，受到的傷害 −${v}%` },
@@ -88,13 +88,13 @@ salvageGains = function (it) {
   }
   return got;
 };
-const SCAR_IMPRINT_COST = { chaos: 6 };   // v2.7 材料拿掉了：混沌石 ×6（背包加倉庫）
+const SCAR_IMPRINT_COST = { chaos: 6 };   // v2.7 材料拿掉了：亂夢 ×6（背包加倉庫）
 function scarImprintable(it) { return it && !isFlask(it) && !isStack(it) && it.rarity === 'rare'; }
 function scarImprint(invIdx, scarId) {
   const P = G.P, it = P.inv[invIdx], s = SCAR_BY_ID[scarId];
   if (!scarImprintable(it)) return UI.msg('只能拓印到黃色（稀有）裝備上', '#ff9a9a');
   if (scarSlotOf(it) !== s.slot) return UI.msg(`「${s.name}」只能拓印到${SCAR_SLOT_NAME[s.slot]}上`, '#ff9a9a');
-  if (craftCurHave('chaos') < SCAR_IMPRINT_COST.chaos) return UI.msg(`混沌石不夠：需要 ×${SCAR_IMPRINT_COST.chaos}`, '#ff9a9a');
+  if (craftCurHave('chaos') < SCAR_IMPRINT_COST.chaos) return UI.msg(`亂夢不夠：需要 ×${SCAR_IMPRINT_COST.chaos}`, '#ff9a9a');
   const go = () => { craftCurPay('chaos', SCAR_IMPRINT_COST.chaos); it.scar = { id: scarId, v: P.scarMem[scarId] }; Sfx.play('unique'); UI.msg(`拓印完成：${it.name} 得到夢痕「${s.name}」`, SCAR_COLOR); UI.refreshCraft(); UI.refreshInv(); saveGame(); };
   if (it.scar) gameAsk(`這件裝備已經有夢痕「${SCAR_BY_ID[it.scar.id].name}」，拓印會把它換掉。確定嗎？`, go); else go();
 }
@@ -225,7 +225,7 @@ UI.refreshCraft = function () {
   const P = G.P, mem = P.scarMem || {}, body = $('#craftBody') || document.querySelector('#craft .craftbody') || $('#craft');
   let box = document.getElementById('scarBox'); if (!box) { box = document.createElement('div'); box.id = 'scarBox'; body.appendChild(box); }
   const ids = Object.keys(mem);
-  let h = `<div class="csec" style="color:${SCAR_COLOR}">◆ 夢痕記憶<span class="thint">　分解有夢痕的黃裝就會記住；拓印到同部位的黃裝上（花混沌石 ×${SCAR_IMPRINT_COST.chaos}）</span></div>`;
+  let h = `<div class="csec" style="color:${SCAR_COLOR}">◆ 夢痕記憶<span class="thint">　分解有夢痕的黃裝就會記住；拓印到同部位的黃裝上（花亂夢 ×${SCAR_IMPRINT_COST.chaos}）</span></div>`;
   if (!ids.length) h += '<div class="ihint">還沒有記住任何夢痕。黃裝（物品等級 30 以上）有機會帶夢痕，分解它就會記住。</div>';
   else {
     const sel = this.scarSel && mem[this.scarSel] ? this.scarSel : ids[0]; this.scarSel = sel; const s = SCAR_BY_ID[sel];

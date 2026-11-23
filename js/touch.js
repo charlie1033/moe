@@ -48,7 +48,7 @@ const Touch = {
     const dUp = () => $('#tdodge').classList.remove('on'); $('#tdodge').addEventListener('pointerup', dUp); $('#tdodge').addEventListener('pointercancel', dUp);
     $('#ttalk').addEventListener('pointerdown', e => { e.stopPropagation(); UI.interact(); });
     $('#tmenu').addEventListener('pointerdown', e => { e.stopPropagation(); this.toggleMenu(); });
-    // 夢之門（地圖裝置）：手機上面板蓋住左半邊的搖桿區，走不開 → 標題加一顆 ✕
+    // 夢之門（夢之門）：手機上面板蓋住左半邊的搖桿區，走不開 → 標題加一顆 ✕
     const mh = document.querySelector('#mapdev .ph');
     if (mh) { const x = document.createElement('span'); x.className = 'x'; x.textContent = '✕'; x.onclick = () => UI.showMapDevice(false); mh.appendChild(x); const t = mh.querySelector('.thint'); if (t) t.textContent = '走開或按 ✕ 關閉'; }
     // 背包、倉庫、商店、珠寶：第一下看說明，第二下才執行

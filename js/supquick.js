@@ -1,10 +1,10 @@
 // =============================================================
-//  v2.19.14 輔助寶石快速安裝（玩家反應：裝輔助要拖來拖去、也看不出哪顆比較好）
+//  v2.19.14 習慣快速安裝（玩家反應：裝習慣要拖來拖去、也看不出哪顆比較好）
 //  玩家看到（技能頁 K）：
-//   ・點技能旁邊的小格（輔助孔）→ 跳出一張小清單：這個技能能用、你身上或倉庫有的輔助寶石
+//   ・點技能旁邊的小格（習慣孔）→ 跳出一張小清單：這個技能能用、你身上或倉庫有的習慣
 //     推薦的排前面，每一顆寫出裝上去之後每秒傷害變多少（例：「每秒傷害 +18%」）、一句說明、還有幾顆；點一下就裝上
-//   ・點已經裝好的輔助寶石 → 同一張清單，最上面多「拿下來」，點別顆就是直接換掉
-//   ・每個技能那一列多一顆「補滿推薦」：把空的輔助孔照推薦順序一次裝好（只用推薦的、不會放同一顆兩次）
+//   ・點已經裝好的習慣 → 同一張清單，最上面多「拿下來」，點別顆就是直接換掉
+//   ・每個技能那一列多一顆「補滿推薦」：把空的習慣孔照推薦順序一次裝好（只用推薦的、不會放同一顆兩次）
 //   ・原本的拖曳、「點寶石再點孔」照舊可以用（手上選著寶石時，點孔就是直接放，不會跳清單）
 //  接點：ui.js 空孔的 onclick、已裝寶石點一下（gemDragStart 沒拖動）時呼叫 SupQuick.open；Hook 'skillsPanel' 加按鈕
 //  裝上去用 UI.gemDrop／拿下用 UI.setSocket（跟原本一樣扣背包、不夠從倉庫拿）
@@ -18,7 +18,7 @@ const SupQuick = (() => {
     const P = G.P, sid = P.skills[i];
     try { const c = calcSkill(G.S, sid, P.lvl, links); return c && isFinite(c.dps) && c.dps > 0 ? c.dps : null; } catch (e) { return null; }
   }
-  // 第 i 個技能、第 k 個輔助孔可以放哪些：推薦的在前，再照傷害提升排
+  // 第 i 個技能、第 k 個習慣孔可以放哪些：推薦的在前，再照傷害提升排
   function choices(i, k) {
     const P = G.P, sid = P.skills[i], n = linkSlots(P.lvl);
     const others = P.links[i].slice(0, n).filter((x, j) => x && j !== k);
@@ -42,12 +42,12 @@ const SupQuick = (() => {
     if (at === drop) return close();   // 再點一次同一格＝關掉
     close(); UI.hideTip();
     const cur = P.links[i][k];
-    let h = `<div class="sq-head">${sid ? `<b style="color:${SKILLS[sid].color}">${SKILLS[sid].name}</b>　第 ${k + 1} 個輔助孔` : '這一列還沒有技能'}<button class="sq-x" data-sqx="1">✕</button></div>`;
-    if (!sid) h += `<div class="sq-empty">${byCtl('先把技能寶石拖到這一列的大格', '先點技能寶石，再點這一列的大格')}，輔助寶石才有東西可以輔助。</div>`;
+    let h = `<div class="sq-head">${sid ? `<b style="color:${SKILLS[sid].color}">${SKILLS[sid].name}</b>　第 ${k + 1} 個習慣孔` : '這一列還沒有技能'}<button class="sq-x" data-sqx="1">✕</button></div>`;
+    if (!sid) h += `<div class="sq-empty">${byCtl('先把技能寶石拖到這一列的大格', '先點技能寶石，再點這一列的大格')}，習慣才有東西可以輔助。</div>`;
     else {
       if (cur) h += `<div class="sq-cur"><img src="${supportIconURL(cur, 32)}"><span>現在：<b style="color:${SUPPORTS[cur].color}">${SUPPORTS[cur].name}</b></span><button data-sqoff="1">拿下來</button></div>`;
       const L = choices(i, k).filter(c => c.id !== cur);
-      if (!L.length) h += `<div class="sq-empty">${cur ? '沒有別顆適合這個技能的輔助寶石可以換。' : '沒有適合這個技能的輔助寶石。'}打怪會掉，首領一定掉 2 顆。</div>`;
+      if (!L.length) h += `<div class="sq-empty">${cur ? '沒有別顆適合這個技能的習慣可以換。' : '沒有適合這個技能的習慣。'}打怪會掉，首領一定掉 2 個。</div>`;
       for (const c of L) {
         const sp = SUPPORTS[c.id];
         h += `<button class="sq-row" data-sq="${c.id}"><img src="${supportIconURL(c.id, 32)}"><span class="sq-txt"><b style="color:${sp.color}">${sp.name}</b>${c.good ? '<i class="sq-rec">推薦</i>' : ''}${gainTxt(c.gain)}<small>${firstLine(sp.desc)}</small></span><span class="sq-n">×${c.have}</span></button>`;
@@ -72,7 +72,7 @@ const SupQuick = (() => {
       if (!c) break;
       UI.gemDrop('sup:' + c.id, `sup:${i}:${k}`); if (P.links[i][k] === c.id) put++;
     }
-    if (put) { Sfx.play('equip'); UI.msg(`裝上了 ${put} 顆推薦的輔助寶石`, '#9fe0b0'); } else UI.msg('沒有可以補的推薦輔助寶石', '#d8c8a0');
+    if (put) { Sfx.play('equip'); UI.msg(`裝上了 ${put} 個推薦的習慣`, '#9fe0b0'); } else UI.msg('沒有可以補的推薦習慣', '#d8c8a0');
     close(); UI.refreshSkills();
   }
   function canFill(i) {
@@ -85,7 +85,7 @@ const SupQuick = (() => {
     root.querySelectorAll('#skillSlots .gearrow').forEach((row, i) => {
       if (!canFill(i)) return;
       const s = row.querySelector('.gsocks'); if (!s) return;
-      const b = document.createElement('button'); b.className = 'sq-fill'; b.textContent = '補滿推薦'; b.title = '把空的輔助孔照推薦一次裝好';
+      const b = document.createElement('button'); b.className = 'sq-fill'; b.textContent = '補滿推薦'; b.title = '把空的習慣孔照推薦一次裝好';
       b.onclick = e => { e.stopPropagation(); fill(i); }; s.appendChild(b);
     });
   });

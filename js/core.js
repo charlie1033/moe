@@ -7,7 +7,7 @@
 //     'drawOver'(g) 畫完角色和怪物之後（世界座標）　'light'(cut, cx, cy) 在黑暗上挖光（cut(螢幕x, 螢幕y, 半徑, 強度)）　'glow'(g, cx, cy) 黑暗之後畫彩色光（螢幕座標）
 //     'stage'(w) 每一區的怪和事件放好之後　'worldCanvas'(w) 底圖畫一塊的時候（v2.19 分塊畫：每塊各跑一次，只畫 w._chunkRect 的格子，見 game.js）　'terrainChanged'(w, rect|null) 地形變了（換地圖、worldRepaint 給範圍）　'drawHUD'(g) 下方介面全部畫完之後（螢幕座標）　'drawMinimap'(g, mx, my, s) 小地圖上加標記（世界座標 / TS * s + mx）
 //     'cast'(sid, c) 放完技能之後（c＝這次施放算好的數值）
-//     'hurt'(掉了多少, opts) 角色被打到、真的掉血或掉護盾之後（持續傷害不算）
+//     'hurt'(掉了多少, opts) 角色被打到、真的掉血或掉夢殼之後（持續傷害不算）
 //     'preHit'(ctx)／'crit'(m, 技能欄) 打中怪之前可改暴擊與倍率／打出暴擊之後（gems4.js 發的，ctx 見那個檔頭）
 //     'monKb'(ctx) 怪被打中、算擊退之前（game.js hitMonster 發的）：ctx = { m, dmg 這一下的傷害, kb 擊退倍率（可以改，堅忍用） }
 //     'stats'(S, P) 能力算好之後、技能數值算之前（要影響技能傷害的加成放這裡；生命上限、移動速度已經算完，要改就直接改 S.maxLife／S.moveSpeed）

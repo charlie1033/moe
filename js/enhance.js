@@ -174,7 +174,7 @@ UI.refreshCraft = function () {
   };
 };
 
-// —— 舊存檔：材料換成混沌石（每 25 個材料換 1 顆，至少 1 顆） ——
+// —— 舊存檔：材料換成亂夢（每 25 個材料換 1 顆，至少 1 顆） ——
 function convertOldMats() {
   const P = G.P; if (P.matsGone) return;
   let n = 0;
@@ -185,7 +185,7 @@ function convertOldMats() {
     G.stash.matsGone = true;
   }
   P.matsGone = true;
-  if (n > 0) { const c = Math.max(1, Math.floor(n / 25)); P.cur.chaos += c; setTimeout(() => UI.msg(`工坊改成「強化」了：你的 ${n} 個舊材料換成了 ${c} 顆混沌石`, '#ffd36a'), 1500); saveGame(); }
+  if (n > 0) { const c = Math.max(1, Math.floor(n / 25)); P.cur.chaos += c; setTimeout(() => UI.msg(`工坊改成「強化」了：你的 ${n} 個舊材料換成了 ${c} 顆亂夢`, '#ffd36a'), 1500); saveGame(); }
 }
 Hook.on('start', () => { try { convertOldMats(); } catch (e) { } });
 

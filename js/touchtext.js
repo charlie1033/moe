@@ -2,7 +2,7 @@
 //  v2.18.2 手機（觸控）版的說法：index.html 和資料檔裡寫死的鍵盤說明（右鍵、Ctrl、按 T、（K）……），
 //  在手機上換成點按的說法。電腦版完全不動。
 //  ・背包、技能頁、天賦樹上方的小字說明；面板標題的按鍵字母（技能寶石（K）→ 技能寶石）
-//  ・傳送卷軸的說明（data.js 載入時還不知道是不是手機，所以在這裡換）
+//  ・回營的燈的說明（data.js 載入時還不知道是不是手機，所以在這裡換）
 //  ・操作說明（H）：手機操作那段補上「設定・存檔」；下面的鍵盤操作（「移動與戰鬥」到「存檔」之前）收進一個可以展開的「電腦鍵盤操作」
 //  動態產生的文字（訊息、物品說明、任務提示）用 settings.js 的 ctl()／ctlText()／byCtl()，不在這裡
 //  載入順序：要在 data.js、render.js 之後（用到 CURRENCY、IS_TOUCH）
@@ -11,8 +11,8 @@
   if (typeof IS_TOUCH === 'undefined' || !IS_TOUCH) return;
   const $q = s => document.querySelector(s);
   const set = (s, html) => { const e = $q(s); if (e) e.innerHTML = html; };
-  set('#inv > .ihint', '點一下物品看說明，同一格再點一下＝選取，用跳出來的按鈕<b>裝備／卸下／賣出／存倉庫</b>；要分解就先按上方的「分解」<br>工藝石：點石頭，再點要改造的裝備（再點一次石頭取消）　傳送卷軸：點它就回營地');
-  set('#skills > .ihint', '點一下寶石袋裡的寶石（會亮框），再點裝備旁邊的<b>大格</b>（技能）或<b>小格</b>（輔助）就放進去；點已經放上的寶石、再點寶石袋＝拿下來。等級越高小格越多');
+  set('#inv > .ihint', '點一下物品看說明，同一格再點一下＝選取，用跳出來的按鈕<b>裝備／卸下／賣出／存倉庫</b>；要分解就先按上方的「分解」<br>夢的材料：點它，再點要改造的裝備（再點一次它取消）　回營的燈：點它就回營地');
+  set('#skills > .ihint', '點一下寶石袋裡的寶石（會亮框），再點裝備旁邊的<b>大格</b>（技能）或<b>小格</b>（習慣）就放進去；點已經放上的寶石、再點寶石袋＝拿下來。等級越高小格越多');
   set('#tree .ph .thint', '<span class="tseg">點天賦 → 按下方的「點這個天賦」</span><span class="tseg">「確認加點」前都能免費改</span><span class="tseg">一指拖曳・兩指縮放</span>');   // v2.19.7 分段：只在段落之間換行（.tseg 在 treeplan.js）
   // 面板標題的按鍵字母
   for (const id of ['skills', 'craft', 'journal']) { const h = $q(`#${id} > .ph`); if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.textContent = h.firstChild.textContent.replace(/（[A-Z]）/, ''); }

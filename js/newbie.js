@@ -1,7 +1,7 @@
 // =============================================================
 //  v2.18.2 新手期保護：不耗魔的普通攻擊、前 10 級魔力回復、第 1～2 夜首領單下傷害上限
 //  玩家看到：
-//   ① 每個職業多一個「不耗魔力」的普通攻擊（魔力用光也能一直打，可以插輔助寶石，傷害約主力技能的 55%）
+//   ① 每個職業多一個「不耗魔力」的普通攻擊（魔力用光也能一直打，可以插習慣，傷害約主力技能的 55%）
 //      戰士／武士／盜賊＝普通揮砍（要近戰武器）；弓箭手＝普通射擊（要弓）；法師／召喚師＝法杖彈（閃電，不挑武器）
 //      新角色開局放在左鍵（手機是右下大圓鈕），原本的兩個技能往後移一格（右鍵、Q）
 //      舊角色：技能欄有空位就自動補上（只補一次，之後拿掉不會再塞回來）；沒有空位就只放進技能寶石（技能頁自己換）
@@ -13,12 +13,12 @@
 // =============================================================
 Object.assign(SKILLS, {
   bswing: { name: '普通揮砍', icon: '揮', color: '#d8c8a8', lvl: 1, basic: true, tags: ['attack', 'melee'], cost: 0, eff: 0.7, speed: 1.15,
-    type: 'melee', range: 60, arc: 1.6, need: 'melee', desc: '不耗魔力的基本揮砍。魔力用光時也能一直打，可以插輔助寶石。' },
+    type: 'melee', range: 60, arc: 1.6, need: 'melee', desc: '不耗魔力的基本揮砍。魔力用光時也能一直打，可以插習慣。' },
   bshot: { name: '普通射擊', icon: '射', color: '#c8d8a0', lvl: 1, basic: true, tags: ['attack', 'projectile'], cost: 0, eff: 0.72, speed: 1.05,
-    type: 'proj', count: 1, spread: 0, pspeed: 720, need: 'bow', sprite: 'arrow', desc: '不耗魔力的普通一箭。魔力用光時也能一直射，可以插輔助寶石。需要弓。' },
+    type: 'proj', count: 1, spread: 0, pspeed: 720, need: 'bow', sprite: 'arrow', desc: '不耗魔力的普通一箭。魔力用光時也能一直射，可以插習慣。需要弓。' },
   wandbolt: { name: '法杖彈', icon: '彈', color: '#e8e070', lvl: 1, basic: true, tags: ['spell', 'projectile'], elem: 'light', cost: 0,
     base: [5, 9], crit: 5, cast: 0.6, eff: 0.6, type: 'proj', count: 1, spread: 0.05, pspeed: 620, sprite: 'orb',
-    desc: '不耗魔力的小閃電彈。魔力用光時也能一直打，可以插輔助寶石。' },
+    desc: '不耗魔力的小閃電彈。魔力用光時也能一直打，可以插習慣。' },
 });
 const BASIC_ATK = { warrior: 'bswing', samurai: 'bswing', ranger: 'bswing', druid: 'bshot', mage: 'wandbolt', summoner: 'wandbolt' };
 Object.assign(SKILL_ATTR, { bswing: ['str', 'dex'], bshot: ['dex'], wandbolt: ['int'] });

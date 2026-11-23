@@ -37,7 +37,7 @@ const KEY_ACTIONS = [
   { id: 'left', name: '往左走', def: 'KeyA', grp: '移動' }, { id: 'right', name: '往右走', def: 'KeyD', grp: '移動' },
   { id: 'sk3', name: '技能（頭盔）', def: 'KeyQ', grp: '技能' }, { id: 'sk4', name: '技能（手套）', def: 'KeyE', grp: '技能' }, { id: 'sk5', name: '技能（鞋子）', def: 'KeyR', grp: '技能' },
   { id: 'f1', name: '藥劑 1', def: 'Digit1', grp: '藥劑' }, { id: 'f2', name: '藥劑 2', def: 'Digit2', grp: '藥劑' }, { id: 'f3', name: '藥劑 3', def: 'Digit3', grp: '藥劑' }, { id: 'f4', name: '藥劑 4', def: 'Digit4', grp: '藥劑' },
-  { id: 'interact', name: '互動（對話／撿東西／進門）', def: 'KeyF', grp: '動作' }, { id: 'dodge', name: '閃避翻滾', def: 'Space', grp: '動作' }, { id: 'portal', name: '傳送卷軸回城', def: 'KeyT', grp: '動作' },
+  { id: 'interact', name: '互動（對話／撿東西／進門）', def: 'KeyF', grp: '動作' }, { id: 'dodge', name: '閃避翻滾', def: 'Space', grp: '動作' }, { id: 'portal', name: '點燈回營地', def: 'KeyT', grp: '動作' },
   { id: 'inv', name: '背包', def: 'KeyI', grp: '介面' }, { id: 'char', name: '角色', def: 'KeyC', grp: '介面' }, { id: 'skills', name: '技能寶石', def: 'KeyK', grp: '介面' },
   { id: 'tree', name: '天賦樹', def: 'KeyP', grp: '介面' }, { id: 'craft', name: '強化工坊', def: 'KeyB', grp: '介面' },
   { id: 'journal', name: '日誌', def: 'KeyJ', grp: '介面' }, { id: 'help', name: '說明', def: 'KeyH', grp: '介面' },

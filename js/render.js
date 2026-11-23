@@ -504,9 +504,9 @@ function drawPlayer(g, pl) {
 function drawGearOnBody(g, pl, feet, sp, bob, EQ, offB, eqIcon) {
   const top = feet - sp.h + bob, f = pl.facing;
   g.imageSmoothingEnabled = true;
-  // 胸甲：依防禦種類在軀幹蓋一層淡淡的顏色（護甲＝鐵灰、閃避＝皮革、能量護盾＝藍紫），稀有度越高邊光越明顯
+  // 胸甲：依防禦種類在軀幹蓋一層淡淡的顏色（護甲＝鐵灰、閃避＝皮革、夢殼＝藍紫），稀有度越高邊光越明顯
   // 胸甲、頭盔：照角色的輪廓上色（只塗在人物身上，不會塗到外面）。
-  //   顏色看防禦種類：護甲＝鐵灰、閃避＝皮革褐、能量護盾＝藍紫；魔法以上的裝備，那一塊會有稀有度顏色的光
+  //   顏色看防禦種類：護甲＝鐵灰、閃避＝皮革褐、夢殼＝藍紫；魔法以上的裝備，那一塊會有稀有度顏色的光
   const body = EQ.body && BASE_BY_ID[EQ.body.base], helmB = EQ.helmet && BASE_BY_ID[EQ.helmet.base];
   if ((body || helmB) && sp._img) {
     const W = sp._img.width, H = sp._img.height;
@@ -699,9 +699,9 @@ function drawOrb(g, x, y, R, frac, col, dark, label, es, trail) {
   g.fillStyle = 'rgba(255,255,255,0.10)'; g.beginPath(); g.ellipse(x - R * 0.3, y - R * 0.45, R * 0.35, R * 0.22, -0.5, 0, Math.PI * 2); g.fill();
   g.restore();
   if (es != null) { g.strokeStyle = '#8fd0ff'; g.lineWidth = 4; g.beginPath(); g.arc(x, y, R + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(es, 0, 1)); g.stroke(); }
-  // v2.7.10 數字加大，並顯示上限（目前 ／ 上限）；有能量護盾時下面多一行
+  // v2.7.10 數字加大，並顯示上限（目前 ／ 上限）；有夢殼時下面多一行
   const [cur, max, sub] = String(label).split('|');
-  // v2.8.1 只留一行「目前 / 上限」，字清楚一點（護盾看外圈的藍色圈）
+  // v2.8.1 只留一行「目前 / 上限」，字清楚一點（夢殼看外圈的藍色圈）
   if (max) { g.save(); g.fillStyle = 'rgba(0,0,0,0.45)'; roundRect(g, x - 36, y - 10, 72, 20, 9); g.fill(); g.restore(); txt(g, `${cur} / ${max}`, x, y, 14, '#ffffff', 'center'); }
   else txt(g, cur, x, y, 15, '#ffffff', 'center');
 }
@@ -727,8 +727,8 @@ function drawHUD(g) {
   // 生命與魔力球
   const [lx, ly, lr] = HUD.orbL, [rx, ry, rr] = HUD.orbR;
   { const lf = pl.life / S.maxLife; pl.lifeTrail = Math.max(lf, (pl.lifeTrail == null ? lf : pl.lifeTrail) - 0.008); }
-  drawOrb(g, lx, ly, lr, pl.life / S.maxLife, "#b82020", "#2a0808", `${Math.max(0, Math.ceil(pl.life))}|${S.maxLife}${S.maxES > 0 ? '|護盾 ' + Math.max(0, Math.ceil(pl.es)) + '/' + S.maxES : ''}`, S.maxES > 0 ? pl.es / S.maxES : null, pl.lifeTrail);
-  if (S.maxES > 0) txt(g, `護盾 ${Math.max(0, Math.ceil(pl.es))}`, lx, ly - lr - 12, 10, '#9fd8ff', 'center');
+  drawOrb(g, lx, ly, lr, pl.life / S.maxLife, "#b82020", "#2a0808", `${Math.max(0, Math.ceil(pl.life))}|${S.maxLife}${S.maxES > 0 ? '|夢殼 ' + Math.max(0, Math.ceil(pl.es)) + '/' + S.maxES : ''}`, S.maxES > 0 ? pl.es / S.maxES : null, pl.lifeTrail);
+  if (S.maxES > 0) txt(g, `夢殼 ${Math.max(0, Math.ceil(pl.es))}`, lx, ly - lr - 12, 10, '#9fd8ff', 'center');
   drawOrb(g, rx, ry, rr, S.maxMana ? pl.mana / (S.maxManaFull || S.maxMana) : 0,   /* v2.14.2 照總魔力算比例，保留的部分由光環畫上去 */ '#2a50c8', '#080c2a', S.flags.bloodMagic ? '血魔' : `${Math.floor(pl.mana)}|${S.maxMana}`);
   // 藥劑（4 格，按 1–4）
   for (let i = 0; i < 4; i++) {

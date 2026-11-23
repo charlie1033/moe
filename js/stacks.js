@@ -1,9 +1,9 @@
 // =============================================================
-//  v2.6.1 背包改版：通貨、材料、輔助寶石、珠寶都是「背包裡的物品」，會佔格子、可以堆疊
+//  v2.6.1 背包改版：通貨、材料、習慣、珠寶都是「背包裡的物品」，會佔格子、可以堆疊
 //  ・背包物品 { stack: 'cur'|'mat'|'sup'|'jewel', key, n }
 //  ・遊戲其他地方還是用 P.cur.chaos、P.mats.ore_2、P.supports.gmp、P.jewels.ruby_1 讀寫數量，
 //    這裡用「代理」把它們接到背包格子：讀＝背包裡加起來有幾個，寫＝從背包拿走或放進去
-//  ・背包放不下時（例如任務獎勵、分解、拆下輔助寶石）：多的自動送進倉庫；倉庫也滿就掉在腳邊
+//  ・背包放不下時（例如任務獎勵、分解、拆下習慣）：多的自動送進倉庫；倉庫也滿就掉在腳邊
 //  ・地上撿東西時背包滿了：撿不起來（東西留在地上）
 //  ・技能寶石是「學會的技能」，不佔格子；夢魘碎片、鑰匙也不佔
 // =============================================================
@@ -13,7 +13,7 @@ const STACK_TYPES = {
   mat: { name: k => matName(k), max: () => 30, color: k => MATS[k.slice(0, k.lastIndexOf('_'))].color, ok: k => !!MATS[k.slice(0, k.lastIndexOf('_'))],
     icon: k => matIconURL(k.slice(0, k.lastIndexOf('_')), +k.slice(k.lastIndexOf('_') + 1), 64), desc: k => MATS[k.slice(0, k.lastIndexOf('_'))].desc + '（在工坊 B 用來製作、改造裝備）', kind: '材料' },
   sup: { name: k => SUPPORTS[k].name, max: () => 10, color: k => SUPPORTS[k].color, ok: k => !!SUPPORTS[k],
-    icon: k => supportIconURL(k, 64), desc: k => SUPPORTS[k].desc + ctlText('（到技能頁插到技能上：{skills}）'), kind: '輔助寶石' },
+    icon: k => supportIconURL(k, 64), desc: k => SUPPORTS[k].desc + ctlText('（到技能頁插到技能上：{skills}）'), kind: '習慣' },
   jewel: { name: k => jewelName(k), max: () => 10, color: k => JEWELS[parseJewel(k).type].color, ok: k => { try { return !!JEWELS[parseJewel(k).type]; } catch (e) { return false; } },
     icon: k => jewelIconURL(k), desc: k => jewelText(k) + '（在背包點它，再點有空孔的裝備就鑲上去；3 顆同階可以找營地的小雀合成高一階）', kind: '珠寶' },
 };

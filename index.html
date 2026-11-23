@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>夢疑 MOE Demo v2.19.16</title>
+<title>夢疑 MOE Demo v2.20.2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -124,7 +124,7 @@
   #tree.show { display:flex; flex-direction:column; }
   #treeCanvas { flex:1; width:100%; display:block; cursor:grab; }
   .thint { font-size:12px; color:var(--dim); }
-  /* 地圖裝置 */
+  /* 夢之門 */
   #mapdev { left:50%; top:50%; transform:translate(-50%,-50%); width:560px; max-height:80vh; overflow:auto; }
   .mrow { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #2a241c; font-size:14px; }
   .mdesc { font-size:12px; color:var(--dim); line-height:1.6; }
@@ -620,7 +620,7 @@
 
 <div id="menu" class="panel">
   <div class="title logo-title"><img src="img/logo.png" alt="夢疑 MOE"></div>
-  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.19.16</div>
+  <div class="subtitle">一次又一次入夢，直到你想起怎麼醒來　·　v2.20.2</div>
   <div id="menuBody"></div>
 </div>
 <div id="title"></div>
@@ -634,12 +634,12 @@
   <div id="flaskbar"></div>
   <div id="curbar"></div>
   <div id="invgrid"></div>
-  <div class="ihint">左鍵：選取並比較　右鍵：裝備／卸下（商人開著時：右鍵＝賣出、Ctrl+左鍵＝分解成材料；倉庫開著時：右鍵＝存入）<br>工藝石：先點石頭，再點裝備（按住 Shift 可連續用，右鍵取消）　傳送卷軸：點它或按 T</div>
+  <div class="ihint">左鍵：選取並比較　右鍵：裝備／卸下（商人開著時：右鍵＝賣出、Ctrl+左鍵＝分解成材料；倉庫開著時：右鍵＝存入）<br>夢的材料：先點它，再點裝備（按住 Shift 可連續用，右鍵取消）　回營的燈：點它或按 T</div>
 </div>
 
 <div id="shop" class="panel"><div class="ph">商人．歐莉　<span class="thint">不收錢，只收通貨</span><span class="x" data-close="shop">✕</span></div><div id="shopBody"></div></div>
 <div id="craft" class="panel"><div class="ph">強化工坊（B）　<span class="thint">用磨石、護貝劑強化武器和防具</span><span class="x" data-close="craft">✕</span></div><div id="craftBody"></div></div>
-<div id="gemshop" class="panel"><div class="ph">引路人．塞拉　<span class="thint">技能寶石，用混沌石換</span><span class="x" data-close="gemshop">✕</span></div><div id="gemshopBody"></div></div>
+<div id="gemshop" class="panel"><div class="ph">引路人．塞拉　<span class="thint">技能寶石，用亂夢換</span><span class="x" data-close="gemshop">✕</span></div><div id="gemshopBody"></div></div>
 <div id="stash" class="panel"><div class="ph">倉庫　<span class="thint">點背包物品放進來，點這裡的物品拿回去</span><span class="x" data-close="stash">✕</span></div><div id="stashTabs"></div><div id="stashGrid"></div></div>
 
 
@@ -647,7 +647,7 @@
 
 <div id="skills" class="panel">
   <div class="ph">技能寶石（K）<span class="x" data-close="skills">✕</span></div>
-  <div class="ihint" style="padding-top:8px">把寶石袋裡的寶石<b>拖到裝備上</b>才會生效：大格放技能寶石，小格放輔助寶石（等級越高小格越多）。右鍵或拖回寶石袋＝拿下來。手機：點一下寶石，再點要放的格子。</div>
+  <div class="ihint" style="padding-top:8px">把寶石袋裡的寶石<b>拖到裝備上</b>才會生效：大格放技能寶石，小格放習慣（等級越高小格越多）。右鍵或拖回寶石袋＝拿下來。手機：點一下寶石，再點要放的格子。</div>
   <div id="skillSlots"></div>
   <div class="csec2">寶石袋</div>
   <div id="gemBag"></div>
@@ -659,14 +659,14 @@
   <canvas id="treeCanvas"></canvas>
 </div>
 
-<div id="mapdev" class="panel"><div class="ph">地圖裝置：選擇要進入的地圖 <span class="thint">離開傳送門就會關閉</span></div><div id="mapList"></div></div>
+<div id="mapdev" class="panel"><div class="ph">夢之門：選擇要進入的地圖 <span class="thint">離開傳送門就會關閉</span></div><div id="mapList"></div></div>
 
 <div id="death" class="panel"><h2>你倒下了</h2><div id="deathInfo"></div><br><button onclick="UI.hideDeath()">回到城鎮</button></div>
 
 <div id="help" class="panel">
   <div class="ph">操作說明 <span class="x" data-close="help">✕</span></div>
   <div class="hb">
-    <div class="ihint" style="padding:0 0 8px">美術：角色、部分怪物、地下城地板、牆與武器來自 0x72 的「16x16 DungeonTileset II」（CC0 公眾領域，0x72.itch.io）；50 種怪物、10 個首領與營地人物來自「Dungeon Crawl Stone Soup」圖庫，野豬與鹿角獸來自 ScratchIO 的「Animated Wild Animals」（皆為 CC0 公眾領域，opengameart.org）。其他怪物與舊版圖示為本遊戲自繪。標題畫面、人物立繪、職業立繪、技能／輔助寶石／裝備／藥劑／通貨／材料圖示與介面底紋由 Higgsfield AI 生成（v2.4）；v2.6 每個裝備基底（各階）都有自己的 AI 圖示，地圖上的玩家改成依身上裝備換外觀的像素小人（程式繪製）。</div>
+    <div class="ihint" style="padding:0 0 8px">美術：角色、部分怪物、地下城地板、牆與武器來自 0x72 的「16x16 DungeonTileset II」（CC0 公眾領域，0x72.itch.io）；50 種怪物、10 個首領與營地人物來自「Dungeon Crawl Stone Soup」圖庫，野豬與鹿角獸來自 ScratchIO 的「Animated Wild Animals」（皆為 CC0 公眾領域，opengameart.org）。其他怪物與舊版圖示為本遊戲自繪。標題畫面、人物立繪、職業立繪、技能／習慣／裝備／藥劑／通貨／材料圖示與介面底紋由 Higgsfield AI 生成（v2.4）；v2.6 每個裝備基底（各階）都有自己的 AI 圖示，地圖上的玩家改成依身上裝備換外觀的像素小人（程式繪製）。</div>
     <div style="padding:0 0 8px"><label><input type="checkbox" id="artNewChk" style="width:auto !important;vertical-align:middle"> 使用新美術（AI 生成的標題畫面、立繪、圖示）</label>　<span class="thint">取消勾選就回到舊版程式畫的圖示</span></div>
     <div class="tonly"><h4>手機操作</h4>
     左半邊畫面：手指按住拖曳＝移動（按哪裡，搖桿就出現在哪裡）<br>
@@ -684,10 +684,10 @@
     <kbd>Z</kbd> 顯示／隱藏普通（白色）物品標籤<br>
     <kbd>Esc</kbd> 暫停遊戲：設定（顯示、音效、介面、按鍵）、存檔、回到選角畫面<br>
     <kbd>M</kbd> 開／關聲音　　音量 <input type="range" id="volRange" min="0" max="100" style="width:130px !important;vertical-align:middle;padding:0"><br>
-    <kbd>T</kbd> 使用傳送卷軸：在腳下開門回城，之後從城鎮右邊的藍色傳送門回到同一張地圖<br>
+    <kbd>T</kbd> 使用回營的燈：在腳下開門回城，之後從城鎮右邊的藍色傳送門回到同一張地圖<br>
     <kbd>F</kbd> 在城鎮靠近商人或倉庫時打開它們
     <h4>介面</h4>
-    <kbd>I</kbd> 背包　<kbd>C</kbd> 角色數值　<kbd>K</kbd> 技能與輔助寶石　<kbd>右鍵點珠寶</kbd> 選起來再點裝備鑲嵌（Shift＋右鍵合成）　<kbd>P</kbd> 天賦樹　<kbd>J</kbd> 記憶日誌與怪物圖鑑　<kbd>H</kbd> 說明　<kbd>Esc</kbd> 關閉全部
+    <kbd>I</kbd> 背包　<kbd>C</kbd> 角色數值　<kbd>K</kbd> 技能與習慣　<kbd>右鍵點珠寶</kbd> 選起來再點裝備鑲嵌（Shift＋右鍵合成）　<kbd>P</kbd> 天賦樹　<kbd>J</kbd> 記憶日誌與怪物圖鑑　<kbd>H</kbd> 說明　<kbd>Esc</kbd> 關閉全部
     <h4>存檔</h4>
     遊戲每 20 秒、回牢房、升級時會自動存在瀏覽器裡。怕瀏覽器資料被清掉，可以另外存一份備份檔：<br>
     <button onclick="exportBackup()">匯出備份</button> <button onclick="document.getElementById('impFile2').click()">匯入備份</button>
@@ -701,14 +701,14 @@
     滑鼠移到技能欄、藥劑、生命球、魔力球、經驗條上，會顯示說明。<br>
     牢房裡的人物頭上有「！」代表有新故事，靠近按 <kbd>F</kbd> 聊聊：歐莉（商人）、格倫（怪物圖鑑）、小雀（幫你合成珠寶）、舊木箱（倉庫）。
     <h4>怎麼玩</h4>
-    1. 在城鎮走進「地圖裝置」選第 1 層進入。<br>
+    1. 在城鎮走進「夢之門」選第 1 層進入。<br>
     2. 一路清怪、撿裝備，找到地圖深處的首領（小地圖上的 ☠）。<br>
     3. 擊敗首領會解鎖下一層，並有機會掉落「首領專屬傳奇」（每次擊敗都有機率，不保證）。<br>
     4. 每升 1 級得到 1 點天賦點數，按 <kbd>P</kbd> 從你的職業起點往外點。<br>
     5. 技能不分職業，按 <kbd>K</kbd> 隨意換。弓類技能要裝弓，近戰技能要近戰武器。<br>
-    6. 用通貨改造裝備：蛻變石→藍裝、增幅石加詞綴、富豪石藍變黃、點金石→黃裝、混沌石重骰、剝離石拿掉一條、神聖石重骰數值、崇高石再加一條、機會石賭傳奇。<br>
+    6. 用通貨改造裝備：微光→藍裝、添夢加詞綴、盛夢藍變黃、金色的夢→黃裝、亂夢重骰、遺忘拿掉一條、重溫重骰數值、好夢再加一條、夢籤賭傳奇。<br>
     &nbsp;&nbsp;&nbsp;藍色、黃色的精英怪掉得更多更好，黃色精英必掉通貨。商人只收通貨，賣東西會得到通貨碎片。<br>
-    7. 輔助寶石（地上青綠色菱形）：按 <kbd>K</kbd> 插到技能欄的連結孔，例如「多重投射」讓火球一次丟 3 顆。技能列下方的小色塊就是生效中的寶石。
+    7. 習慣（地上青綠色菱形）：按 <kbd>K</kbd> 插到技能欄的連結孔，例如「多重投射」讓火球一次丟 3 顆。技能列下方的小色塊就是生效中的寶石。
     <h4>顏色</h4>
     <span class="c-normal">普通</span>　<span class="c-magic">魔法（1–2 條詞綴）</span>　<span class="c-rare">稀有（3–6 條詞綴）</span>　<span class="c-unique">傳奇（固定特效）</span>
   </div>
@@ -726,7 +726,7 @@
 <div id="tip"></div>
 
 <!--BOOT-->
-<script id="bootList" type="application/json">{"v":"2.19.16-demo","f":[["sfx.js",8818],["settings.js",21318],["core.js",10367],["goals.js",4545],["data.js",91893],["story.js",36812],["quests.js",8857],["sprites.js",22186],["art.js",37799],["artwork.js",10893107],["artstyle.js",7029],["scene.js",17928],["atlas0x72.js",69467],["atlasdcss.js",62527],["atlaswild.js",7074],["pixelart.js",14460],["paperdoll.js",25244],["tree.js",43852],["gemlevel.js",8485],["items.js",41210],["game.js",123614],["newskills.js",13894],["stacks.js",10140],["render.js",64157],["ui.js",102088],["dragitem.js",12558],["enhance.js",15387],["dreamscar.js",20448],["elites.js",11065],["curses.js",7238],["gems2.js",5978],["monai.js",12219],["stashspec.js",10772],["tutorial.js",11858],["artscenes.js",9483],["artui.js",98546],["touch.js",18353],["touchtext.js",4000],["dodge.js",3269],["treeplan.js",13956],["camplife.js",9427],["jewels2.js",6193],["uniqstash.js",8036],["dreamkeep.js",6160],["stages.js",22400],["treejewels.js",11109],["mapevents.js",15338],["village.js",5219],["music.js",6854],["classmove.js",6168],["levelfx.js",2768],["townlayout.js",3771],["auras.js",8239],["gems3.js",5668],["stackprops.js",13513],["minimapmarks.js",5308],["lootfx.js",1900],["lootall.js",3110],["lootglow.js",2812],["bossroom.js",12986],["maptint.js",5658],["lights.js",6982],["perfguard.js",1712],["mobilefit.js",9322],["summoner2.js",4471],["newbie.js",5826],["thornfx.js",4547],["gemshare.js",1388],["skilluniques.js",20524],["classbal.js",1155],["jewelgirl.js",5128],["reactions.js",12723],["evocodex.js",9527],["uniquelore.js",18160],["book138.js",8695],["dreamwords.js",10291],["errands.js",17479],["trials.js",7028],["campjobs.js",12161],["pastself.js",5724],["gems4.js",11043],["supquick.js",9336],["dreamtalk.js",4443],["skills4.js",14097],["wardentext.js",32378],["wardenplus.js",15395],["wardens.js",14975],["wardencamp.js",12011],["storychoice.js",6060],["sets.js",13505],["seteffects.js",7640],["bossuniques.js",10716],["prophecy.js",8759],["sets6.js",13030],["sets6fx.js",10354],["chapmaps.js",17811],["chapevents.js",14764],["chapart.js",12432],["chapscenes.js",24888],["chapboss.js",9775],["chapmaps1.js",91708],["chapmaps2.js",109544],["bigmapgen.js",12998],["bigmap.js",18677],["deathhelp.js",7159],["autoaim.js",3063],["titlescreen.js",31176],["artcamp.js",19101],["juice.js",6031],["poise.js",4173],["townportal.js",7450],["demo.js",3277],["core-end.js",3187],["main.js",9758]]}</script>
+<script id="bootList" type="application/json">{"v":"2.20.2-demo","f":[["sfx.js",8818],["settings.js",21315],["core.js",10367],["goals.js",4545],["data.js",91807],["story.js",36812],["quests.js",8863],["sprites.js",22186],["art.js",37799],["artwork.js",10893107],["artstyle.js",7029],["scene.js",17928],["atlas0x72.js",69467],["atlasdcss.js",62527],["atlaswild.js",7074],["pixelart.js",14460],["paperdoll.js",25244],["tree.js",43801],["gemlevel.js",8485],["items.js",41621],["game.js",124970],["newskills.js",13894],["stacks.js",10122],["render.js",64139],["ui.js",102912],["dragitem.js",12558],["enhance.js",15381],["dreamscar.js",20430],["elites.js",11065],["curses.js",7238],["gems2.js",5942],["monai.js",12219],["stashspec.js",10757],["tutorial.js",11852],["artscenes.js",9483],["artui.js",98546],["touch.js",18350],["touchtext.js",3997],["dodge.js",3269],["treeplan.js",13956],["classtree.js",12848],["camplife.js",9427],["jewels2.js",6187],["uniqstash.js",8036],["dreamkeep.js",6160],["stages.js",22400],["treejewels.js",11109],["mapevents.js",15332],["village.js",5219],["music.js",6854],["classmove.js",6168],["levelfx.js",2768],["townlayout.js",3771],["auras.js",8233],["gems3.js",5656],["stackprops.js",13513],["minimapmarks.js",5308],["lootfx.js",1885],["lootall.js",3110],["lootglow.js",2803],["lootclick.js",6165],["bossroom.js",12986],["maptint.js",5658],["lights.js",6982],["perfguard.js",1712],["mobilefit.js",9322],["summoner2.js",4459],["newbie.js",5802],["thornfx.js",4547],["gemshare.js",1370],["skilluniques.js",20524],["classbal.js",1155],["jewelgirl.js",5128],["reactions.js",12705],["evocodex.js",9527],["uniquelore.js",18160],["book138.js",8695],["dreamwords.js",10527],["errands.js",17479],["trials.js",7145],["campjobs.js",12161],["pastself.js",5724],["gems4.js",11019],["supquick.js",9288],["dreamtalk.js",4437],["skills4.js",14097],["wardentext.js",32378],["wardenplus.js",15395],["wardens.js",15514],["wardencamp.js",12011],["storychoice.js",6060],["sets.js",13502],["seteffects.js",7640],["bossuniques.js",10716],["prophecy.js",8759],["sets6.js",13024],["sets6fx.js",10354],["chapmaps.js",17811],["chapevents.js",14764],["chapart.js",12432],["chapscenes.js",24888],["chapboss.js",9775],["chapmaps1.js",91708],["chapmaps2.js",109544],["bigmapgen.js",12998],["bigmap.js",18677],["deathhelp.js",7297],["zonecheck.js",1046],["autoaim.js",3063],["titlescreen.js",31176],["artcamp.js",19101],["juice.js",6031],["poise.js",4173],["townportal.js",7435],["demo.js",3277],["core-end.js",3187],["main.js",9758]]}</script>
 <!--/BOOT-->
 <script>
 // =============================================================

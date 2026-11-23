@@ -41,7 +41,7 @@ const CLASSES = {
     attr: { str: 10, dex: 12, int: 22 }, bonus: { mana: 25, es: 10 },
     skills: ['fireball', 'nova', null, null, null],
     weapon: 'wand', weaponTier: 0,
-    desc: '智慧區：法術、元素、能量護盾。用魔力換毀滅。',
+    desc: '智慧區：法術、元素、夢殼。用魔力換毀滅。',
   },
   summoner: {
     name: '召喚師', attrName: '智慧', main: 'int', color: '#a070e0', start: 'S_sum',
@@ -172,7 +172,7 @@ const CLASS_GEMS = {
 const hasSkillGem = (P, sid) => !!(P && ((CLASS_GEMS[P.cls] || []).includes(sid) || (P.skillGems && P.skillGems[sid]) || (typeof G !== 'undefined' && G.stash && G.stash.skillGems && G.stash.skillGems[sid])));   // v2.16.3 倉庫裡（全帳號）會的技能寶石也算
 const skillGemPrice = sid => ({ chaos: Math.max(1, Math.ceil(SKILLS[sid].lvl / 10)) }); // 塞拉的價格：等級越高越貴
 
-// ---------- 輔助寶石（v2.17 整理：只換數字的併成「威力／速度／暴擊」，全部約 25 顆；被併掉的舊代號見 gems4.js 的 SUP_MERGE） ----------
+// ---------- 習慣（v2.17 整理：只換數字的併成「威力／速度／暴擊」，全部約 25 顆；被併掉的舊代號見 gems4.js 的 SUP_MERGE） ----------
 // req：技能只要有其中一個標籤就能用；excl：技能有這些標籤就不能用
 // cost：插上去後這個技能耗魔變成幾倍（多顆相乘）；mods 裡 more_ 開頭是「傷害變成幾倍」（+30 ＝ 1.3 倍，−25 ＝ 0.75 倍）
 // desc：第一行一句人話，<br> 後面才放數字
@@ -230,13 +230,13 @@ function supportFits(id, sid) {
 // 耗魔說明（白話）：插上去之後這個技能耗魔變成幾倍
 const manaEffTxt = c => `這個技能耗魔變成 ${+c.toFixed(2)} 倍`;
 
-// 各職業開局送的輔助寶石（第一顆自動插在左鍵技能上）
+// 各職業開局送的習慣（第一顆自動插在左鍵技能上）
 const STARTER_SUPPORTS = { warrior: ['power', 'aoe'], ranger: ['venom', 'gmp'], mage: ['echo', 'power'],
   samurai: ['crit', 'rend'], druid: ['gmp', 'speed'], summoner: ['army', 'mdmg'] };
 
 // ---------- 物品基底 ----------
-// cls：物品類別；slot：裝備欄；def：防禦類型 ar=護甲 ev=閃避 es=能量護盾
-const DEF_NAME = { ar: '護甲', ev: '閃避', es: '能量護盾' };
+// cls：物品類別；slot：裝備欄；def：防禦類型 ar=護甲 ev=閃避 es=夢殼
+const DEF_NAME = { ar: '護甲', ev: '閃避', es: '夢殼' };
 const BASES = [];
 function B(o) { BASES.push(o); return o; }
 
@@ -412,8 +412,8 @@ AFFIXES.forEach(a => AFFIX_BY_ID[a.id] = a);
 // ---------- 數值文字 ----------
 // v 可以是數字或 [a,b]
 const STAT_TEXT = {
-  life: v => `${sgn(v)} 最大生命`, mana: v => `${sgn(v)} 最大魔力`, es: v => `${sgn(v)} 最大能量護盾`,
-  life_inc: v => `${incTxt(v)} 最大生命`, mana_inc: v => `${incTxt(v)} 最大魔力`, es_inc: v => `${incTxt(v)} 最大能量護盾`,
+  life: v => `${sgn(v)} 最大生命`, mana: v => `${sgn(v)} 最大魔力`, es: v => `${sgn(v)} 最大夢殼`,
+  life_inc: v => `${incTxt(v)} 最大生命`, mana_inc: v => `${incTxt(v)} 最大魔力`, es_inc: v => `${incTxt(v)} 最大夢殼`,
   armour: v => `${sgn(v)} 護甲`, evasion: v => `${sgn(v)} 閃避值`,
   armour_inc: v => `${incTxt(v)} 護甲`, evasion_inc: v => `${incTxt(v)} 閃避值`,
   str: v => `${sgn(v)} 力量`, dex: v => `${sgn(v)} 敏捷`, int: v => `${sgn(v)} 智慧`,
@@ -446,7 +446,7 @@ const STAT_TEXT = {
   // 局部（只影響這件裝備本身）
   l_phys_inc: v => `增加 ${v}% 物理傷害`, l_phys_add: v => `附加 ${v[0]}–${v[1]} 物理傷害`, l_aspd: v => `增加 ${v}% 攻擊速度`,
   def_flat: (v, def) => `${sgn(v)} ${DEF_NAME[def] || '防禦'}`, def_inc: (v, def) => `增加 ${v}% ${DEF_NAME[def] || '防禦'}`,
-  // 旗標（基石／傳奇特效）
+  // 旗標（誓言／傳奇特效）
   bloodMagic: () => '技能改為消耗生命，而非魔力', noMana: () => '你的最大魔力為 0',
   noCrit: () => '你無法造成暴擊',
   projSplit: () => '投射物第一次擊中時，分裂成 2 支（各 50% 傷害）', projChain: () => '投射物擊中後，會再跳到附近 1 個敵人（70% 傷害）',
@@ -455,7 +455,7 @@ const STAT_TEXT = {
   blast_ch: v => `擊中時有 ${v}% 機率引發爆炸（對周圍造成 40% 範圍傷害）`, noRegen: () => '你無法自然回復生命',
   cull: () => '擊中生命低於 10% 的稀有與普通敵人時，直接將其擊殺',
   chillMore: () => '冰緩效果增強為 50% 減速',
-  // v2.5.5 新質變基石
+  // v2.5.5 新質變誓言
   projReturn: () => '所有投射物飛到盡頭後會飛回你身上，回程可以再打一次',
   riposte: () => `受到傷害時有 30% 機率反擊：用${ctl('lmbSkill')}的傷害打你周圍所有敵人`,
   berserk: () => '生命越低傷害越高：每少 1% 生命，傷害 +1%',
@@ -541,21 +541,21 @@ UNIQUES.forEach(u => UNIQUE_BY_ID[u.id] = u);
 // ---------- 通貨（工藝石） ----------
 // 通貨＝改造裝備的材料（這個遊戲沒有金錢，商人也用這些交易）
 const CURRENCY = {
-  portal: { name: '傳送卷軸', color: '#7fc8ff', weight: 30, scroll: true, desc: '在地圖裡按 T 使用：原地詠唱 1.6 秒（移動、放技能、被打到會中斷）後打開傳送門，走進去回營地，之後可以從城鎮的藍色傳送門回到同一張地圖繼續打。' },
-  transmute: { name: '蛻變石', color: '#8fb8ff', weight: 36, desc: '普通 → 魔法（1–2 條詞綴）' },
-  alter: { name: '改造石', color: '#b0d0ff', weight: 28, desc: '重骰魔法物品的全部詞綴' },
-  aug: { name: '增幅石', color: '#9ad0ff', weight: 22, desc: '魔法物品只有 1 條詞綴時，再加 1 條' },
-  chance: { name: '機會石', color: '#d8d8a0', weight: 10, desc: '普通 → 隨機稀有度，有小機率直接變成同底座的傳奇！' },
-  alch: { name: '點金石', color: '#ffd76a', weight: 12, desc: '普通 → 稀有（3–6 條詞綴）' },
-  regal: { name: '富豪石', color: '#ffe8a0', weight: 8, desc: '魔法 → 稀有，保留原本詞綴並多加 1 條' },
-  chaos: { name: '混沌石', color: '#e0a0ff', weight: 8, desc: '重骰稀有物品的全部詞綴' },
-  annul: { name: '剝離石', color: '#d0d0e8', weight: 3, desc: '隨機移除魔法或稀有物品的 1 條詞綴（有風險！）' },
-  divine: { name: '神聖石', color: '#fff0c0', weight: 2.5, desc: '詞綴種類不變，只重骰數值（傳奇也可以用）' },
-  exalt: { name: '崇高石', color: '#ffffff', weight: 2, desc: '為稀有物品加上 1 條新詞綴' },
-  scour: { name: '重鑄石', color: '#c0c0c0', weight: 7, desc: '清除所有詞綴，變回普通（插槽與珠寶會保留）' },
-  socket: { name: '鑿孔石', color: '#e8c890', weight: 1.2, desc: '為裝備多鑿 1 個珠寶插槽（不能超過該部位的上限）。非常稀有。' },
+  portal: { name: '回營的燈', color: '#7fc8ff', weight: 30, scroll: true, desc: '在地圖裡按 T 使用：原地詠唱 1 秒（移動、放技能、被打到會中斷）後打開傳送門，走進去回營地，之後可以從城鎮的藍色傳送門回到同一張地圖繼續打。' },
+  transmute: { name: '微光', color: '#8fb8ff', weight: 36, desc: '普通 → 魔法（1–2 條詞綴）' },
+  alter: { name: '換夢', color: '#b0d0ff', weight: 28, desc: '重骰魔法物品的全部詞綴' },
+  aug: { name: '添夢', color: '#9ad0ff', weight: 22, desc: '魔法物品只有 1 條詞綴時，再加 1 條' },
+  chance: { name: '夢籤', color: '#d8d8a0', weight: 10, desc: '普通 → 隨機稀有度，有小機率直接變成同底座的傳奇！' },
+  alch: { name: '金色的夢', color: '#ffd76a', weight: 12, desc: '普通 → 稀有（3–6 條詞綴）' },
+  regal: { name: '盛夢', color: '#ffe8a0', weight: 8, desc: '魔法 → 稀有，保留原本詞綴並多加 1 條' },
+  chaos: { name: '亂夢', color: '#e0a0ff', weight: 8, desc: '重骰稀有物品的全部詞綴' },
+  annul: { name: '遺忘', color: '#d0d0e8', weight: 3, desc: '隨機移除魔法或稀有物品的 1 條詞綴（有風險！）' },
+  divine: { name: '重溫', color: '#fff0c0', weight: 2.5, desc: '詞綴種類不變，只重骰數值（傳奇也可以用）' },
+  exalt: { name: '好夢', color: '#ffffff', weight: 2, desc: '為稀有物品加上 1 條新詞綴' },
+  scour: { name: '醒神', color: '#c0c0c0', weight: 7, desc: '清除所有詞綴，變回普通（插槽與珠寶會保留）' },
+  socket: { name: '裂縫', color: '#e8c890', weight: 1.2, desc: '為裝備多鑿 1 個珠寶插槽（不能超過該部位的上限）。非常稀有。' },
 };
-// v2.17 通貨分段：主線（第 1 夜到深層夢境之前）只掉這幾種（變藍、變黃、重骰黃裝、鑿孔，加上傳送卷軸）；其他通貨和強化材料進深層夢境（DEEP_TIER）才開始掉
+// v2.17 通貨分段：主線（第 1 夜到深層夢境之前）只掉這幾種（變藍、變黃、重骰黃裝、鑿孔，加上回營的燈）；其他通貨和強化材料進深層夢境（DEEP_TIER）才開始掉
 //   已經有的不會刪；主線的任務、人物故事還是會送少量，讓玩家先認識。判斷在 items.js 的 randomCurrency／curMainOnly
 const MAIN_CURRENCY = new Set(['portal', 'transmute', 'alch', 'chaos', 'socket']);
 
@@ -568,8 +568,8 @@ const MAT_TIER_COLOR = ['#d0d0d0', '#7ae070', '#6ab4ff', '#c890ff', '#ffa040'];
 const MATS = {
   ore: { name: '礦石', color: '#a8b0bc', desc: '分解護甲類防具、劍、斧、太刀、盾得到' },
   hide: { name: '獸皮', color: '#b07a48', desc: '分解閃避類防具、弓、匕首、箭袋、腰帶得到' },
-  fur: { name: '毛皮', color: '#e0d0b0', desc: '分解閃避類手套與鞋子、能量護盾類防具得到' },
-  gem: { name: '寶石原石', color: '#7ab8ff', desc: '分解魔杖、法杖、法器、戒指、項鍊、能量護盾類防具得到' },
+  fur: { name: '毛皮', color: '#e0d0b0', desc: '分解閃避類手套與鞋子、夢殼類防具得到' },
+  gem: { name: '寶石原石', color: '#7ab8ff', desc: '分解魔杖、法杖、法器、戒指、項鍊、夢殼類防具得到' },
   wood: { name: '木材', color: '#8a5a30', desc: '分解弓、魔杖、法杖得到' },
 };
 const matKey = (type, tier) => `${type}_${tier}`;

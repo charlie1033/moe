@@ -224,12 +224,12 @@ function flaskTipHTML(f, opts = {}) {
     h += '<div class="tip-sep"></div>';
     for (const m of f.mods) h += `<div class="tip-mod">${FLASK_MOD_BY_ID[m.id].text(m.v)}<span class="tip-tier">${m.type === 'p' ? '前綴' : '後綴'}</span></div>`;
   }
-  h += '<div class="tip-sep"></div><div class="tip-mod" style="color:#a89878">同種藥劑效果不疊加，不同種可以同時生效。能用蛻變、改造、增幅、剝離、重鑄、神聖石改造。</div>';
+  h += '<div class="tip-sep"></div><div class="tip-mod" style="color:#a89878">同種藥劑效果不疊加，不同種可以同時生效。能用蛻變、改造、增幅、剝離、重鑄、重溫改造。</div>';
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;
 }
 function applyFlaskCurrency(cur, f) {
-  if (!FLASK_CURRENCY.has(cur)) return '藥劑只能用蛻變、改造、增幅、剝離、重鑄、神聖石';
+  if (!FLASK_CURRENCY.has(cur)) return '藥劑只能用蛻變、改造、增幅、剝離、重鑄、重溫';
   switch (cur) {
     case 'transmute': if (f.rarity !== 'normal') return '只能用在普通藥劑'; f.rarity = 'magic'; rollFlaskMods(f); break;
     case 'alter': if (f.rarity !== 'magic') return '只能用在魔法藥劑'; rollFlaskMods(f); break;
@@ -271,7 +271,7 @@ function returnJewels(item) {
 }
 // v2.17 主線地圖只掉 MAIN_CURRENCY；深層夢境（或高等競技場）全部都掉。isDeepWorld 在 enhance.js
 function randomCurrency() { const deep = typeof isDeepWorld === 'function' && isDeepWorld(); return wpick(Object.keys(CURRENCY).filter(k => deep || MAIN_CURRENCY.has(k)), k => CURRENCY[k].weight); }
-// 還沒打到深層夢境的角色：商人的價錢、賣東西換到的碎片，把改造石、增幅石換成蛻變石（主線不掉那兩種）
+// 還沒打到深層夢境的角色：商人的價錢、賣東西換到的碎片，把換夢、添夢換成微光（主線不掉那兩種）
 function curMainOnly(v) {
   if (!G.P || (G.P.maxTier || 0) >= DEEP_TIER) return v;
   const o = {}; for (const k in v) { const kk = (k === 'alter' || k === 'aug') ? 'transmute' : k; o[kk] = (o[kk] || 0) + v[k]; } return o;
@@ -297,7 +297,7 @@ function applyCurrency(cur, item) {
     } else item.mods.forEach(m => { const a = AFFIX_BY_ID[m.id]; m.v = rollValue(a, a.tiers.length - m.tier, base); });
     return null;
   }
-  if (item.rarity === 'unique') return item.set ? '套裝物品不能改造（只能用神聖石重骰數值）' : '傳奇物品只能用神聖石';
+  if (item.rarity === 'unique') return item.set ? '套裝物品不能改造（只能用重溫重骰數值）' : '傳奇物品只能用重溫';
   switch (cur) {
     case 'aug': if (item.rarity !== 'magic') return '只能用在魔法物品';
       if (item.mods.length >= 2) return '魔法物品最多 2 條詞綴';
@@ -379,11 +379,14 @@ function computeStats(P) {
   // v2.2：屬性會隨等級成長（主屬性每級 +1.5、其他 +0.5），不然 36 級以後連自己職業的武器都拿不起來
   for (const k in cls.attr) S[k] += cls.attr[k] + Math.floor(((P.lvl || 1) - 1) * (k === cls.main ? 1.5 : 0.5));
   for (const k in cls.bonus) addStat(S, k, cls.bonus[k]);
+  const wcls = P.equip.weapon && BASE_BY_ID[P.equip.weapon.base] ? BASE_BY_ID[P.equip.weapon.base].cls : null;
   for (const id of P.tree) {
-    const n = TREE.nodes[id];
+    const n = TREE.nodes[id]; if (!n) continue;
+    if (n.weapon && n.weapon !== wcls) continue;   // v2.20 最外圈的武器最終選擇：拿著那種武器才有效
     for (const k in n.stats) addStat(S, k, n.stats[k]);
     for (const f of n.flags) S.flags[f] = true;
   }
+  if (typeof ClassPath !== 'undefined') ClassPath.apply(S, P);   // v2.20 職業之路（classtree.js）：選了的分支加到能力上
   let weapon = null, hasShield = false;
   for (const slot in P.equip) {
     const it = P.equip[slot]; if (!it) continue;
@@ -404,7 +407,7 @@ function computeStats(P) {
   const L = P.lvl;
   S.maxLife = Math.max(1, Math.round((38 + 12 * L + S.str * 0.5 + S.life) * (1 + S.life_inc / 100)));
   S.maxMana = S.flags.noMana ? 0 : Math.round((34 + 6 * L + S.int * 0.5 + S.mana) * (1 + S.mana_inc / 100));
-  // v1.6 屬性：每 1 智慧＋0.4 能量護盾；每 1 敏捷＋2 閃避值；每 1 力量＋1 堅忍值（另外原本的生命／魔力／百分比加成照舊）
+  // v1.6 屬性：每 1 智慧＋0.4 夢殼；每 1 敏捷＋2 閃避值；每 1 力量＋1 堅忍值（另外原本的生命／魔力／百分比加成照舊）
   S.maxES = Math.round((S.es + S.int * 0.3) * (1 + (S.es_inc + S.int / 10) / 100)); // v2.2：智慧會隨等級成長了，換算調低，不然法師又最痛又最硬
   S.armourT = Math.round(S.armour * (1 + S.armour_inc / 100));
   S.poiseT = Math.round(POISE_BASE + S.str + S.poise); // 堅忍值：被打到會扣，扣完就硬直
@@ -437,7 +440,7 @@ function skillUsable(S, sid) {
   if (lack) return lack;
   return null;
 }
-// 把一個技能欄上的輔助寶石效果加總（不相容的寶石不生效）
+// 把一個技能欄上的習慣效果加總（不相容的寶石不生效）
 function supportAgg(sid, sups) {
   const X = { aspd_inc: 0, cspd_inc: 0, crit_inc: 0, crit_multi: 0, area_inc: 0, proj_count: 0, pierce: 0, leech: 0, extra_fire: 0, extra_chaos: 0, conv_cold: 0, minion_max: 0,
     ignite_ch: 0, freeze_ch: 0, shock_ch: 0, poison_ch: 0, bleed_ch: 0,
@@ -458,7 +461,7 @@ function supportAgg(sid, sups) {
 function calcSkill(S, sid, lvl, sups) {
   const sk = SKILLS[sid];
   const X = supportAgg(sid, sups);
-  if (X.flags.allin && typeof allinOn === 'function' && allinOn(sid)) X.more_dmg *= 1.4;   // v2.17 輔助寶石「孤注」：技能欄只有這一個打傷害的技能（gems4.js）
+  if (X.flags.allin && typeof allinOn === 'function' && allinOn(sid)) X.more_dmg *= 1.4;   // v2.17 習慣「孤注」：技能欄只有這一個打傷害的技能（gems4.js）
   const GB = gemBonus(sid, gemLv(sid)); lvl = GB.effLvl;   // v2.4：法術與召喚物的威力看寶石等級，不看角色等級
   const tags = sk.tags;
   const isAtk = tags.includes('attack'), isSpell = tags.includes('spell');
@@ -482,7 +485,7 @@ function calcSkill(S, sid, lvl, sups) {
   } else {
     time = (sk.cast || 0.5) / (1 + (S.cspd_inc + X.cspd_inc) / 100);
   }
-  // 輔助寶石：額外火焰、物理轉冰冷
+  // 習慣：額外火焰、物理轉冰冷
   if (X.extra_fire) { d.fire[0] += d.phys[0] * X.extra_fire / 100; d.fire[1] += d.phys[1] * X.extra_fire / 100; }
   if (X.extra_chaos) { d.chaos[0] += d.phys[0] * X.extra_chaos / 100; d.chaos[1] += d.phys[1] * X.extra_chaos / 100; }
   if (X.conv_cold) {
@@ -504,7 +507,7 @@ function calcSkill(S, sid, lvl, sups) {
     d[k] = [d[k][0] * f, d[k][1] * f];
     avg += (d[k][0] + d[k][1]) / 2;
   }
-  const critC = S.flags.noCrit ? 0 : Math.min(95, crit * (1 + (S.crit_inc + X.crit_inc) / 100));
+  const critC = S.flags.noCrit ? 0 : Math.min(95, (crit + (S.crit_base || 0)) * (1 + (S.crit_inc + X.crit_inc) / 100));   // v2.20 crit_base：基礎暴擊率（武器最終選擇）
   const multi = 150 + S.crit_multi + X.crit_multi;
   const eavg = avg * (1 + critC / 100 * (multi / 100 - 1));
   const cost = Math.round((sk.cost || 0) * X.cost * GB.cost);
@@ -531,7 +534,7 @@ function calcSkill(S, sid, lvl, sups) {
 function calcMinion(S, lvl, X, sk) {
   sk = sk || SKILLS.skel;
   const sc = 1 + 0.16 * (lvl - 1);
-  const pc = X ? X.proj_count : 0;   // v2.13.5 會射擊的召喚物（靈體）可以吃多重投射：多射幾發，傷害照輔助寶石打折
+  const pc = X ? X.proj_count : 0;   // v2.13.5 會射擊的召喚物（靈體）可以吃多重投射：多射幾發，傷害照習慣打折
   const f = (1 + S.minion_dmg_inc / 100) * (X ? X.more_minion : 1) * (pc > 0 && X ? X.more_dmg : 1);
   const lf = (1 + S.minion_life_inc / 100) * (X ? X.more_minion_life : 1);
   return { kind: sk.minion, dmg: [sk.base[0] * sc * f, sk.base[1] * sc * f], life: Math.round(sk.mlife * (1 + 0.14 * (lvl - 1)) * lf), aps: sk.maps * (1 + (S.minion_aspd_inc || 0) / 100),   // v2.13.1 召喚物攻擊速度
@@ -579,7 +582,7 @@ function itemTipHTML(item, opts = {}) {
   const smax = socketMax(base), socks = item.sockets || [];
   if (smax) {
     h += '<div class="tip-sep"></div>';
-    h += `<div class="tip-sock">插槽 ${socks.length}/${smax}${socks.length ? '' : '（可用鑿孔石增加）'}</div>`;
+    h += `<div class="tip-sock">插槽 ${socks.length}/${smax}${socks.length ? '' : '（可用裂縫增加）'}</div>`;
     for (const k of socks) h += k ? `<div class="tip-mod" style="color:${JEWELS[parseJewel(k).type].color}">◆ ${jewelName(k)}：${jewelText(k)}</div>` : '<div class="tip-mod" style="color:#6a6070">◇ 空插槽</div>';
   }
   for (const f of ITEM_TIP_EXTRA) { try { h += f(item) || ''; } catch (e) { } }   // v2.17 別的模組加的說明（套裝、首領傳奇效果、深層傳奇）
@@ -608,7 +611,7 @@ function genShop() {
   const list = [];
   list.push({ cur: 'portal', qty: 3, price: { transmute: 1 } });
   list.push({ respec: 2, price: { chaos: 1 } }); // 遺忘藥水：天賦重置點數
-  if ((G.P.maxTier || 0) >= DEEP_TIER) list.push({ cur: 'aug', qty: 2, price: { alter: 2 } });   // 增幅石主線不掉，深層才賣
+  if ((G.P.maxTier || 0) >= DEEP_TIER) list.push({ cur: 'aug', qty: 2, price: { alter: 2 } });   // 添夢主線不掉，深層才賣
   list.push({ cur: 'alch', qty: 1, price: { aug: 3, alter: 3 } });
   const gr = mapGrade(Math.max(1, G.P.maxTier - 1)); // 商人的貨跟你打到的地圖等級走
   for (let i = 0; i < 3; i++) list.push({ item: makeItem(pickBase(ilvl, gr).id, 'magic', ilvl), price: { alter: 2 } });
@@ -617,7 +620,7 @@ function genShop() {
   // 藥劑：商人賣跟地圖等級一樣的藥劑
   list.push({ item: makeFlask("life", Math.max(1, gr), "normal"), price: { transmute: 1 } });
   list.push({ item: randomFlask(gr, 0.6), price: { alter: 2 } });
-  const supPool = Object.keys(SUPPORTS).filter(k => (G.P.maxTier || 1) >= DEEP_TIER || !SUPPORTS[k].risk);   // v2.17 有代價的輔助寶石：到過深層夢境才賣
+  const supPool = Object.keys(SUPPORTS).filter(k => (G.P.maxTier || 1) >= DEEP_TIER || !SUPPORTS[k].risk);   // v2.17 有代價的習慣：到過深層夢境才賣
   for (let i = 0; i < 3; i++) list.push({ gem: pick(supPool), price: { chaos: 1 } });
   for (const e of list) e.price = curMainOnly(e.price);
   return list;

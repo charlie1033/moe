@@ -1,5 +1,5 @@
 // =============================================================
-//  v2.9.1 更多技能寶石：每個職業多 2 個技能選擇（v2.17 起這裡的輔助寶石已併掉）
+//  v2.9.1 更多技能寶石：每個職業多 2 個技能選擇（v2.17 起這裡的習慣已併掉）
 //  技能（標 cls 的前期比較容易掉給那個職業，但任何職業都能用，看屬性需求）
 // =============================================================
 Object.assign(SKILLS, {
@@ -41,4 +41,4 @@ Object.assign(SKILL_ATTR, { quake: ['str'], cleave: ['str'], bladewind: ['str', 
 const GLYPH_FROM3 = { quake: 'whirl', cleave: 'heavy', bladewind: 'knives', thousandcuts: 'swallow', fanknives: 'knives', viper: 'venom', barrage: 'rapid', frostrain: 'rain', flamewave: 'nova', frostchain: 'arc', soulbolt: 'thorn', bonenova: 'nova' };
 for (const k of NEW_GEMS3) { SKILLS[k].id = k; SKILLS[k].req = gemReqAttr(k, 1); if (typeof SKILL_GLYPHS !== 'undefined' && !SKILL_GLYPHS[k]) SKILL_GLYPHS[k] = SKILL_GLYPHS[GLYPH_FROM3[k]] || SKILL_GLYPHS.heavy; }
 
-// v2.17：這裡原本的八顆輔助寶石（少量多重投射、重擊打擊、震擊範圍、嗜血、召喚狂暴、精準、燃燒爆發、元素催化）已經併進 data.js 的威力／暴擊／範圍擴大／生命偷取／召喚物強化／燃燒（舊存檔在 gems4.js 自動換）
+// v2.17：這裡原本的八個習慣（少量多重投射、重擊打擊、震擊範圍、嗜血、召喚狂暴、精準、燃燒爆發、元素催化）已經併進 data.js 的威力／暴擊／範圍擴大／生命偷取／召喚物強化／燃燒（舊存檔在 gems4.js 自動換）

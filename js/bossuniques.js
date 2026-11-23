@@ -77,7 +77,7 @@ Hook.on('update', dt => {
   const pl = G.pl, S = G.S; if (!pl || !S || G.dead) return;
   if (_buRoarT > 0 && (_buRoarT -= dt) <= 0) { _buRoarT = 0; onBuildChanged(); }
   if (_buEruptCd > 0) _buEruptCd -= dt; if (_buFogCd > 0) _buFogCd -= dt;
-  // 被打到（生命或護盾少了）
+  // 被打到（生命或夢殼少了）
   const hp = pl.life + (pl.es || 0);
   if (BF('bu_erupt') && hp < _buLife - 1 && _buEruptCd <= 0) { _buEruptCd = 2; const v = S.maxLife * 0.25; buAoe(pl.x, pl.y, 100, { d: { fire: [v * 0.8, v * 1.2] }, crit: 5, multi: 150, ail: { ignite: 40 } }, '#ff7030'); burst(pl.x, pl.y, '#ff7030', 20, 200); }
   _buLife = hp;

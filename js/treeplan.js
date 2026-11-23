@@ -22,7 +22,7 @@ function treePath(P, target) {
   }
   if (!prev.has(target)) return null;
   const path = []; for (let c = target; c && !P.tree.includes(c); c = prev.get(c)) path.unshift(c);
-  // 路上兩個互斥的基石不能同時拿
+  // 路上兩個互斥的誓言不能同時拿
   for (const id of path) { const n = TREE.nodes[id]; if (n.excl && n.excl.some(x => path.includes(x))) return null; }
   return path;
 }
@@ -142,7 +142,7 @@ const TreePlan = {
       else line = '已經點了';
     } else {
       const path = treePath(P, id), lv = path && path.map(x => TREE.nodes[x]).find(x => x.lvl && P.lvl < x.lvl);
-      if (!path) line = n.excl && n.excl.some(x => P.tree.includes(x)) ? '跟你已經點的基石互斥，不能點' : '走不到這裡';
+      if (!path) line = n.excl && n.excl.some(x => P.tree.includes(x)) ? '跟你已經點的誓言互斥，不能點' : '走不到這裡';
       else if (lv) line = `「${lv.name}」需要等級 ${lv.lvl}`;
       else if (path.length > free) line = `走到這裡要 ${path.length} 點，你只剩 ${free} 點`;
       else { line = `你還有 ${free} 點`; btn.push(['alloc', path.length > 1 ? `點這 ${path.length} 個（需要 ${path.length} 點）` : '點這個天賦']); }

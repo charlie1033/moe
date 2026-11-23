@@ -21,7 +21,7 @@ function socketJewel(it, k) {
   if (!it || isStack(it) || isFlask(it)) return UI.msg('珠寶只能鑲在裝備上', '#ff9a9a');
   it.sockets = it.sockets || [];
   const si = it.sockets.indexOf(null);
-  if (si < 0) return UI.msg(it.sockets.length ? '這件裝備的插槽都滿了（珠寶鑲上去就拿不下來；可以用鑿孔石多開一個孔）' : '這件裝備沒有插槽（可以用鑿孔石開孔）', '#ff9a9a');
+  if (si < 0) return UI.msg(it.sockets.length ? '這件裝備的插槽都滿了（珠寶鑲上去就拿不下來；可以用裂縫多開一個孔）' : '這件裝備沒有插槽（可以用裂縫開孔）', '#ff9a9a');
   if (!(G.P.jewels[k] > 0)) { UI.jewelPick = null; return UI.refreshInv(); }
   G.P.jewels[k] -= 1; it.sockets[si] = k;
   Sfx.play('equip'); UI.msg(`鑲上了 ${jewelName(k)}：${jewelText(k)}（${it.name}）`, JEWELS[parseJewel(k).type].color);

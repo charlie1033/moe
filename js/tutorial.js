@@ -26,9 +26,9 @@ const TUT_STEPS = [
     start: T => { T.auto = !tutCanWear(); }, panel: 'inv', done: T => T.auto ? T.t > 7 : (tutEqKey() !== T.eq0 || T.pt > 12 || !tutCanWear()) },   // 穿上了、或背包開著看了 12 秒
   { id: 'flask', when: D => tutInMap() && D.attack, text: () => ctlText('生命變少時喝生命藥劑（{f1}）；看到地上的紅色預警，用位移技能閃開（{dodge}，過程中不會受傷）'), done: T => T.t > 14 },
   { id: 'tree', when: () => treePointsTotal(G.P) - treePointsUsed(G.P) > 0, text: () => ctlText('你有天賦點數了：打開天賦樹（{tree}），從你的起點往外點'), done: T => G.P.tree.length > T.tree0 || T.t > 90 },
-  { id: 'skills', when: D => D.attack && !tutInMap() || D.flask, text: () => ctlText('技能寶石（{skills}）：撿到的技能寶石在這裡裝上，輔助寶石插在技能旁邊'), panel: 'skills', done: T => UI.open.skills || T.t > 45 },
+  { id: 'skills', when: D => D.attack && !tutInMap() || D.flask, text: () => ctlText('技能寶石（{skills}）：撿到的技能寶石在這裡裝上，習慣插在技能旁邊'), panel: 'skills', done: T => UI.open.skills || T.t > 45 },
   { id: 'boss', when: () => tutInMap() && G.world.bossGate && !G.world.bossGate.open,
-    text: () => `這是這一夜的最後一區：先打倒<b>精英守護者</b>（畫面邊緣的橘色箭頭會指路），<b>首領之門</b>才會打開，進去打<b>看守者</b>。想回營地就用傳送卷軸（${ctl('portal')}）`,
+    text: () => `這是這一夜的最後一區：先打倒<b>精英守護者</b>（畫面邊緣的橘色箭頭會指路），<b>首領之門</b>才會打開，進去打<b>看守者</b>。想回營地就用回營的燈（${ctl('portal')}）`,
     done: T => G.world.bossGate && G.world.bossGate.open || T.t > 30 },
   { id: 'camp', when: () => tutInTown() && G.P.maxTier > 1, text: () => ctlText('營地的商人可以賣裝備、分解出磨石和護貝劑碎片，湊滿就能強化（{craft}）。倉庫可以存東西。不懂就看說明（{help}）。祝你好夢！'), done: T => T.t > 14 },
 ];

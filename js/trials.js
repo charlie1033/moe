@@ -52,7 +52,7 @@ Hook.on('kill', m => {
 });
 Hook.on('update', dt => {
   const w = G.world, pl = G.pl, P = G.P;
-  const id = w && w.kind === 'map' && pl && P ? trialNow() : null;
+  const id = w && w.kind === 'map' && (w.tier || 0) >= 2 && pl && P ? trialNow() : null;   // v2.20.2 第 1 夜不開試煉（會跟新手教學「右鍵放第二個技能」打架）
   if (!id) { if (G.trialRun || StatusLines.fixed.trialHud) { G.trialRun = null; mechHud('trialHud', 96, '#fff', ''); } return; }
   let r = G.trialRun;
   if (!r || r.id !== id) { r = G.trialRun = { id, kills: 0, t: 0, out: 0, still: 0, sid: null, lx: pl.x, ly: pl.y, px: pl.x, py: pl.y, fl: [], failT: 0, bn: 2.5 }; }

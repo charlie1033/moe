@@ -15,16 +15,16 @@ const QUESTS = [
   // ===== 主線五章：每章兩個場景，最後一步打倒第二個場景的看守者 =====
   { title: '第一章　骨與火', reward: { pts: 2, respec: 2, cur: { alch: 1, transmute: 3 } }, steps: [
     { text: '走進「夢之門」，進入第 1 夜', done: P => qc(P).entered >= 1, hint: '走到牢房上方金色的門前，{interact}' },
-    { text: '夢境試煉「只用一招」：在夢裡只用同一個技能擊殺 15 隻怪物', trial: 'onlyone', done: P => trialDone(P, 'onlyone'), hint: '用了別的技能就從 0 重來（{dodgeKey}翻滾不算）' },
+    { text: '夢境試煉「只用一招」：第 2 夜起，在夢裡只用同一個技能擊殺 15 隻怪物', trial: 'onlyone', done: P => trialDone(P, 'onlyone'), hint: '用了別的技能就從 0 重來（{dodgeKey}翻滾不算）' },
     { text: '點一個天賦（{tree}）', done: P => P.tree.length > 1, get hint() { const P = G.P; return P && treePointsTotal(P) - treePointsUsed(P) > 0 ? '你有天賦點數了：從你的起點往外點一個' : '還沒有點數：升到 2 級就會有第 1 點'; } },   // v2.18.2 提示照有沒有點數變
     { text: '打倒「腐骨之王」（骸骨墓穴）', done: P => (P.bossKills.boneking || 0) > 0, hint: '第 1 夜最深處（小地圖 ☠）' },
-    { text: '在背包點一顆珠寶，再點有空插槽的裝備，鑲一顆珠寶', done: anySocketed, hint: '找有洞的裝備，或用鑿孔石' },
+    { text: '在背包點一顆珠寶，再點有空插槽的裝備，鑲一顆珠寶', done: anySocketed, hint: '找有洞的裝備，或用裂縫' },
     { text: '打倒「焰喉巫后」（熔岩洞窟）', boss: true, done: P => (P.bossKills.witch || 0) > 0, hint: '第 2 夜。怕冰，記得堆火抗' },
   ] },
   { title: '第二章　冰與暗', reward: { pts: 2, respec: 3, cur: { chaos: 1 }, jewel: 'ruby_3' }, steps: [
     { text: '抵達「冰窟營地」', done: P => P.hubs.icecamp, hint: '進入第 3 夜後回營地，就會到新營地' },
     { text: '和獵人阿雷聊聊', done: talked('are1'), hint: '頭上有「！」的人' },
-    { text: '讓一顆輔助寶石生效（{skills}）', done: anySupport },
+    { text: '讓一個習慣生效（{skills}）', done: anySupport },
     { text: '打倒「霜牙巨獸」（冰封峽谷）', done: P => (P.bossKills.beast || 0) > 0, hint: '第 3 夜。怕火' },
     { text: '和盲眼占卜師薇薇聊聊', done: talked('vivi1') },
     { text: '夢境試煉「別停下來」：擊殺 20 隻怪物，附近有怪時不能站著不動超過 2 秒', trial: 'nostop', done: P => trialDone(P, 'nostop'), hint: '一邊走一邊打；停太久就從 0 重來' },

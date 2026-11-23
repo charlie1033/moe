@@ -78,7 +78,7 @@ const DeathHelp = {
     if (!b) { b = document.createElement('button'); b.id = 'deathGate'; b.textContent = '回到首領之門前'; b.style.marginLeft = '10px';
       b.onclick = () => { box.classList.remove('show'); goTown(true); if (G.savedMap) resumeMap(); };
       const home = box.querySelector('button:not(#deathGate)'); (home ? home.parentNode : box).insertBefore(b, home ? home.nextSibling : null); }
-    b.style.display = keep === 'gate' && G.savedMap ? '' : 'none';
+    b.style.display = (keep === 'gate' || keep === 'zone') && G.savedMap ? '' : 'none'; b.textContent = keep === 'zone' ? '回到這一區的入口' : '回到首領之門前';   // v2.20.2 區的回來點
   },
 };
 Hook.on('enterMap', () => { G.gateBack = null; G._lastHit = null; });

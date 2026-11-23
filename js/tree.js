@@ -1,14 +1,14 @@
 // =============================================================
 //  天賦樹 v4「星圖」：像星座一樣的天賦圖
 //  ・六個職業起點分成三個屬性區：上方智慧（法師、召喚師）、右方敏捷（弓箭手、盜賊）、左下力量（武士、戰士）
-//  ・越強的天賦離得越遠：一般核心要走 3–4 個小點，基石（有代價的超強天賦）要走 6 個
+//  ・越強的天賦離得越遠：一般核心要走 3–4 個小點，誓言（有代價的超強天賦）要走 6 個
 //  ・小點可以重複（例如 +4% 生命、+6% 魔力、+4% 全抗），但會依區域靠攏職業特性：
-//    生命、護甲只在力量／敏捷那一側；能量護盾、魔力只在智慧那一側，不會離法師很近
+//    生命、護甲只在力量／敏捷那一側；夢殼、魔力只在智慧那一側，不會離法師很近
 //  ・內環、外環兩圈「星河」把所有星座連起來，可以自由走到任何地方
 //  要加星座：在 INNER_CONSTS／OUTER_CONSTS 加一行
 // =============================================================
 const TREE = { nodes: {}, list: [], consts: [] };
-const TREE_VERSION = 10; // v2.7.2 內圈改成基礎點（生命、護甲、閃避、護盾）：舊的配點會免費退還
+const TREE_VERSION = 11; // v2.20 最外圈的質變誓言搬到「職業之路」、改成武器最終選擇：舊的配點會免費退還
 const ATTR_ZH = { str: '力量', dex: '敏捷', int: '智慧' };
 const CLASS_RING = [
   ['S_mag', -90, 'mage'], ['S_dru', -30, 'druid'], ['S_ran', 30, 'ranger'],
@@ -32,7 +32,7 @@ function tlink(a, b) {
   if (!A.links.includes(b)) A.links.push(b);
   if (!Bn.links.includes(a)) Bn.links.push(a);
 }
-// 共同小點：依區域挑（可以重複出現）。生命、護甲不會出現在智慧區；魔力、能量護盾不會出現在力量區
+// 共同小點：依區域挑（可以重複出現）。生命、護甲不會出現在智慧區；魔力、夢殼不會出現在力量區
 function commonSmall(ang, seed) {
   const s = affinity('str', ang), d = affinity('dex', ang), i = affinity('int', ang), m = mainAt(ang);
   const opts = [
@@ -44,15 +44,15 @@ function commonSmall(ang, seed) {
     ['閃避', { evasion_inc: 10 }, d > 0.3 ? d : 0],
     ['閃避機率', { dodge: 1 }, d > 0.5 ? d * 0.6 : 0],
     ['堅忍', { poise: 6 }, s > 0.3 ? s * 0.7 : 0],
-    ['能量護盾', { es_inc: 8 }, i > 0.3 ? i : 0],
+    ['夢殼', { es_inc: 8 }, i > 0.3 ? i : 0],
   ];
   let tot = 0; for (const o of opts) tot += o[2];
   let r = (hash2(seed, 77) % 10000) / 10000 * tot;
   for (const o of opts) { r -= o[2]; if (r <= 0) return [o[0], o[1]]; }
   return [opts[3][0], opts[3][1]];
 }
-// v2.7.2 分層：內圈（起點附近）＝基礎點；中圈＝特性（暴擊、流血、中毒…的核心）；外圈＝技能與職業特色（基石、質變）
-//   每個內圈星座的前 4 顆一律是基礎點：生命 → 防禦（力量＝護甲、敏捷＝閃避、智慧＝能量護盾）→ 基礎傷害（攻擊／法術／召喚物）→ 速度（攻擊速度／施法速度）
+// v2.7.2 分層：內圈（起點附近）＝基礎點；中圈＝特性（暴擊、流血、中毒…的核心）；外圈＝技能與職業特色（誓言、質變）
+//   每個內圈星座的前 4 顆一律是基礎點：生命 → 防禦（力量＝護甲、敏捷＝閃避、智慧＝夢殼）→ 基礎傷害（攻擊／法術／召喚物）→ 速度（攻擊速度／施法速度）
 const BASIC_N = 4;
 function basicSmall(ang, i) {
   const m = mainAt(ang);
@@ -61,7 +61,7 @@ function basicSmall(ang, i) {
   if (i === 0) return ['生命', { life: m === 'int' ? 8 : m === 'dex' ? 10 : 12 }];
   if (m === 'str') return ['護甲', { armour: 30, armour_inc: 6 }];
   if (m === 'dex') return ['閃避', { evasion: 30, evasion_inc: 6 }];
-  return ['能量護盾', { es: 10, es_inc: 4 }];
+  return ['夢殼', { es: 10, es_inc: 4 }];
 }
 const n_ = (name, stats) => ['notable', name, stats, []];
 const k_ = (name, stats, flags = []) => ['keystone', name, stats, flags];
@@ -70,7 +70,7 @@ const k_ = (name, stats, flags = []) => ['keystone', name, stats, flags];
 const INNER_CONSTS = [
   // 智慧區
   [-100, '秘術座', [['法術傷害', { spell_inc: 8 }], ['施法速度', { cspd_inc: 3 }]], 3, n_('秘法精通', { spell_inc: 25, cspd_inc: 6 })],
-  [-76, '星盾座', [['能量護盾', { es_inc: 10 }], ['魔力', { mana_inc: 6 }]], 3, n_('秘術屏障', { es_inc: 30, mana_inc: 10 })],
+  [-76, '星盾座', [['夢殼', { es_inc: 10 }], ['魔力', { mana_inc: 6 }]], 3, n_('秘術屏障', { es_inc: 30, mana_inc: 10 })],
   [-122, '元素座', [['火焰傷害', { fire_inc: 10 }], ['冰冷傷害', { cold_inc: 10 }], ['閃電傷害', { light_inc: 10 }]], 3, n_('元素使者', { ele_inc: 20, ignite_ch: 8, freeze_ch: 5, shock_ch: 8 })],
   [-142, '亡骨座', [['召喚物傷害', { minion_dmg_inc: 10 }]], 3, n_('骨之契約', { minion_dmg_inc: 25, minion_max: 1 })],
   [-161, '咒言座', [['詛咒效果', { curse_eff: 5 }], ['詛咒範圍', { curse_area: 12 }]], 3, n_('惡語術', { curse_max: 1, curse_eff: 10 })],   // v2.7.2 詛咒
@@ -86,13 +86,13 @@ const INNER_CONSTS = [
   [122, '鋼鐵座', [['護甲', { armour_inc: 12 }], ['生命', { life_inc: 4 }]], 3, n_('不動如山', { armour_inc: 40, life_inc: 6 })],
   [145, '戰神座', [['生命', { life_inc: 5 }], ['生命回復', { life_regen: 0.3 }]], 3, n_('強健體魄', { life_inc: 15, life_regen: 0.5 })],
   [170, '狂戰座', [['近戰傷害', { melee_inc: 8 }], ['攻擊速度', { aspd_inc: 3 }]], 3, n_('狂戰士', { melee_inc: 25, aspd_inc: 6 })],
-  [183, '鋼魂座', [['護甲', { armour_inc: 8 }], ['能量護盾', { es_inc: 8 }]], 3, n_('鋼魂', { armour_inc: 20, es_inc: 20 })],
+  [183, '鋼魂座', [['護甲', { armour_inc: 8 }], ['夢殼', { es_inc: 8 }]], 3, n_('鋼魂', { armour_inc: 20, es_inc: 20 })],
 ];
-// —— 外圈星座：在外環之外，越強越遠（核心 4–5 步、基石 6 步）——
+// —— 外圈星座：在外環之外，越強越遠（核心 4–5 步、誓言 6 步）——
 const OUTER_CONSTS = [
   // 智慧區
   [-102, '星爆座', [['法術傷害', { spell_inc: 10 }], ['元素傷害', { ele_inc: 10 }]], 6, k_('元素超載', { more_spell: 40 }, ['noCrit'])],
-  [-76, '心鏡座', [['能量護盾', { es_inc: 12 }], ['魔力回復', { mana_regen_inc: 15 }]], 4, n_('心靈之盾', { es_inc: 30, mana_regen_inc: 30, mana_inc: 10 })],
+  [-76, '心鏡座', [['夢殼', { es_inc: 12 }], ['魔力回復', { mana_regen_inc: 15 }]], 4, n_('心靈之盾', { es_inc: 30, mana_regen_inc: 30, mana_inc: 10 })],
   [-58, '泉源座', [['魔力', { mana_inc: 6 }], ['施法速度', { cspd_inc: 3 }]], 3, n_('心智之泉', { mana_inc: 15, mana_regen_inc: 25, cspd_inc: 4 })],
   [-126, '風暴座', [['元素傷害', { ele_inc: 10 }], ['暴擊率', { crit_inc: 10 }]], 4, n_('元素風暴', { ele_inc: 20, crit_inc: 25 })],
   [-150, '亡君座', [['召喚物傷害', { minion_dmg_inc: 10 }], ['召喚物生命', { minion_life_inc: 10 }]], 6, k_('亡者之主', { minion_max: 2, more_dmg: -30 })],
@@ -112,28 +112,17 @@ const OUTER_CONSTS = [
   [176, '大地座', [['技能範圍', { area_inc: 6 }], ['範圍傷害', { area_dmg_inc: 10 }]], 4, n_('大地震擊', { area_inc: 15, area_dmg_inc: 20 })],
 ];
 
-// —— 深空：質變基石（改變整個角色的玩法），全部 7 步遠、40 級以上 ——
-const DEEP_CONSTS = [
-  // 敏捷（弓箭手、盜賊）
-  [-28, '分裂星', [['投射物傷害', { proj_inc: 10 }], ['攻擊速度', { aspd_inc: 3 }]], 7, k_('分裂箭', {}, ['projSplit'])],
-  [0, '多重星', [['投射物傷害', { proj_inc: 10 }], ['暴擊率', { crit_inc: 10 }]], 7, k_('多重箭矢', { proj_count: 1, more_proj: -10 })],
-  [23, '連鎖星', [['投射物傷害', { proj_inc: 10 }], ['閃避', { evasion_inc: 10 }]], 7, k_('連鎖', {}, ['projChain'])],
-  // 力量（武士、戰士）
-  [86, '餘震星', [['近戰傷害', { melee_inc: 10 }], ['範圍傷害', { area_dmg_inc: 10 }]], 7, k_('餘震', {}, ['aftershock'])],
-  [126, '爆裂星', [['爆炸機率', { blast_ch: 2 }], ['範圍傷害', { area_dmg_inc: 10 }]], 7, k_('爆裂之魂', {}, ['corpseBlast'])],
-  [146, '不動星', [['堅忍', { poise: 8 }], ['生命', { life_inc: 5 }]], 7, k_('不動明王', { move_inc: -10, life_inc: 10 }, ['noStun'])],
-  [166, '巨人星', [['技能範圍', { area_inc: 6 }], ['近戰傷害', { melee_inc: 8 }]], 7, k_('巨人之力', { area_inc: 25, aspd_inc: -10 })],
-  // 智慧（法師、召喚師）
-  [-88, '雙詠星', [['法術傷害', { spell_inc: 10 }], ['施法速度', { cspd_inc: 3 }]], 7, k_('雙重詠唱', { more_spell: -10 }, ['spellTwin'])],
-  [-114, '共鳴星', [['元素傷害', { ele_inc: 10 }], ['暴擊率', { crit_inc: 8 }]], 7, k_('元素共鳴', { ignite_ch: 15, freeze_ch: 10, shock_ch: 15, ele_inc: 10 })],
-  [-137, '軍團星', [['召喚物傷害', { minion_dmg_inc: 10 }], ['召喚物生命', { minion_life_inc: 8 }]], 7, k_('亡者軍團', { minion_max: 2, minion_life_inc: -20 })],
-  // v2.5.5 新的質變基石
-  [48, '回力星', [['投射物傷害', { proj_inc: 10 }], ['投射物速度', { proj_inc: 6 }]], 7, k_('回力', { more_proj: -15 }, ['projReturn'])],
-  [68, '鐵壁星', [['格擋', { block: 2 }], ['護甲', { armour_inc: 12 }]], 7, k_('鐵壁反擊', { block: 5 }, ['riposte'])],
-  [106, '狂血星', [['生命', { life_inc: 5 }], ['近戰傷害', { melee_inc: 10 }]], 7, k_('嗜血狂怒', { life_inc: -10 }, ['berserk'])],
-  [186, '收割星', [['全部傷害', { dmg_inc: 8 }], ['移動速度', { move_inc: 3 }]], 7, k_('靈魂收割', {}, ['soulReap'])],
-  [-62, '碎冰星', [['冰冷傷害', { cold_inc: 12 }], ['冰凍機率', { freeze_ch: 3 }]], 7, k_('冰晶碎裂', {}, ['shatter'])],
-  [214, '時沙星', [['技能冷卻', { cdr: 3 }], ['施法速度', { cspd_inc: 3 }]], 7, k_('時之沙', {}, ['cdReset'])],
+// —— v2.20 最外圈：武器的最終選擇（原本這裡的「質變誓言」搬到職業之路，見 classtree.js）——
+//   每種武器一條路：4 顆過路點 → 2 顆武器小點 → 最後二選一（兩個只能選一個）。整條路只有「拿著那種武器」時有效
+//   [角度, 武器種類, 武器小點, 選擇 A, 選擇 B]
+const WEAPON_RING = [
+  [-28, 'bow', [['弓・暴擊率', { crit_inc: 12 }], ['弓・投射物傷害', { proj_inc: 12 }]], ['鷹眼準星', { crit_base: 2 }], ['穿心', { crit_multi: 40 }]],
+  [30, 'dagger', [['匕首・暴擊率', { crit_inc: 12 }], ['匕首・攻擊速度', { aspd_inc: 4 }]], ['暗殺', { crit_base: 1.5, crit_multi: 20 }], ['淬毒', { poison_ch: 25, chaos_inc: 25 }]],
+  [86, 'katana', [['太刀・近戰傷害', { melee_inc: 10 }], ['太刀・暴擊傷害', { crit_multi: 8 }]], ['拔刀', { crit_inc: 50 }], ['斬鐵', { phys_inc: 30, area_inc: 10 }]],
+  [128, 'sword', [['單手劍・攻擊速度', { aspd_inc: 4 }], ['單手劍・攻擊傷害', { attack_inc: 10 }]], ['劍舞', { aspd_inc: 12, move_inc: 5 }], ['劍盾', { block: 6, armour_inc: 30 }]],
+  [166, 'axe', [['雙手斧・物理傷害', { phys_inc: 12 }], ['雙手斧・技能範圍', { area_inc: 6 }]], ['劈山', { more_attack: 15 }], ['裂傷', { bleed_ch: 20, dot_inc: 25 }]],
+  [-140, 'staff', [['法杖・召喚物傷害', { minion_dmg_inc: 12 }], ['法杖・法術傷害', { spell_inc: 10 }]], ['亡者之杖', { minion_max: 1 }], ['血之紐帶', { minion_leech: 3 }]],
+  [-88, 'wand', [['魔杖・施法速度', { cspd_inc: 4 }], ['魔杖・法術傷害', { spell_inc: 10 }]], ['連發', { cspd_inc: 12, spell_inc: 15 }], ['湧泉', { mana_regen_inc: 40, mana_on_kill: 6 }]],
 ];
 
 function buildTree() {
@@ -176,7 +165,7 @@ function buildTree() {
   outer.forEach((id, k) => tlink(id, outer[(k + 1) % 36]));
   const nearestOuter = ang => outer[Math.round((((ang + 90) % 360) + 360) % 360 / 10) % 36];
   const nearestAnchor = ang => anchors.reduce((b, id) => angDiff(TREE.nodes[id].ang, ang) < angDiff(TREE.nodes[b].ang, ang) ? id : b);
-  // ④ 星座：一串小點（走幾步看天賦多強）＋中段一顆共同小點的分支＋最後的核心／基石
+  // ④ 星座：一串小點（走幾步看天賦多強）＋中段一顆共同小點的分支＋最後的核心／誓言
   const constellation = (prefix, [ang, cname, smalls, L, tip], r0, anchorId) => {
     let prev = anchorId; const ids = [];
     const basic = prefix[0] === 'A' ? BASIC_N : 0; L += basic ? 2 : 0;   // v2.7.2 內圈星座先走 4 顆基礎點（星座本身的特色點少走 2 顆）
@@ -188,13 +177,13 @@ function buildTree() {
     }
     // 中段長出一顆共同小點（可重複的生命／魔力／抗性…）
     const mi = Math.floor(L / 2), mid = ids[mi], mn = TREE.nodes[mid], side = mi % 2 ? -1 : 1; // 長在鋸齒的另一邊，不會疊在一起
-    const [cn, cs] = smalls[(mi + 1) % smalls.length];   // v2.14.2 分支點跟這一串同主題（以前是生命／魔力／護盾輪流，會在召喚星座中間冒出一顆魔力）
+    const [cn, cs] = smalls[(mi + 1) % smalls.length];   // v2.14.2 分支點跟這一串同主題（以前是生命／魔力／夢殼輪流，會在召喚星座中間冒出一顆魔力）
     tnode(`${prefix}s`, mn.ang + side * 40 / mn.rad * 180 / Math.PI, mn.rad + 4, 'minor', cn, Object.assign({}, cs));
     tlink(mid, `${prefix}s`);
     const tipId = `${prefix}N`;
     tnode(tipId, ang, r0 + L * STEP + (tip[0] === 'keystone' ? 18 : 6), tip[0], tip[1], tip[2], tip[3]);
     tlink(prev, tipId);
-    // 基石旁邊再長兩顆小點，像星座的「冠」
+    // 誓言旁邊再長兩顆小點，像星座的「冠」
     if (tip[0] === 'keystone') [-1, 1].forEach(sd => {
       const [cn2, cs2] = smalls[(sd + 1) % smalls.length]; const id = `${prefix}c${sd > 0 ? 1 : 0}`;
       const tn = TREE.nodes[tipId]; tnode(id, ang + sd * 7.5 * 600 / tn.rad, tn.rad - 26, 'minor', cn2, Object.assign({}, cs2)); tlink(prev, id);
@@ -218,13 +207,18 @@ function buildTree() {
     tlink(prev, nearestOuter(c[0]));
   });
   OUTER_CONSTS.forEach((c, i) => { constellation(`B${i}_`, c, R_OUT + 56, nearestOuter(c[0])); });
-  // v1.7 深空：會讓角色玩法「質變」的基石，在最外面；v2.0 從外環出發要先走 4 顆過路點才進得了星座
-  //   （直衝最近的質變基石約 21–22 點；想更晚就把 DEEP_TRAVEL 調大，每多 1 顆就多 1 點）
-  const DEEP_TRAVEL = 4;
-  DEEP_CONSTS.forEach((c, i) => {
-    let prev = nearestOuter(c[0]);
-    for (let k = 0; k < DEEP_TRAVEL; k++) { travel(`D${i}_t${k}`, c[0], R_OUT + 56 + STEP * k); tlink(prev, `D${i}_t${k}`); prev = `D${i}_t${k}`; }
-    constellation(`D${i}_`, c, R_OUT + 56 + STEP * DEEP_TRAVEL, prev);
+  // v2.20 最外圈：武器的最終選擇（從外環出發先走 4 顆過路點；最後兩顆互斥；整條武器路只有拿著那種武器才有效）
+  const W_TRAVEL = 4;
+  WEAPON_RING.forEach(([ang, wcls, smalls, A, B], i) => {
+    let prev = nearestOuter(ang);
+    for (let k = 0; k < W_TRAVEL; k++) { travel(`W${i}_t${k}`, ang, R_OUT + 56 + STEP * k); tlink(prev, `W${i}_t${k}`); prev = `W${i}_t${k}`; }
+    smalls.forEach(([nm, st], k) => { const id = `W${i}_${k}`; tnode(id, ang, R_OUT + 56 + STEP * (W_TRAVEL + k), 'minor', nm, Object.assign({}, st)).weapon = wcls; tlink(prev, id); prev = id; });
+    const r = R_OUT + 56 + STEP * (W_TRAVEL + smalls.length) + 30, off = 30 / r * 180 / Math.PI;
+    const a = tnode(`W${i}_A`, ang - off, r, 'keystone', A[0], A[1]), b = tnode(`W${i}_B`, ang + off, r, 'keystone', B[0], B[1]);
+    for (const n of [a, b]) { n.weapon = wcls; n.wfinal = true; tlink(prev, n.id); }
+    a.excl = [b.id]; b.excl = [a.id];
+    const wb = BASES.find(x => x.cls === wcls);
+    TREE.consts.push({ name: `${wb ? wb.clsName : wcls}之路`, ang, rad: r + 60, tip: a.id, kind: 'keystone' });
   });
   // ⑤ v1.6 交錯的星橋：相鄰星座之間多拉幾條線，讓路線更錯綜
   const byAng = (list) => list.map((c, i) => [c[0], i]).sort((a, b) => a[0] - b[0]);
@@ -250,7 +244,6 @@ function buildTree() {
   }
   // ⑥ 依天賦類型上色
   // ⑦ v2.0：不再有等級門檻（改用過路點拉開距離）；深空的核心標記成「質變」
-  for (const n of TREE.list) if (/^D\d+_N$/.test(n.id)) n.deep = true;
   // ⑧ 把太靠近的星星推開（起點和中央不動），讓樹看起來不會黏在一起
   const MIN = 40, fixed = n => n.kind === 'start' || n.id === 'C';
   for (let it = 0; it < 60; it++) {
@@ -266,7 +259,7 @@ function buildTree() {
     if (!moved) break;
   }
   untangleTree();   // v2.5.4 連線不交叉、不穿過星星
-  // v2.7 互斥的基石：投射物「數量」的取捨只能選一邊（不然狙擊手＋多重箭矢＝支數不變、傷害白賺）
+  // v2.7 互斥的誓言：投射物「數量」的取捨只能選一邊（不然狙擊手＋多重箭矢＝支數不變、傷害白賺）
   const byName = nm => TREE.list.find(n => n.name === nm && n.kind === 'keystone');
   for (const [a, b] of [['狙擊手', '多重箭矢'], ['狙擊手', '箭雨風暴']]) { const A = byName(a), B = byName(b); if (A && B) { (A.excl = A.excl || []).push(B.id); (B.excl = B.excl || []).push(A.id); } }
   for (const n of TREE.list) { n.rad = Math.hypot(n.x, n.y); n.ang = Math.atan2(n.y, n.x) * 180 / Math.PI; }
@@ -333,12 +326,12 @@ function untangleTree() {
 const TREE_CATS = {
   life: { name: '生命', color: '#ff6060' }, mana: { name: '魔力', color: '#5a8cff' }, def: { name: '防禦', color: '#7fe0ff' },
   attack: { name: '攻擊', color: '#ff9a40' }, spell: { name: '法術', color: '#c080ff' }, crit: { name: '暴擊', color: '#ffe050' },
-  minion: { name: '召喚', color: '#a8f070' }, ail: { name: '異常', color: '#ff70c8' }, attr: { name: '屬性', color: '#e8dcb0' }, util: { name: '其他', color: '#ffffff' }, deep: { name: '質變', color: '#ff8cff' },
+  minion: { name: '召喚', color: '#a8f070' }, ail: { name: '異常', color: '#ff70c8' }, attr: { name: '屬性', color: '#e8dcb0' }, util: { name: '其他', color: '#ffffff' }, weapon: { name: '武器', color: '#ffb060' },
 };
 function treeCat(n) {
   const k = Object.keys(n.stats);
   if (n.kind === 'start') return 'attr';
-  if (n.deep) return 'deep';
+  if (n.weapon) return 'weapon';   // v2.20 武器最終選擇
   const has = (...xs) => xs.some(x => k.includes(x));
   if (has('minion_dmg_inc', 'minion_life_inc', 'minion_max')) return 'minion';
   if (has('life_inc', 'life', 'life_regen', 'life_on_kill', 'leech') && !has('es_inc', 'evasion_inc', 'armour_inc', 'es', 'armour', 'evasion')) return 'life';
@@ -364,7 +357,7 @@ function treePointsUsed(P) { return P.tree.length - 1; }
 function canAllocate(P, id) {
   const tn = TREE.nodes[id]; if (tn.lvl && P.lvl < tn.lvl) return false; // 等級不夠
   if (P.tree.includes(id)) return false;
-  if (tn.excl && tn.excl.some(x => P.tree.includes(x))) return false;   // v2.7 互斥的基石
+  if (tn.excl && tn.excl.some(x => P.tree.includes(x))) return false;   // v2.7 互斥的誓言
   if (treePointsUsed(P) >= treePointsTotal(P)) return false;
   return TREE.nodes[id].links.some(l => P.tree.includes(l));
 }
@@ -475,13 +468,14 @@ const TreeView = {
   },
   nodeTip(n) {
     const P = G.P;
-    const kindName = { minor: '天賦', notable: '核心天賦', keystone: '基石', start: '起點' }[n.kind];
+    const kindName = { minor: '天賦', notable: '核心天賦', keystone: '誓言', start: '起點' }[n.kind];
     let h = `<div class="tip-name ${n.kind === 'keystone' ? 'c-unique' : n.kind === 'notable' ? 'c-rare' : ''}">${n.name}</div><div class="tip-sub">${kindName}${n.cat && n.kind !== "start" ? ` · <span style="color:${TREE_CATS[n.cat].color}">${TREE_CATS[n.cat].name}類</span>` : ""}</div><div class="tip-sep"></div>`;
     for (const k in n.stats) h += `<div class="tip-mod">${STAT_TEXT[k] ? STAT_TEXT[k](n.stats[k]) : k}</div>`;
     for (const f of n.flags) h += `<div class="tip-mod c-unique">${STAT_TEXT[f]()}</div>`;
     if (n.kind === 'start') h += `<div class="tip-mod">${n.cls === P.cls ? '你的起點' : '其他職業的起點（可花 1 點通過）'}</div>`;
     if (n.excl) h += `<div class="tip-req ${n.excl.some(x => P.tree.includes(x)) ? 'c-bad' : ''}">與「${n.excl.map(x => TREE.nodes[x].name).join('」「')}」互斥，只能選一個</div>`;   // v2.7
-    if (n.lvl) h += `<div class="tip-req ${P.lvl < n.lvl ? 'c-bad' : ''}">需要等級 ${n.lvl}${n.deep ? '（質變基石：會改變整個角色的玩法）' : ''}</div>`;
+    if (n.weapon) { const wb = BASES.find(x => x.cls === n.weapon), on = P.equip.weapon && BASE_BY_ID[P.equip.weapon.base] && BASE_BY_ID[P.equip.weapon.base].cls === n.weapon; h += `<div class="tip-req ${on ? '' : 'c-bad'}">只有拿著${wb ? wb.clsName : n.weapon}時有效${on ? '' : '（你現在沒拿）'}</div>`; }   // v2.20
+    if (n.lvl) h += `<div class="tip-req ${P.lvl < n.lvl ? 'c-bad' : ''}">需要等級 ${n.lvl}${n.deep ? '（質變誓言：會改變整個角色的玩法）' : ''}</div>`;
     const alloc = P.tree.includes(n.id);
     h += `<div class="tip-hint">${alloc ? (canRefund(P, n.id) ? (respecFree(P) ? `${byCtl('右鍵', '再點一下')}：取消配點（${FREE_RESPEC_LVL} 級前免費）` : `${byCtl('右鍵', '再點一下')}：取消配點（花 1 點重置點數，剩 ${P.respec || 0}）`) : '已配點') : canAllocate(P, n.id) ? byCtl('左鍵：配點', '再點一下：配點') : '需要先點亮相鄰的天賦'}</div>`;
     return h;
@@ -493,12 +487,12 @@ const TreeView = {
     const P = G.P;
     if (!canRefund(P, id)) return;
     if (!respecFree(P)) {
-      if ((P.respec || 0) < 1) return UI.msg('重置點數不夠（任務獎勵、或用混沌石跟歐莉換）', '#ff9a9a');
+      if ((P.respec || 0) < 1) return UI.msg('重置點數不夠（任務獎勵、或用亂夢跟歐莉換）', '#ff9a9a');
       P.respec--;
     }
     P.tree = P.tree.filter(x => x !== id); onBuildChanged(); this.updateHover();
   },
-  // 星圖畫面：深色星空＋三個屬性區的星雲；小點是小星星、核心是四芒星、基石是八芒星
+  // 星圖畫面：深色星空＋三個屬性區的星雲；小點是小星星、核心是四芒星、誓言是八芒星
   stars: null,
   draw() {
     const c = this.canvas, g = this.g, P = G.P, sc = this.scale;

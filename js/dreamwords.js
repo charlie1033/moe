@@ -1,8 +1,8 @@
 // =============================================================
 //  夢話三選一：每一夜進門前，從營地的人裡借一句夢話，只管這一夜
-//  玩家看到：打開夢之門（地圖裝置），清單上方多一區「夢話三選一」，三張卡片點一下選（手機也是點），可以選「不借」
+//  玩家看到：打開夢之門（夢之門），清單上方多一區「夢話三選一」，三張卡片點一下選（手機也是點），可以選「不借」
 //    選好後進入下一夜就生效；畫面上方顯示這一夜借的是哪句（跟祝福神殿同一排，在它上面）
-//    離開地圖（回營地、倒下、用傳送卷軸）或進下一夜就失效；三句是隨機的，用掉一夜才換新的三句（開關夢之門不會換）
+//    離開地圖（回營地、倒下、用回營的燈）或進下一夜就失效；三句是隨機的，用掉一夜才換新的三句（開關夢之門不會換）
 //  能借的人：牢房的歐莉、格倫、小雀一定有；其他人要先去過他們的營地
 //    歐莉「記下來」每殺 50 隻傷害 +5%（最多 +50%）｜格倫「巡邏」每一區第一隻碰上的精英只剩半血｜小雀「亮晶晶」珠寶掉落加倍、怪多兩成
 //    阿雷「放輕腳步」移動 +10%、暴擊率 +50%｜薇薇「閉上眼睛聽」火冰雷抗性 +12%（上限照舊）｜哈桑「多帶一箱」掉落數量 +20%、怪物生命 +10%
@@ -37,6 +37,8 @@ const DreamWords = {
   label(k) { const D = DREAMS[k]; return `${D.who}「${D.name}」`; },
   render() {
     const dev = document.getElementById('mapdev'), list = document.getElementById('mapList'); if (!dev || !list || !G.P) return;
+    // v2.20.2 打完第 1 夜才出現（試玩回報：還沒打過一隻怪就要先做三選一）
+    if ((G.P.maxTier || 1) < 2) { const old = document.getElementById('dreamWords'); if (old) old.remove(); this.pick = null; return; }
     if (!this.opts) this.roll();
     let box = document.getElementById('dreamWords');
     if (!box) { box = document.createElement('div'); box.id = 'dreamWords'; list.before(box); }

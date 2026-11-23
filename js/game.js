@@ -634,9 +634,9 @@ function migrateSave(P) {
     if (P.tree && P.tree.length > 1) P.treeRefunded = true;
     P.tree = [CLASSES[P.cls].start]; P.treeVer = TREE_VERSION;
   }
-  // v2.7 互斥的基石兩個都點了：整棵樹免費退還重點（只影響這種角色）
+  // v2.7 互斥的誓言兩個都點了：整棵樹免費退還重點（只影響這種角色）
   if (P.tree && P.tree.some(id => TREE.nodes[id] && TREE.nodes[id].excl && TREE.nodes[id].excl.some(x => P.tree.includes(x)))) { P.tree = [CLASSES[P.cls].start]; P.treeRefunded = true; }
-  if (typeof gemMergeSave === 'function') gemMergeSave(P);   // v2.17 身上、技能欄上被併掉的輔助寶石 → 新的那顆（gems4.js）
+  if (typeof gemMergeSave === 'function') gemMergeSave(P);   // v2.17 身上、技能欄上被併掉的習慣 → 新的那顆（gems4.js）
   return P;
 }
 // 倉庫是獨立存檔，之後做多角色時可以共用
@@ -698,7 +698,7 @@ function loadStash() {
   try { s = JSON.parse(localStorage.getItem(STASH_KEY)); } catch (e) { }
   if (!s || !s.tabs) s = { tabs: [0, 1, 2, 3].map(() => Array(60).fill(null)) };
   for (const t of s.tabs) t.forEach(fixOldFlask);   // v2.17 倉庫裡的舊單抗藥劑 → 稜鏡藥劑
-  if (typeof gemMergeStash === 'function') gemMergeStash(s);   // v2.17 倉庫裡被併掉的輔助寶石 → 新的那顆（gems4.js）
+  if (typeof gemMergeStash === 'function') gemMergeStash(s);   // v2.17 倉庫裡被併掉的習慣 → 新的那顆（gems4.js）
   return s;
 }
 // ---------- 備份：把所有角色＋倉庫存成一個檔案（存在你的電腦，不會上傳） ----------
@@ -822,9 +822,9 @@ function gainXp(n) {
   while (P.xp >= xpNeed(P.lvl) && P.lvl < MAX_LEVEL) {
     P.xp -= xpNeed(P.lvl); P.lvl++;
     UI.msg(ctlText(`升級！現在 ${P.lvl} 級。獲得 1 點天賦點數（{tree}）`, true), '#9fff9f');
-    const unlocked = Object.keys(SKILLS).filter(k => SKILLS[k].lvl === P.lvl).map(k => SKILLS[k].name);
+    const unlocked = Object.keys(SKILLS).filter(k => SKILLS[k].lvl === P.lvl && G.S && !skillUsable(G.S, k)).map(k => SKILLS[k].name);   // v2.20.2 只列「你有寶石、現在武器能用」的（試玩回報：一次跳一堆別職業的技能）
     if (unlocked.length) UI.msg(ctlText(`新技能解鎖：${unlocked.join('、')}（{skills}裝上）`, true), '#ffd780');
-    if (LINK_LEVELS.includes(P.lvl)) UI.msg(ctlText('技能欄多了一個輔助寶石連結孔（{skills}）', true), '#3fd8b8');
+    if (LINK_LEVELS.includes(P.lvl)) UI.msg(ctlText('技能欄多了一個習慣連結孔（{skills}）', true), '#3fd8b8');
     burst(G.pl.x, G.pl.y, '#9fff9f', 30); Sfx.play('levelup'); UI.banner('升級', '等級 ' + P.lvl, '#9fff9f');
     G.fx.push({ k: 'ring', x: G.pl.x, y: G.pl.y, r: 150, t: 0, dur: 0.6, color: '#c8ffc8', fill: 'rgba(150,255,150,0.12)' });
     onBuildChanged(); fullHeal();
@@ -847,11 +847,11 @@ function useSkill(i) {
   const err = skillUsable(S, sid);
   if (err) return msgOnce('use' + sid, `${sk.name}：${err}`);
   const c = G.slotCalc[i];
-  if (S.flags.bloodMagic || c.lifeCost) {   // v2.17 輔助寶石「血祭」：耗魔改成耗生命（c.lifeCost）
+  if (S.flags.bloodMagic || c.lifeCost) {   // v2.17 習慣「血祭」：耗魔改成耗生命（c.lifeCost）
     const lc = c.lifeCost || c.cost;
     if (pl.life <= lc + 1) return msgOnce('cost', '生命不足以施放');
     pl.life -= lc;
-  } else if (pl.mana < c.cost && c.overdraw) {   // v2.17 輔助寶石「透支」：魔力不夠，差的用生命補
+  } else if (pl.mana < c.cost && c.overdraw) {   // v2.17 習慣「透支」：魔力不夠，差的用生命補
     const lack = c.cost - pl.mana;
     if (pl.life <= lack + 1) return msgOnce('cost', '魔力不夠，生命也不夠補');
     pl.mana = 0; pl.life -= lack;
@@ -951,7 +951,7 @@ function castSkill(sid, c) {
       const castHit = new Map();
       for (let k = 0; k < n; k++) {
         const a = n > 1 ? ang - spread / 2 + spread * k / (n - 1) : ang;
-        G.projs.push({ team: 'ally', x: pl.x + Math.cos(a) * 12, y: pl.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * sk.pspeed, vy: Math.sin(a) * sk.pspeed,
+        G.projs.push({ team: 'ally', ox: pl.x, oy: pl.y - 6, x: pl.x + Math.cos(a) * 12, y: pl.y - 6 + Math.sin(a) * 12, vx: Math.cos(a) * sk.pspeed, vy: Math.sin(a) * sk.pspeed,   // v2.20.2 ox/oy：第一格從角色身上開始算碰撞（貼臉的怪也打得到）
           r: sk.sprite === "fireball" ? 7 : 4, life: 1.3, pk, pierce: c.pierce, hit: new Set(), cast: castHit, explode: sk.explode ? sk.explode * c.areaMul : 0, sprite: sk.sprite, color: sk.color });
       }
       break;
@@ -1140,6 +1140,8 @@ function hitMonster(m, pk, fromMinion, src, kb = 1) {
   if (crit) G.shake = Math.max(G.shake, 3.5); else if (big && !fromMinion) G.shake = Math.max(G.shake, 1.6);
   const leech = pk.leech ?? S.leech;
   const mleech = pk.mleech ?? S.mleech;
+  // v2.20 召喚物偷取（天賦樹最外圈：法杖「血之紐帶」）：召喚物打中時回復自己的生命，每次最多回 10%
+  if (fromMinion && src && src.maxLife && S.minion_leech > 0) src.life = Math.min(src.maxLife, src.life + Math.min(total * S.minion_leech / 100, src.maxLife * 0.1));
   if (!fromMinion && (leech > 0 || mleech > 0)) {
     // 偷取：每次擊中最多回 8% 最大值；有紅色（生命）/藍色（魔力）的光點飛回角色身上
     if (leech > 0) G.pl.life = Math.min(S.maxLife, G.pl.life + Math.min(total * leech / 100, S.maxLife * 0.08));
@@ -1254,7 +1256,7 @@ function killMonster(m) {
       : r < 0.34 ? { item: randomFlask(G.world.grade || 1) } : r < 0.37 ? { skill: randomSkillGem(m.mlvl) } : { item: randomItem(ilvl, bonus) });
   }
 }
-// v2.17 有代價的輔助寶石（SUPPORTS[k].risk）只在深層夢境（第 DEEP_TIER 夜起）掉
+// v2.17 有代價的習慣（SUPPORTS[k].risk）只在深層夢境（第 DEEP_TIER 夜起）掉
 function randomSupport() { const deep = ((G.world && G.world.tier) || 0) >= DEEP_TIER; return pick(Object.keys(SUPPORTS).filter(k => deep || !SUPPORTS[k].risk)); }
 function bossDefeated(b) {
   const P = G.P, w = G.world;
@@ -1343,7 +1345,7 @@ function dropLoot(x, y, o) {
     l.label = l.item.name; l.color = RARITY_COLOR[rk] || RARITY_COLOR[l.item.rarity];
     if (l.item.rarity === 'unique') { Sfx.play('unique'); UI.banner(rn, l.item.name, l.color); } else if (l.item.rarity === 'rare' && !lootFiltered(l)) Sfx.play('rare');   // v2.20 篩掉的黃裝不響
     if (l.item.rarity === 'unique') UI.msg(`${rn}：${l.item.name}`, l.color);
-  } else if (l.gem) { l.label = `輔助寶石：${SUPPORTS[l.gem].name}`; l.color = '#3fd8b8'; }
+  } else if (l.gem) { l.label = `習慣：${SUPPORTS[l.gem].name}`; l.color = '#3fd8b8'; }
   else if (l.skill) { l.label = `技能寶石：${SKILLS[l.skill].name}`; l.color = '#ffd27a'; }
   else if (l.frag) { l.label = NIGHTMARES[l.frag].frag; l.color = NIGHTMARES[l.frag].color; }
   else if (l.mat) { l.label = matName(l.mat); l.color = MATS[l.mat.slice(0, l.mat.lastIndexOf("_"))].color; }
@@ -1470,7 +1472,9 @@ function playerDie() {
   const w = G.world;
   let keep = w.kind === 'map' && !!w.portal;
   if (keep) G.savedMap = { world: w, mons: G.mons, loot: G.loot, bossBar: G.bossBar };
-  else if (w.bossRoom && G.gateBack) { const gb = G.gateBack, gt = gb.world.bossGate; const pp = nearestFloor(gt.x + 90, gt.y + 10); gb.world.portal = { x: pp.x, y: pp.y, exit: true }; G.savedMap = gb; keep = 'gate'; }   // v2.18.2 巢穴裡倒下：回到首領之門前（bossroom.js 進門時記的）
+  else if (w.bossRoom && G.gateBack) { const gb = G.gateBack, gt = gb.world.bossGate; const pp = nearestFloor(gt.x + 90, gt.y + 10); gb.world.portal = { x: pp.x, y: pp.y, exit: true }; G.savedMap = gb; keep = 'gate'; }
+  // v2.20.2 主線的夢：在區裡倒下也不會整夜重來——回到「這一區的入口」（進新的一區時記下的回來點，zonecheck.js）
+  else if (w.kind === 'map' && w.ckpt && (w.tier || 0) <= ENDING_TIER) { const pp = nearestFloor(w.ckpt.x, w.ckpt.y); w.portal = { x: pp.x, y: pp.y, exit: true }; G.savedMap = { world: w, mons: G.mons, loot: G.loot, bossBar: G.bossBar }; keep = 'zone'; }   // v2.18.2 巢穴裡倒下：回到首領之門前（bossroom.js 進門時記的）
   else if (w.kind === 'map') G.savedMap = null;
   G.gateBack = null;
   setHubFromWorld(w);
@@ -1735,9 +1739,9 @@ function pickupLoot(l) {
   const P = G.P;
   Sfx.play(l.cur || l.mat ? 'coin' : 'pickup');
   if (l.cur) { P.cur[l.cur]++; UI.msg(`撿到 ${CURRENCY[l.cur].name}`, '#e8d8a8'); }
-  else if (l.gem) { P.supports[l.gem] = (P.supports[l.gem] || 0) + 1; UI.msg(ctlText(`撿到輔助寶石：${SUPPORTS[l.gem].name}（{skills}插到技能上）`, true), '#3fd8b8'); UI.refreshSkills(); }
+  else if (l.gem) { P.supports[l.gem] = (P.supports[l.gem] || 0) + 1; UI.msg(ctlText(`撿到習慣：${SUPPORTS[l.gem].name}（{skills}插到技能上）`, true), '#3fd8b8'); UI.refreshSkills(); }
   else if (l.skill) {
-    if (hasSkillGem(P, l.skill)) { P.cur.alter++; UI.msg(`已經會「${SKILLS[l.skill].name}」了，換成 1 顆改造石`, '#d8c8a0'); }
+    if (hasSkillGem(P, l.skill)) { P.cur.alter++; UI.msg(`已經會「${SKILLS[l.skill].name}」了，換成 1 顆換夢`, '#d8c8a0'); }
     else { P.skillGems[l.skill] = true; if (typeof shareSkillGem === 'function') shareSkillGem(l.skill); UI.msg(ctlText(`學會新技能：${SKILLS[l.skill].name}（{skills}裝上）`, true), '#ffd27a'); UI.refreshSkills(); }
   }
   else if (l.mat) { P.mats = P.mats || {}; P.mats[l.mat] = (P.mats[l.mat] || 0) + 1; UI.msg(ctlText(`撿到材料：${matName(l.mat)}（{craft}到工坊使用）`, true), l.color); if (UI.refreshCraft) UI.refreshCraft(); }
@@ -1770,7 +1774,7 @@ function autoEquipPickup(it) {
   UI.msg(`自動裝備：${it.name}`, itemColor(it));
   return true;
 }
-// v1.9.1：珠寶、通貨、材料走過去就自動撿；裝備、藥劑、技能／輔助寶石、碎片、鑰匙還是要點一下
+// v1.9.1：珠寶、通貨、材料走過去就自動撿；裝備、藥劑、技能／習慣、碎片、鑰匙還是要點一下
 function autoPickup() {
   const pl = G.pl;
   for (const l of G.loot) {
@@ -1922,12 +1926,16 @@ function update(dt) {
   // 投射物
   for (const p of G.projs) {
     p.life -= dt;
+    // v2.20.2 碰撞改成看「這一格飛過的整段路」：以前先飛 20 像素才檢查，貼在身上的怪會被直接飛過去、永遠打不到
+    const ax = p.ox != null ? p.ox : p.x, ay = p.oy != null ? p.oy : p.y; p.ox = p.oy = null;
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (shotWallAt(p.x, p.y)) { p.dead = true; if (p.explode) explodeAt(p); continue; }   // v2.13.9 岩漿、水、矮障礙飛得過去
     if (p.team === 'ally') {
+      const sx = p.x - ax, sy = p.y - ay, sl = sx * sx + sy * sy || 1;
       for (const m of G.mons) {
         if (m.dead || m.hidden || p.hit.has(m)) continue;
-        if (Math.hypot(m.x - p.x, m.y - p.y) < m.r + p.r) {
+        const t = Math.max(0, Math.min(1, ((m.x - ax) * sx + (m.y - ay) * sy) / sl));
+        if (Math.hypot(m.x - ax - sx * t, m.y - ay - sy * t) < m.r + p.r) {
           if (p.explode) { explodeAt(p); p.dead = true; break; }
           const nth = p.cast ? (p.cast.get(m) || 0) : 0; if (p.cast) p.cast.set(m, nth + 1);
           hitMonster(m, nth ? scalePk(p.pk, PROJ_SHOTGUN) : p.pk, !!p.fromMinion, { x: p.x - p.vx * 0.05, y: p.y - p.vy * 0.05 }, nth ? 0.4 : 0.9); p.hit.add(m);
@@ -1987,9 +1995,9 @@ function explodeAt(p) {
   G.fx.push({ k: 'ring', x: p.x, y: p.y, r: p.explode, t: 0, dur: 0.25, color: '#ffc080', fill: 'rgba(255,140,40,0.35)' });
   burst(p.x, p.y, '#ff8a30', 14, 160); Sfx.play('boom', 0.6);
 }
-// 傳送卷軸：在腳下開傳送門並回城，地圖保留
+// 回營的燈：在腳下開傳送門並回城，地圖保留
 function usePortalScroll() {
   if (G.world.kind === 'town' || G.dead) return;
-  if ((G.P.cur.portal || 0) <= 0) return msgOnce('noscroll', '沒有傳送卷軸了（打怪會掉，商人也有賣）');
-  TownPortal.begin();   // v2.20 先詠唱、再開傳送門（townportal.js；詠唱完成才扣卷軸）
+  if ((G.P.cur.portal || 0) <= 0) return msgOnce('noscroll', '沒有回營的燈了（打怪會掉，商人也有賣）');
+  TownPortal.begin();   // v2.20 先詠唱、再開傳送門（townportal.js；詠唱完成才扣燈）
 }
