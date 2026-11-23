@@ -1,0 +1,39 @@
+夢疑 MOE　美術素材來源與授權（暫代圖示，2026-11-19）
+
+一、Dungeon Crawl Stone Soup 32x32 tiles（CC0 1.0 公眾領域）
+  作者：Crawl Stone Soup 團隊與 rltiles 的美術貢獻者（素材包 README 列出的 2010 年同意 CC0 釋出的藝術家）
+  取得：https://opengameart.org/content/dungeon-crawl-32x32-tiles
+        https://github.com/crawl/tiles/tree/master/releases
+  授權全文：https://creativecommons.org/publicdomain/zero/1.0/
+  用在：傳奇類圖示 64 件（一般傳奇 46、看守者信物 11、世界規則傳奇 6、第一百三十八枚指環 1）、套裝圖示 34 件
+        （裁切、整數倍放大、部分換色，加上傳奇橘光／套裝綠光）
+  使用的原圖（item/ 底下）：
+    weapon/artefact：urand_doom_knight_new、urand_storm_bow、urand_katana、spwpn_staff_of_olgreb、urand_spriggans_knife_new、
+      spwpn_wrath_of_trog_new、spwpn_scepter_of_asmodeus、urand_axe_of_woe、spwpn_staff_of_dispater_new、urand_jihad_new
+    weapon/ranged：shortbow_3、longbow_3、silver_arrow、elven_arrow、throwing_net
+    staff：staff_3
+    armor/artefact：urand_eternal_torment、urand_salamander、urand_fencer_new、urand_dyrovepreva_new、urand_zhor、urand_bear、
+      urand_assassin、urand_gong、urand_war
+    armor/headgear：helmet_art_1、helmet_ego_2、cornuthaum、green_mask、hat_1、hat_2、hat_3、cap_2、helmet_1、elven_leather_helm
+    armor/torso：troll_leather_armor、plate_mail_2、ice_dragon_armor_new、orcish_platemail、robe_1_new、robe_2_new、robe_ego_2、
+      leather_armor_1、leather_armor_2、plate_1
+    armor/hands：glove_1_new、glove_2_new、glove_3_new、glove_4_new、glove_4_gauntlets、glove_5、gauntlet_1
+    armor/feet：boots_1_brown_new、boots_2_jackboots、boots_3_stripe_new、boots_4_green、boots_iron_2、low_boots
+    armor/shields：shield_4_spriggan
+    ring：ring_ivory、ring_topaz、ring_ruby、ring_twisted、ring_sapphire、iron
+    ring/artefact：urand_octoring、urand_shadows_new、urand_mage
+    amulet：crystal_white、ring_red、face_1_gold、cylinder_gray、bone_gray、stone_2_blue、stone_1_cyan、celtic_blue、penta_orange
+    amulet/artefact：urand_finger、urand_bloodlust_new、urand_air_new
+    misc：misc_horn、key、misc_lamp_new
+    book：book_dog_eared
+  使用的原圖（player/ 底下）：hand_right/hook、head/feather_white
+
+二、遊戲自己的 AI 圖（Higgsfield 生成，非外部素材）
+  以下暫代圖示是拿遊戲現有的 AI 圖示換色做的，不需要額外授權：
+    腰帶類 10 件（傳奇 4、套裝 6）：由 it_belt0 換色
+    輔助寶石 9 個、技能 7 個、稜鏡藥劑：由現有的輔助、技能、藥劑圖示換色
+    營地的白狗「大白」：由現有的狼（AI 怪物圖）程式染白
+
+三、遊戲原本就在用的 CC0 素材（這次沒有新增）
+  0x72 DungeonTileset II（CC0）：https://0x72.itch.io/dungeontileset-ii
+  Animated Wild Animals（CC0）
