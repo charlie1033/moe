@@ -298,11 +298,17 @@ function drawDollOffhand(g, pl, feet, bob, behind) {
 //   站著：輕輕呼吸；跑步：上下彈跳＋往前微傾；受擊閃白、冰凍染藍照舊
 //   圖在 ARTWORK.img 的 spr_cls_<職業>（assets\art\sprites）；沒有圖就退回原本程式畫的換裝小人
 const HERO = { img: {}, cache: new Map(), H: 54 };
-if (typeof ARTWORK !== 'undefined') for (const c in DOLL_CLASS) {
-  const src = ARTWORK.img['spr_cls_' + c]; if (!src) continue;
-  const im = new Image(); im.onload = () => { HERO.img[c] = im; HERO.cache.clear(); }; im.src = src;
+// v2.21 換裝：胸甲的階級（第 1～6 階）換一整套外觀 spr_cls_<職業>_t1～t6；沒穿胸甲＝第 1 階；那一階沒圖就用原本那張
+if (typeof ARTWORK !== 'undefined') for (const c in DOLL_CLASS) for (const sfx of ['', '_t1', '_t2', '_t3', '_t4', '_t5', '_t6']) {
+  const src = ARTWORK.img['spr_cls_' + c + sfx]; if (!src) continue;
+  const im = new Image(); im.onload = () => { HERO.img[c + sfx] = im; HERO.cache.clear(); }; im.src = src;
 }
 const heroOn = () => dollOn() && G.P && !!HERO.img[G.P.cls];
+function heroKey(P) {
+  const it = P.equip && P.equip.body, b = it && typeof BASE_BY_ID !== 'undefined' && BASE_BY_ID[it.base];
+  const k = P.cls + '_t' + (1 + Math.max(0, Math.min(5, b ? b.tier || 0 : 0)));
+  return HERO.img[k] ? k : P.cls;
+}
 function heroFrame(cls, h, flip, fx) {
   const key = `${cls}|${h}|${flip ? 1 : 0}|${fx || ''}`; let c = HERO.cache.get(key); if (c) return c;
   const im = HERO.img[cls], w = Math.max(1, Math.round(im.width * h / im.height));
@@ -333,20 +339,85 @@ function uniqGlow(g, fr, x, y, t) {
   }
   g.save(); g.globalAlpha = 0.7 + 0.3 * Math.sin(t * 3); g.drawImage(o.c, x - o.pad, y - o.pad); g.restore();
 }
+// v2.21 攻擊動作（程式做，不用另外畫圖）：出手的那一段時間（pl.act 從滿倒數到 0）身體跟著動
+//   近戰＝先往後蓄力、再往前踏一步揮下去（身體壓扁、前傾），最後收回
+//   弓＝拉弓時身體往後仰、放箭那一下往後彈，再回正
+//   施法（魔杖、法杖、法術技能）＝先往上提、拉高，放出去的瞬間往前推、壓扁一點
+//   數值都在 HERO_ATK；回傳 { dx, dy, rot, sx, sy }（dx 已經乘上面向）
+const HERO_ATK = {
+  melee: { wind: 0.22, hit: 0.42, back: [-4, -0.12, 1.05], strike: [9, 0.24, 1.13, 0.89] },
+  shoot: { draw: 0.62, back: [-4, -0.11, 0.97], kick: [-6.5, -0.06] },
+  cast: { rise: 0.4, push: 0.55, up: [-6, 0.94, 1.1], fwd: [5, 1.07, 0.93] },
+};
+const ease = x => x * x * (3 - 2 * x), lerp = (a, b, k) => a + (b - a) * k;
+// v2.21 位移動作（使用者：閃避時人物很僵硬）
+//   翻滾（盜賊、弓箭手）＝縮成一團往前滾一圈（繞身體中心轉 360 度）
+//   躍擊（戰士）＝起跳前蹲、空中拉長前傾、落地壓扁（跳多高照遊戲原本的 pl.hop）
+//   瞬移、一閃（一格內位置跳很遠）＝落點先被拉長變細再彈回來，人淡入
+const HERO_DODGE = { roll: { squash: 0.78, low: 7 }, leap: { crouch: 0.12, land: 0.85 }, blink: { time: 0.26 } };
+function heroDodgePose(pl) {
+  const f = pl.facing < 0 ? -1 : 1;
+  const last = pl._hp; pl._hp = { x: pl.x, y: pl.y, w: G.world };
+  if (last && last.w === G.world && Math.hypot(pl.x - last.x, pl.y - last.y) > 44 && !pl.leap && !(pl.roll > 0)) pl._tpT = G.time;   // 瞬間移動很遠＝瞬移／一閃
+  if (pl.roll > 0 && typeof DODGE !== 'undefined') {
+    const p = Math.max(0, Math.min(1, 1 - pl.roll / DODGE.time)), R = HERO_DODGE.roll, k = Math.sin(p * Math.PI);
+    return { dx: 0, dy: R.low * k, rot: f * p * Math.PI * 2, sx: 1 + 0.08 * k, sy: 1 - (1 - R.squash) * k, spin: 1 };
+  }
+  if (pl.leap) {
+    const L = pl.leap, p = Math.min(1, L.t / L.dur), D = HERO_DODGE.leap;
+    if (p < D.crouch) { const k = p / D.crouch; return { dx: 0, dy: 0, rot: -0.06 * f * k, sx: 1 + 0.12 * k, sy: 1 - 0.18 * k }; }
+    if (p < D.land) { const k = (p - D.crouch) / (D.land - D.crouch), s = Math.sin(k * Math.PI); return { dx: 0, dy: 0, rot: (0.1 + 0.22 * k) * f, sx: 1 - 0.1 * s, sy: 1 + 0.14 * s }; }
+    const k = (p - D.land) / (1 - D.land); return { dx: 0, dy: 0, rot: 0.32 * f * (1 - k), sx: 1 + 0.18 * k, sy: 1 - 0.2 * k };
+  }
+  const tp = pl._tpT != null ? (G.time - pl._tpT) / HERO_DODGE.blink.time : 9;
+  if (tp >= 0 && tp < 1) { const k = 1 - tp, w = Math.sin(tp * Math.PI * 2.5) * k; return { dx: 0, dy: 0, rot: 0, sx: 1 - 0.35 * k + 0.06 * w, sy: 1 + 0.3 * k - 0.06 * w, alpha: Math.min(1, 0.35 + tp * 1.3) }; }
+  return null;
+}
+function heroAttackPose(pl) {
+  const P0 = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 };
+  const D = heroDodgePose(pl); if (D) return D;
+  if (pl.act > (pl._ha == null ? -1 : pl._ha) + 0.02) pl._haDur = pl.act;   // 剛出手：記住這次出手多長
+  pl._ha = pl.act;
+  if (!(pl.act > 0) || !(pl._haDur > 0) || pl.stun > 0 || pl.roll > 0 || pl.leap) return P0;
+  const p = Math.max(0, Math.min(1, 1 - pl.act / pl._haDur)), f = pl.facing < 0 ? -1 : 1;
+  const w = G.P.equip && G.P.equip.weapon, wc = w && BASE_BY_ID[w.base] && BASE_BY_ID[w.base].cls;
+  const kind = pl.swing > -0.05 ? 'melee' : wc === 'bow' ? 'shoot' : wc === 'wand' || wc === 'staff' ? 'cast' : pl.swingType ? 'melee' : 'cast';
+  if (kind === 'melee') {
+    const A = HERO_ATK.melee, [bx, br, bs] = A.back, [sx0, sr, ssx, ssy] = A.strike;
+    if (p < A.wind) { const k = ease(p / A.wind); return { dx: bx * k * f, dy: 0, rot: br * k * f, sx: 1, sy: lerp(1, bs, k) }; }
+    if (p < A.hit) { const k = ease((p - A.wind) / (A.hit - A.wind)); return { dx: lerp(bx, sx0, k) * f, dy: 0, rot: lerp(br, sr, k) * f, sx: lerp(1, ssx, k), sy: lerp(bs, ssy, k) }; }
+    const k = ease((p - A.hit) / (1 - A.hit)); return { dx: lerp(sx0, 0, k) * f, dy: 0, rot: lerp(sr, 0, k) * f, sx: lerp(ssx, 1, k), sy: lerp(ssy, 1, k) };
+  }
+  if (kind === 'shoot') {
+    const A = HERO_ATK.shoot, [bx, br, bs] = A.back, [kx, kr] = A.kick;
+    if (p < A.draw) { const k = ease(p / A.draw); return { dx: bx * k * f, dy: 0, rot: br * k * f, sx: 1, sy: lerp(1, bs, k) }; }
+    const k = (p - A.draw) / (1 - A.draw), snap = k < 0.25 ? k / 0.25 : 1 - ease((k - 0.25) / 0.75);   // 放箭那一下往後彈，再慢慢回正
+    return { dx: lerp(bx, kx, snap) * f * (1 - k * 0.6), dy: 0, rot: lerp(br, kr, snap) * f * (1 - k), sx: 1, sy: lerp(bs, 1, k) };
+  }
+  const A = HERO_ATK.cast, [uy, usx, usy] = A.up, [fx0, fsx, fsy] = A.fwd;
+  if (p < A.rise) { const k = ease(p / A.rise); return { dx: 0, dy: uy * k, rot: 0, sx: lerp(1, usx, k), sy: lerp(1, usy, k) }; }
+  if (p < A.push) { const k = ease((p - A.rise) / (A.push - A.rise)); return { dx: fx0 * k * f, dy: lerp(uy, 0, k), rot: 0.05 * k * f, sx: lerp(usx, fsx, k), sy: lerp(usy, fsy, k) }; }
+  const k = ease((p - A.push) / (1 - A.push)); return { dx: lerp(fx0, 0, k) * f, dy: 0, rot: lerp(0.05, 0, k) * f, sx: lerp(fsx, 1, k), sy: lerp(fsy, 1, k) };
+}
 function drawHeroSprite(g, pl, feet, moving, pst) {
   const run = !!moving && !(pl.stun > 0), t = G.time, f = pl.facing < 0 ? -1 : 1;
   const fx = pl.flash > 0 ? 'flash' : pst && pst.frozen ? 'frozen' : '';
-  const fr = heroFrame(G.P.cls, HERO.H, f < 0, fx);
+  const fr = heroFrame(heroKey(G.P), HERO.H, f < 0, fx);
   const step = run ? Math.sin(t * 15) : 0, bob = run ? -Math.abs(step) * 3 : 0;
   const breathe = run ? 1 : 1 + Math.sin(t * 2.2) * 0.012, tilt = run ? 0.07 * f : 0;
-  drawDollOffhand(g, pl, feet, bob, true);
+  const A = heroAttackPose(pl);
+  g.save(); g.translate(Math.round(A.dx), Math.round(A.dy));   // 攻擊動作：身體、副手、武器一起移
+  if (!A.spin) drawDollOffhand(g, pl, feet, bob, true);   // 翻滾時武器、副手先收起來（不然會浮在空中）
   const EQ = G.P.equip, uniq = EQ && Object.keys(EQ).some(k => EQ[k] && EQ[k].rarity === 'unique');
-  g.save(); g.translate(Math.round(pl.x), Math.round(feet)); g.rotate(tilt); g.scale(1, breathe);
+  g.save(); g.translate(Math.round(pl.x), Math.round(feet));
+  if (A.spin) { const cy = -fr.height * 0.45; g.translate(0, cy); g.rotate(A.rot); g.scale(A.sx, A.sy); g.translate(0, -cy); }   // 翻滾：繞身體中心轉
+  else { g.rotate(tilt + A.rot); g.scale(A.sx, breathe * A.sy); }
+  if (A.alpha != null) g.globalAlpha = A.alpha;
   if (uniq && !fx) uniqGlow(g, fr, -fr.width / 2, -fr.height + bob, t);
   g.drawImage(fr, -fr.width / 2, -fr.height + bob);
   g.restore();
-  drawDollOffhand(g, pl, feet, bob, false);
-  drawDollWeapon(g, pl, feet, bob);
+  if (!A.spin) { drawDollOffhand(g, pl, feet, bob, false); drawDollWeapon(g, pl, feet, bob); }
+  g.restore();
   return { w: fr.width, h: fr.height };
 }
 
