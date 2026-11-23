@@ -218,7 +218,7 @@ function buildTree() {
     for (const n of [a, b]) { n.weapon = wcls; n.wfinal = true; tlink(prev, n.id); }
     a.excl = [b.id]; b.excl = [a.id];
     const wb = BASES.find(x => x.cls === wcls);
-    TREE.consts.push({ name: `${wb ? wb.clsName : wcls}之路`, ang, rad: r + 60, tip: a.id, kind: 'keystone' });
+    TREE.consts.push({ name: `第 138 筆・${wb ? wb.clsName : wcls}`, ang, rad: r + 60, tip: a.id, kind: 'keystone' });
   });
   // ⑤ v1.6 交錯的星橋：相鄰星座之間多拉幾條線，讓路線更錯綜
   const byAng = (list) => list.map((c, i) => [c[0], i]).sort((a, b) => a[0] - b[0]);
@@ -474,7 +474,7 @@ const TreeView = {
     for (const f of n.flags) h += `<div class="tip-mod c-unique">${STAT_TEXT[f]()}</div>`;
     if (n.kind === 'start') h += `<div class="tip-mod">${n.cls === P.cls ? '你的起點' : '其他職業的起點（可花 1 點通過）'}</div>`;
     if (n.excl) h += `<div class="tip-req ${n.excl.some(x => P.tree.includes(x)) ? 'c-bad' : ''}">與「${n.excl.map(x => TREE.nodes[x].name).join('」「')}」互斥，只能選一個</div>`;   // v2.7
-    if (n.weapon) { const wb = BASES.find(x => x.cls === n.weapon), on = P.equip.weapon && BASE_BY_ID[P.equip.weapon.base] && BASE_BY_ID[P.equip.weapon.base].cls === n.weapon; h += `<div class="tip-req ${on ? '' : 'c-bad'}">只有拿著${wb ? wb.clsName : n.weapon}時有效${on ? '' : '（你現在沒拿）'}</div>`; }   // v2.20
+    if (n.weapon) { const wb = BASES.find(x => x.cls === n.weapon), on = P.equip.weapon && BASE_BY_ID[P.equip.weapon.base] && BASE_BY_ID[P.equip.weapon.base].cls === n.weapon; h += `<div class="tip-req ${on ? '' : 'c-bad'}">第 138 筆：你用${wb ? wb.clsName : n.weapon}刻下第 138 個醒來。只有拿著${wb ? wb.clsName : n.weapon}時有效${on ? '' : '（你現在沒拿）'}</div>`; }   // v2.20
     if (n.lvl) h += `<div class="tip-req ${P.lvl < n.lvl ? 'c-bad' : ''}">需要等級 ${n.lvl}${n.deep ? '（質變誓言：會改變整個角色的玩法）' : ''}</div>`;
     const alloc = P.tree.includes(n.id);
     h += `<div class="tip-hint">${alloc ? (canRefund(P, n.id) ? (respecFree(P) ? `${byCtl('右鍵', '再點一下')}：取消配點（${FREE_RESPEC_LVL} 級前免費）` : `${byCtl('右鍵', '再點一下')}：取消配點（花 1 點重置點數，剩 ${P.respec || 0}）`) : '已配點') : canAllocate(P, n.id) ? byCtl('左鍵：配點', '再點一下：配點') : '需要先點亮相鄰的天賦'}</div>`;

@@ -258,3 +258,96 @@
     g.restore();
   });
 })();
+
+// =============================================================
+//  v2.20.5 牢房牆上的「第 138 筆」：角色第一次點上某種武器的最終天賦時（classtree.js 記在 P.engrave），
+//  牆上那排淡淡的「醒來」旁邊，多一個這個角色自己刻的「醒來」，刻法看武器：
+//    單手劍＝細長一筆一劃　雙手斧＝砸出來的粗字、邊緣碎裂　弓＝箭孔排成的點點字　魔杖＝發微光的字
+//    法杖＝燒焦的黑字＋餘燼　太刀＝一刀斜斬的俐落刻痕　匕首＝很小很深、刻在角落
+//  ・還沒刻（engraveOf 是 null）就不畫；走近或滑鼠移上去，下面出現一行「你用○○刻下的第 138 個醒來（天賦名字）」
+//  ・字形先畫成小圖快取（每種武器一張），每格只貼圖；魔杖的光、法杖的餘燼才每格動
+//  接法：Hook.on('drawWorld')，只在 G.world.hub === 'cell' 的營地畫
+// =============================================================
+(function () {
+  if (typeof Hook === 'undefined') return;
+  const WNAME = { sword: '單手劍', axe: '雙手斧', bow: '弓', wand: '魔杖', staff: '法杖', katana: '太刀', dagger: '匕首' };
+  const SPOT = { x: 25.3, y: 1.55 };        // 牆上的位置（格）：在原本那排「醒來」的右邊、火把上方
+  const CW = 64, CH = 40, FONTF = () => (typeof FONT !== 'undefined' ? FONT : 'serif');
+  const cache = {};
+  // 把「醒來」畫成遮罩（白字），回傳 canvas
+  function mask(size, weight, skew) {
+    const c = document.createElement('canvas'); c.width = CW; c.height = CH; const g = c.getContext('2d');
+    g.font = `${weight || ''} ${size}px ${FONTF()}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    if (skew) g.setTransform(1, 0, skew, 1, -skew * CH / 2, 0);
+    g.fillText('醒來', CW / 2, CH / 2); return c;
+  }
+  const tint = (m, col) => { const c = document.createElement('canvas'); c.width = CW; c.height = CH; const g = c.getContext('2d'); g.drawImage(m, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, CW, CH); return c; };
+  const alphaAt = (m) => m.getContext('2d').getImageData(0, 0, CW, CH).data;
+  // 刻痕的基本樣子：剛刻開的石頭顏色比較淺（跟旁邊那排舊的淡色「醒來」同一種顏色，但新、清楚），
+  //   字的左上一條深色陰影＝刻下去的溝；depth 越大陰影越重（刻得越深）
+  const FRESH = '#e4d6b4';
+  function carve(m, dark, light, depth) {
+    const c = document.createElement('canvas'); c.width = CW; c.height = CH; const g = c.getContext('2d');
+    for (let d = 0; d < (depth || 1); d++) { g.drawImage(tint(m, dark), -1, -1); g.drawImage(tint(m, dark), 1, 1); }
+    g.drawImage(tint(m, light), 0, 0); return c;
+  }
+  function build(w) {
+    const c = document.createElement('canvas'); c.width = CW; c.height = CH; const g = c.getContext('2d'); let extra = null;
+    if (w === 'sword') {
+      g.drawImage(carve(mask(15, '300'), 'rgba(8,6,3,0.85)', FRESH), 0, 0);
+    } else if (w === 'axe') {   // 砸出來的坑：字很粗，周圍一圈碎石崩口
+      const m = mask(19, '900'), a = alphaAt(m);
+      g.drawImage(tint(m, 'rgba(10,8,4,0.45)'), -1, 1); g.drawImage(tint(m, 'rgba(10,8,4,0.45)'), 1, -1);
+      g.drawImage(carve(m, 'rgba(6,4,2,0.9)', '#b8a47e', 2), 0, 0);
+      let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 70; i++) { const x = (r() * CW) | 0, y = (r() * CH) | 0; if (a[(y * CW + x) * 4 + 3] > 0) continue;
+        let near = false; for (let d = 1; d <= 2 && !near; d++) for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < CW && yy < CH && a[(yy * CW + xx) * 4 + 3] > 120) near = true; }
+        if (near) { g.fillStyle = r() < 0.6 ? '#1a140c' : 'rgba(210,192,160,0.6)'; g.fillRect(x, y, r() < 0.5 ? 1 : 2, 1); } }
+    } else if (w === 'bow') {   // 一排排箭孔排成字
+      const m = mask(17, '700'), a = alphaAt(m);
+      for (let y = 1; y < CH - 1; y += 3) for (let x = 1 + (y % 2); x < CW - 1; x += 3) if (a[(y * CW + x) * 4 + 3] > 110) {
+        g.fillStyle = '#0a0704'; g.fillRect(x - 1, y - 1, 2, 2); g.fillStyle = '#d8c8a4'; g.fillRect(x, y, 2, 2); }
+    } else if (w === 'wand') {   // 發光的字：光暈先畫好一張，每格只調亮度
+      const m = mask(15, '400');
+      const glow = document.createElement('canvas'); glow.width = CW; glow.height = CH; const gg = glow.getContext('2d');
+      gg.shadowColor = 'rgba(150,210,255,0.95)'; gg.shadowBlur = 7; for (let i = 0; i < 3; i++) gg.drawImage(tint(m, 'rgba(150,210,255,0.6)'), 0, 0);
+      g.drawImage(tint(m, '#eef8ff'), 0, 0); extra = { glow };
+    } else if (w === 'staff') {   // 燒焦的黑字，旁邊一圈煙燻
+      const m = mask(16, '700'), a = alphaAt(m);
+      g.shadowColor = 'rgba(150,80,30,0.9)'; g.shadowBlur = 6; g.drawImage(tint(m, 'rgba(120,64,24,0.8)'), 0, 0); g.drawImage(tint(m, 'rgba(120,64,24,0.6)'), 0, 0); g.shadowBlur = 0;
+      g.drawImage(tint(m, '#080504'), 0, 0);
+      const pts = []; for (let y = 1; y < CH - 1; y++) for (let x = 1; x < CW - 1; x++) { const i = (y * CW + x) * 4 + 3; if (a[i] > 120 && (a[i - 4] < 60 || a[i + 4] < 60 || a[i - CW * 4] < 60 || a[i + CW * 4] < 60)) pts.push([x, y]); }
+      const emb = []; for (let i = 0; i < 14 && pts.length; i++) emb.push(pts[(i * 977 + 31) % pts.length]); extra = { emb };
+    } else if (w === 'katana') {   // 一刀斜斬：字細而斜，一道長長的斜刻痕穿過
+      g.drawImage(carve(mask(15, '300', -0.32), 'rgba(8,6,3,0.85)', FRESH), 0, 0);
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(8,6,3,0.85)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(3, CH - 8); g.lineTo(CW - 5, 3); g.stroke();
+      g.strokeStyle = FRESH; g.lineWidth = 1.4; g.beginPath(); g.moveTo(4, CH - 7); g.lineTo(CW - 4, 4); g.stroke();
+    } else if (w === 'dagger') {   // 很小、刻得很深，縮在右下角
+      const m = mask(9, '900'); const k = carve(m, 'rgba(4,3,1,0.95)', FRESH, 3);
+      g.drawImage(k, 14, 9);
+    }
+    return { c, extra };
+  }
+  const at = () => ({ x: SPOT.x * TS, y: SPOT.y * TS });
+  Hook.on('drawWorld', g => {
+    const w = G.world, P = G.P; if (!w || w.kind !== 'town' || w.hub !== 'cell' || typeof engraveOf !== 'function') return;
+    const e = engraveOf(P); if (!e || !WNAME[e.w]) return;
+    const pic = cache[e.w] || (cache[e.w] = build(e.w)), p = at(), x0 = Math.round(p.x - CW / 2), y0 = Math.round(p.y - CH / 2), T = G.time;
+    g.save(); g.imageSmoothingEnabled = false;
+    if (pic.extra && pic.extra.glow) { g.globalAlpha = 0.55 + 0.35 * Math.sin(T * 2.3) + 0.1 * Math.sin(T * 7.1); g.drawImage(pic.extra.glow, x0, y0); g.globalAlpha = 0.85 + 0.15 * Math.sin(T * 2.3); }
+    else g.globalAlpha = 0.92;
+    g.drawImage(pic.c, x0, y0); g.globalAlpha = 1;
+    if (pic.extra && pic.extra.emb) for (let i = 0; i < pic.extra.emb.length; i++) {   // 法杖：邊緣幾點餘燼一明一暗
+      const [ex, ey] = pic.extra.emb[i], k = Math.sin(T * (1.7 + i * 0.37) + i * 2.1); if (k < 0.2) continue;
+      g.globalAlpha = k; g.fillStyle = k > 0.75 ? '#ffd070' : '#ff7a20'; g.fillRect(x0 + ex, y0 + ey, 1, 1);
+    }
+    g.globalAlpha = 1;
+    // 走近或滑鼠指著：顯示是什麼刻的
+    const pl = G.pl, near = pl && Math.abs(pl.x - p.x) < 90 && pl.y - p.y < 110;
+    const hov = typeof input !== 'undefined' && Math.abs(input.wx - p.x) < CW / 2 && Math.abs(input.wy - p.y) < CH / 2;
+    if ((near || hov) && typeof txt === 'function') txt(g, `你用${WNAME[e.w]}刻下的第 138 個醒來（${e.name}）`, p.x, p.y + 26, 11, '#f0e0b8', 'center');
+    g.restore();
+  });
+  if (typeof ArtUI !== 'undefined') ArtUI.engrave = { WNAME, SPOT, build };   // 給自我檢查用
+})();
