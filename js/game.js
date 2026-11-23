@@ -1464,6 +1464,8 @@ function tickPlayerAilments(dt) {
 }
 function damageMinion(mn, amt) { mn.life -= amt; mn.flash = 0.08; }
 function playerDie() {
+  if (G.dead) return;
+  const dz = { cancel: false }; Hook.emit('preDie', dz); if (dz.cancel) return;   // v2.20.9 倒下之前（信物「歐莉的筆」可以把這一次劃掉）
   G.dead = true; Sfx.play('die');
   const P = G.P;
   const loss = Math.round(xpNeed(P.lvl) * 0.05);
