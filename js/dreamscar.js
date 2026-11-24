@@ -65,7 +65,7 @@ makeItem = function (baseId, rarity, ilvl) {
 const _tipScar = itemTipHTML;
 itemTipHTML = function (item, opts = {}) {
   let h = _tipScar(item, opts);
-  if (item && item.scar && SCAR_BY_ID[item.scar.id]) {
+  if (item && item.scar && item.rarity === 'rare' && SCAR_BY_ID[item.scar.id]) {
     const s = SCAR_BY_ID[item.scar.id];
     const line = `<div class="tip-sep"></div><div class="tip-mod" style="color:${SCAR_COLOR}">◆ 夢痕・${s.name}：${s.text(item.scar.v)}</div>`;
     const k = h.indexOf('<div class="tip-hint"'); h = k >= 0 ? h.slice(0, k) + line + h.slice(k) : h + line;
@@ -73,7 +73,8 @@ itemTipHTML = function (item, opts = {}) {
   return h;
 };
 // 目前身上有哪些夢痕（同一種取最高）
-function scarsNow() { const o = {}; if (!G.P) return o; for (const k in G.P.equip) { const it = G.P.equip[k]; if (it && it.scar) o[it.scar.id] = Math.max(o[it.scar.id] || 0, it.scar.v); } return o; }
+// v2.20.13 只有黃裝上的夢痕算數（舊存檔裡洗回白裝、還留著夢痕的不算）
+function scarsNow() { const o = {}; if (!G.P) return o; for (const k in G.P.equip) { const it = G.P.equip[k]; if (it && it.scar && it.rarity === 'rare' && SCAR_BY_ID[it.scar.id]) o[it.scar.id] = Math.max(o[it.scar.id] || 0, it.scar.v); } return o; }
 const _onBuildScar = onBuildChanged;
 onBuildChanged = function () { if (G.P) G.scar = scarsNow(); _onBuildScar(); if (G.scar && G.scar.sc_pact) G.S.maxLife = Math.round(G.S.maxLife * 0.85); };
 const SC = id => (G.scar && G.scar[id]) || 0;
@@ -237,4 +238,5 @@ UI.refreshCraft = function () {
   box.innerHTML = h;
   const sp = $('#scarPick'); if (sp) sp.onchange = () => { this.scarSel = sp.value; this.refreshCraft(); };
   box.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => scarImprint(+b.dataset.scar, this.scarSel));
+  Hook.emit('craftPanel', body);   // v2.20.12 工坊畫好之後（詞綴記憶 affixmem.js）
 };

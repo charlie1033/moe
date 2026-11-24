@@ -224,12 +224,13 @@ function flaskTipHTML(f, opts = {}) {
     h += '<div class="tip-sep"></div>';
     for (const m of f.mods) h += `<div class="tip-mod">${FLASK_MOD_BY_ID[m.id].text(m.v)}<span class="tip-tier">${m.type === 'p' ? '前綴' : '後綴'}</span></div>`;
   }
-  h += '<div class="tip-sep"></div><div class="tip-mod" style="color:#a89878">同種藥劑效果不疊加，不同種可以同時生效。能用蛻變、改造、增幅、剝離、重鑄、重溫改造。</div>';
+  h += '<div class="tip-sep"></div><div class="tip-mod" style="color:#a89878">同種藥劑效果不疊加，不同種可以同時生效。能用微光、換夢、添夢、遺忘、醒神、重溫改造。</div>';
+  if (f.legacy) h += `<div class="tip-legacy">第 ${f.legacy.n} 個我醒來時留下的：「${escHTML(f.legacy.words || "……")}」<br>—— ${escHTML(f.legacy.name || "無名者")}</div>`;   // v2.20.11 真正醒來（awaken.js）
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;
 }
 function applyFlaskCurrency(cur, f) {
-  if (!FLASK_CURRENCY.has(cur)) return '藥劑只能用蛻變、改造、增幅、剝離、重鑄、重溫';
+  if (!FLASK_CURRENCY.has(cur)) return '藥劑只能用微光、換夢、添夢、遺忘、醒神、重溫';
   switch (cur) {
     case 'transmute': if (f.rarity !== 'normal') return '只能用在普通藥劑'; f.rarity = 'magic'; rollFlaskMods(f); break;
     case 'alter': if (f.rarity !== 'magic') return '只能用在魔法藥劑'; rollFlaskMods(f); break;
@@ -326,7 +327,7 @@ function applyCurrency(cur, item) {
       if (item.mods.length >= 6) return '詞綴已滿（6 條）';
       if (!addRandomAffix(item)) return '沒有可以加的詞綴'; break;
     case 'scour': if (item.rarity === 'normal') return '已經是普通物品';
-      item.rarity = 'normal'; item.mods = []; nameItem(item); break;
+      item.rarity = 'normal'; item.mods = []; delete item.dd; delete item.scar; nameItem(item); break;   // v2.20.12 醒神也會把夢深詞綴洗掉；v2.20.13 夢痕也一起洗掉
   }
   return null;
 }
@@ -544,6 +545,7 @@ function calcMinion(S, lvl, X, sk) {
 
 // ---------- 物品說明（滑鼠移上去的提示框） ----------
 const ITEM_TIP_EXTRA = [];   // v2.17 物品說明多加的段落：push(item => HTML 字串)
+const escHTML = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);   // v2.20.11 玩家自己寫的字（遺言）放進說明欄前先跳脫
 function itemTipHTML(item, opts = {}) {
   if (isFlask(item)) return flaskTipHTML(item, opts);
   const base = BASE_BY_ID[item.base];
@@ -594,6 +596,7 @@ function itemTipHTML(item, opts = {}) {
     if (src) h += `<div class="tip-boss">${src}</div>`;
     if (u && typeof UniqueLore !== 'undefined' && UniqueLore.of(u.id)) h += opts.lore ? UniqueLore.storyHTML(u) : '<div class="tip-lorehint">它的故事收在日誌的「傳奇故事」</div>';   // v2.19.13 說明欄維持短，整段故事放日誌和傳奇收藏
   }
+  if (item.legacy) h += `<div class="tip-legacy">第 ${item.legacy.n} 個我醒來時留下的：「${escHTML(item.legacy.words || "……")}」<br>—— ${escHTML(item.legacy.name || "無名者")}</div>`;   // v2.20.11 真正醒來（awaken.js）
   if (opts.hint) h += `<div class="tip-hint">${opts.hint}</div>`;
   return h;
 }

@@ -13,6 +13,8 @@ let _pastSnap = null;
 Hook.on('start', P => { try { _pastSnap = JSON.parse(JSON.stringify({ name: P.name, cls: P.cls, skills: P.skills, equip: P.equip })); } catch (e) { _pastSnap = null; } });
 // 挑一個「上一個我」：帳號裡的其他角色 → 這個角色的快照 → 同職業預設
 function pastSource() {
+  const aw = typeof Awaken !== "undefined" && Awaken.pick();   // v2.20.11 真正醒來的人（awaken.js）：一半機會是他
+  if (aw) return { id: "awk_" + aw.n, n: aw.n, awake: aw, name: aw.name, cls: aw.cls, skills: aw.skills || [], equip: aw.equip || {} };
   const others = [];
   try { for (const c of loadIndex().chars) if (c.id !== G.charId) { const p = loadChar(c.id); if (p && p.cls && CLASSES[p.cls]) others.push({ id: c.id, name: p.name, cls: p.cls, skills: p.skills || [], equip: p.equip || {} }); } } catch (e) { }
   if (others.length) return pick(others);
@@ -35,7 +37,7 @@ function spawnPastSelf(w) {
   const si = (m.modIds || []).indexOf('split'); if (si >= 0) { m.modIds.splice(si, 1); m.mods = m.mods.filter(x => x !== '分裂'); }
   m.maxLife = m.life = Math.round(m.maxLife * PAST.life);
   if (main && ['fire', 'cold', 'light', 'chaos'].includes(main.elem)) m.addElem = main.elem;
-  m.name = `上一個我．第 ${pastNo(src.id)} 個`;
+  m.name = src.awake ? `醒來的我．第 ${src.n} 個` : `上一個我．第 ${pastNo(src.id)} 個`;
   m.mods.unshift(sids.length ? '用' + sids.slice(0, 3).map(s => `「${SKILLS[s].name}」`).join('') : CLASSES[src.cls].name);
   m.pastSelf = { src, met: false };
   G.mons.push(m);
@@ -50,6 +52,7 @@ Hook.on('update', () => {
   const pl = G.pl; if (!pl || !G.world || G.world.kind !== 'map') return;
   for (const m of G.mons) if (m.pastSelf && !m.pastSelf.met && !m.dead && dist(m, pl) < 420) {
     m.pastSelf.met = true; m.aggro = true;
+    const aw = m.pastSelf.src.awake; if (aw) { UI.banner(m.name, `是醒來的「${aw.name || "？"}」。他在牆上寫過：「${aw.words || "……"}」`, "#ffe9a0"); continue; }
     UI.banner(m.name, `是你另一個角色「${m.pastSelf.src.name || '？'}」的${CLASSES[m.pastSelf.src.cls].name}——在夢裡，他還沒醒來`, '#a8d0ff');
   }
 });

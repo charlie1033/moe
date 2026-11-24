@@ -512,6 +512,7 @@ const UI = {
     if (!quiet && it.rarity === 'unique' && quiet !== 'ok') return gameAsk(`確定要分解傳奇物品「${it.name}」嗎？`, () => this.salvage(i, 'ok'));
     if (quiet === 'ok') quiet = false;
     const got = salvageGains(it);
+    Hook.emit('salvage', it, got, !!quiet);   // v2.20.12 詞綴記憶（affixmem.js）：分解時記住一條詞綴
     returnJewels(it);
     P.inv[i] = null;
     if (!quiet) { this.msg(`分解了 ${it.name}${got.length ? '，得到 ' + got.join('、') : '（什麼都沒有）'}`, '#d8c8a0'); this.hideTip(); this.refreshInv(); this.refreshCraft(); }
@@ -847,7 +848,7 @@ const UI = {
           <div class="mbtns"><button data-tier="${t}">進入</button>
           <button class="sm" data-reroll="${t}" title="重骰詞綴（2–4 條）">混沌重骰 (${P.cur.chaos})</button>
           <button class="sm" data-add="${t}" ${ids.length >= MAX_MAP_MODS ? 'disabled' : ''} title="多加 1 條詞綴">富豪加一 (${P.cur.regal})</button>
-          <button class="sm" data-clear="${t}" title="清空詞綴">重鑄清空 (${P.cur.scour})</button></div></div>`;
+          <button class="sm" data-clear="${t}" title="清空詞綴">醒神清空 (${P.cur.scour})</button></div></div>`;
       }
       // 夢魘挑戰
       h += `<div class="msec">夢魘挑戰<span class="thint">　深層夢境的精英怪與看守者會掉碎片；夢魘首領掉鑰匙，三把湊齊挑戰守門人。</span></div>`;

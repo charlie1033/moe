@@ -13,6 +13,10 @@ const DreamDepth = (() => {
   const GAIN = { normal: 1.5, magic: 4, rare: 9 }, IDLE = 5, DECAY = 2, SWALLOW = 12, Q = 40, R = 60, WAKE_R = 640;
   const on = () => { const w = G.world; return !!(w && G.P && w.kind === 'map' && !w.arena && (w.tier || 0) >= 2 && w.mm); };
   const st = () => { const w = G.world; return w.dd || (w.dd = { v: 0, idle: 0, full: 0, q: 0, r: 0 }); };
+  // v2.20.12 夢深詞綴（dreamaffix.js）：貪夢漲得快、賴床晚點吞、驚醒回血；沉夢／夢遊每 10% 重算一次能力
+  const DA = id => typeof DreamAffix !== 'undefined' ? DreamAffix.val(id) : 0;
+  const swallowT = () => SWALLOW + DA('da_doze');
+  let waking = false;
   // 掉落加成：只加「這次跟上次的差」，不蓋掉地圖原本的詞綴
   function apply() {
     const w = G.world, d = st(), q = Math.round(d.v / 100 * Q), r = Math.round(d.v / 100 * R);
@@ -21,9 +25,10 @@ const DreamDepth = (() => {
   }
   function set(v) {
     const d = st(), was = d.v; d.v = Math.max(0, Math.min(100, v)); if (d.v < 100) d.full = 0; apply();
+    const b = Math.floor(d.v / 10); if (b !== (d.b || 0)) { d.b = b; if (typeof DreamAffix !== 'undefined' && DreamAffix.scales()) onBuildChanged(); }
     const P = G.P;
     if (was < 30 && d.v >= 30 && !P.ddSeen) { P.ddSeen = 1; UI.msg('夢變深了（生命球上面的紫色弧）：越深掉的東西越好；滿了記得「醒一下」，不然夢會吞你一口', '#c8a0ff'); }
-    if (was < 100 && d.v >= 100) { UI.msg(`夢太深了——${IS_TOUCH_() ? '按「醒一下」' : `按 ${keyName()} 醒一下`}，12 秒內不醒，夢會吞你一口`, '#e0b0ff'); Sfx.play('levelup', 0.5); }
+    if (was < 100 && d.v >= 100) { UI.msg(`夢太深了——${IS_TOUCH_() ? '按「醒一下」' : `按 ${keyName()} 醒一下`}，${swallowT()} 秒內不醒，夢會吞你一口`, '#e0b0ff'); Sfx.play('levelup', 0.5); }
   }
   const IS_TOUCH_ = () => typeof IS_TOUCH !== 'undefined' && IS_TOUCH;
   const keyName = () => (keyOfAction('ddwake') || 'KeyX').replace(/^Key/, '');
@@ -43,7 +48,8 @@ const DreamDepth = (() => {
     // 小寶箱：1 件稀有（或更好）＋2 個通貨
     const il = (w.mlvl || 1) + 1; let it = null;
     for (let j = 0; j < 40 && (!it || !['rare', 'unique'].includes(it.rarity)); j++) it = randomItem(il, 4);
-    if (it) dropLoot(pl.x, pl.y - 20, { item: it });
+    waking = true; try { if (it) dropLoot(pl.x, pl.y - 20, { item: it }); } finally { waking = false; }
+    if (DA('da_jolt')) { pl.life = Math.min(G.S.maxLife, pl.life + G.S.maxLife * DA('da_jolt') / 100); G.texts.push({ x: pl.x, y: pl.y - 40, txt: '驚醒', color: '#9fffb0', size: 13, t: 0, dur: 0.9 }); }
     for (let n = 0; n < 2; n++) dropLoot(pl.x, pl.y - 20, { cur: randomCurrency() });
     G.fx.push({ k: 'ring', x: pl.x, y: pl.y, r: WAKE_R * 0.6, t: 0, dur: 0.7, color: '#e0b0ff', fill: 'rgba(200,150,255,0.18)' });
     burst(pl.x, pl.y, '#e0b0ff', 50, 320); G.shake = Math.max(G.shake || 0, 6); Sfx.play('crit');
@@ -57,11 +63,11 @@ const DreamDepth = (() => {
     UI.banner('夢吞了你一口', '太深了沒有醒，被扣了 30% 生命。下次滿了記得「醒一下」', '#c8a0ff'); Sfx.play('stun');
     set(0);
   }
-  Hook.on('kill', m => { if (!on() || !m || m.boss) return; const d = st(); d.idle = 0; if (d.v < 100) set(d.v + (GAIN[m.rarity] || 1.5)); });
+  Hook.on('kill', m => { if (!on() || !m || m.boss) return; const d = st(); d.idle = 0; if (d.v < 100) set(d.v + (GAIN[m.rarity] || 1.5) * (1 + DA('da_greed') / 100)); });
   Hook.on('update', dt => {
     if (!on() || G.dead || UI.paused()) { btn(false); return; }
     const d = st();
-    if (d.v >= 100) { d.full += dt; if (d.full >= SWALLOW) swallow(); }
+    if (d.v >= 100) { d.full += dt; if (d.full >= swallowT()) swallow(); }
     else if ((d.idle += dt) > IDLE && d.v > 0) set(d.v - DECAY * dt);
     btn(d.v >= 100);
   });
@@ -81,7 +87,7 @@ const DreamDepth = (() => {
     if (f > 0) { g.strokeStyle = full ? `rgba(240,190,255,${p})` : '#a070e0'; g.lineWidth = 4; g.beginPath(); g.arc(x, y, R0, A0, A0 + (A1 - A0) * f); g.stroke(); }
     txt(g, full ? '夢深 滿' : `夢深 ${Math.round(d.v)}%`, x, y - R0 - 8, 9, full ? '#f0d0ff' : '#c8a8f0', 'center');
     if (full && !IS_TOUCH_()) {   // 手機有按鈕；電腦在角色頭上提示
-      const s = `夢太深了：按 ${keyName()} 醒一下（${Math.max(0, Math.ceil(SWALLOW - d.full))} 秒後夢會吞你一口）`, cx = VW / 2, cy = VH / 2 - 84;
+      const s = `夢太深了：按 ${keyName()} 醒一下（${Math.max(0, Math.ceil(swallowT() - d.full))} 秒後夢會吞你一口）`, cx = VW / 2, cy = VH / 2 - 84;
       g.font = '14px sans-serif'; const tw = g.measureText(s).width + 28;
       g.fillStyle = 'rgba(30,12,48,0.85)'; g.fillRect(cx - tw / 2, cy - 15, tw, 26);
       g.strokeStyle = `rgba(220,170,255,${p})`; g.lineWidth = 1.5; g.strokeRect(cx - tw / 2, cy - 15, tw, 26);
@@ -104,6 +110,6 @@ const DreamDepth = (() => {
   (() => { const s = document.createElement('style'); s.textContent = `#ddWakeBtn { position:fixed; left:50%; top:110px; transform:translateX(-50%); z-index:41; padding:9px 22px; font-size:16px; border-radius:18px; cursor:pointer;
     background:rgba(40,16,60,.92); color:#f0d0ff; border:1px solid #c890ff; box-shadow:0 0 14px rgba(200,140,255,.6); animation:ddp 0.8s ease-in-out infinite alternate; }
     @keyframes ddp { from { box-shadow:0 0 6px rgba(200,140,255,.4); } to { box-shadow:0 0 18px rgba(220,170,255,.9); } }`; document.head.appendChild(s); })();
-  return { on, st, set, wake, swallow, get v() { return G.world && G.world.dd ? G.world.dd.v : 0; } };
+  return { on, st, set, wake, swallow, get waking() { return waking; }, get v() { return G.world && G.world.dd ? G.world.dd.v : 0; } };
 })();
 KEY_ACTIONS.push({ id: 'ddwake', name: '醒一下（夢深滿了）', def: 'KeyX', grp: '動作' });
