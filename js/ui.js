@@ -512,7 +512,7 @@ const UI = {
     if (!quiet && it.rarity === 'unique' && quiet !== 'ok') return gameAsk(`確定要分解傳奇物品「${it.name}」嗎？`, () => this.salvage(i, 'ok'));
     if (quiet === 'ok') quiet = false;
     const got = salvageGains(it);
-    Hook.emit('salvage', it, got, !!quiet);   // v2.20.12 詞綴記憶（affixmem.js）：分解時記住一條詞綴
+    Hook.emit('salvage', it, got, !!quiet);   // v2.20.12 分解時的通用接點（詞綴記憶已在 v2.20.14 拿掉）
     returnJewels(it);
     P.inv[i] = null;
     if (!quiet) { this.msg(`分解了 ${it.name}${got.length ? '，得到 ' + got.join('、') : '（什麼都沒有）'}`, '#d8c8a0'); this.hideTip(); this.refreshInv(); this.refreshCraft(); }

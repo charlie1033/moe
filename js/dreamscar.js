@@ -238,5 +238,5 @@ UI.refreshCraft = function () {
   box.innerHTML = h;
   const sp = $('#scarPick'); if (sp) sp.onchange = () => { this.scarSel = sp.value; this.refreshCraft(); };
   box.querySelectorAll('[data-scar]').forEach(b => b.onclick = () => scarImprint(+b.dataset.scar, this.scarSel));
-  Hook.emit('craftPanel', body);   // v2.20.12 工坊畫好之後（詞綴記憶 affixmem.js）
+  Hook.emit('craftPanel', body);   // v2.20.12 工坊畫好之後（v2.20.14 融合器 affixfuse.js）
 };
