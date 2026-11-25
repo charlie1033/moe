@@ -35,7 +35,11 @@ Hook.on('update', () => {
 });
 (() => {
   document.title = '夢疑 MOE Demo';
-  const tag = () => { const v = document.querySelector('#title .ts-ver'); if (v && !/Demo/.test(v.textContent)) v.textContent = v.textContent.replace(/-demo$/i, '') + '　Demo'; };
+  // Demo 不顯示版本號（使用者要求）：標題右下角只寫 Demo，製作人員卡的「版本」改成試玩版
+  const tag = () => {
+    const v = document.querySelector('#title .ts-ver'); if (v && v.textContent !== 'Demo') v.textContent = 'Demo';
+    const c = document.querySelector('#title .ts-cv'); if (c && c.textContent !== '試玩版') c.textContent = '試玩版';
+  };
   new MutationObserver(tag).observe(document.body, { childList: true, subtree: true }); tag();
   const st = document.createElement('style');
   st.textContent = `#demoEnd { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.72); }
