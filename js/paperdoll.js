@@ -281,7 +281,7 @@ function drawDollWeapon(g, pl, feet, bob) {
   const ov = arguments[4];   // v2.21.1 AI 小人：手的位置、武器角度由身體動作算好傳進來（武器跟著身體走）
   if (ov) { handX = ov.x; handY = ov.y; rot = ov.rot; }
   g.save(); g.translate(handX, handY);
-  if (wc === 'bow') { g.rotate(ov ? (ov.aimBow ? ov.rot : 0) : acting ? pl.aim : 0); g.imageSmoothingEnabled = true; const rest = ov ? !ov.aimBow : !acting, ox = rest ? f * 2 : 0, oy = rest ? -2 : 0; drawEnhIcon(g, ic, b.id, enh, -L / 2 + ox, -L / 2 + oy, L); g.translate(ox, oy); drawEnhSparks(g, enh, L, true); }
+  if (wc === 'bow') { g.rotate(ov ? ov.rot : acting ? pl.aim : 0); g.imageSmoothingEnabled = true; const rest = ov ? ov.bowRest : acting ? 0 : 1, ox = rest * f * 2, oy = rest * -2; /* v2.21.3 弓放下／舉起中間慢慢移（以前一下子跳 2 格） */ drawEnhIcon(g, ic, b.id, enh, -L / 2 + ox, -L / 2 + oy, L); g.translate(ox, oy); drawEnhSparks(g, enh, L, true); }
   else { g.rotate(rot); g.imageSmoothingEnabled = true; drawEnhIcon(g, ic, b.id, enh, -L / 2, -L + 5, L); drawEnhSparks(g, enh, L, false); }   // 握把在手上，刀刃朝上
   g.restore(); g.imageSmoothingEnabled = false;
 }
@@ -355,16 +355,18 @@ function uniqGlow(g, fr, x, y, t) {
 //     休息時手垂在腰邊＝約 2.73，剛好是圖上手的位置）；a＝武器角度（0＝刀刃朝上）。
 //     舉刀時手臂從身前往上繞到頭後面（A 變小），劈下時繞回身前下方（A 變大），刀跟著手臂一起轉
 const HERO_ATK = {
-  slash: { up: 0.06, hit: 0.1, hold: 0.08, A: [-0.9, 2.05], a: [-1.35, 2.45], b: [9, 0.24, 1.12, 0.9] },
-  heavy: { up: 0.09, hit: 0.13, hold: 0.1, A: [-0.35, 2.3], a: [-2.5, 2.75], b: [8, 0.3, 1.16, 0.84] },
-  iai: { up: 0.04, hit: 0.07, hold: 0.1, A: [-1.7, 1.85], a: [-2.1, 2.2], b: [13, 0.2, 1.14, 0.9] },
-  thrust: { up: 0.05, hit: 0.06, hold: 0.07, len: [8, 19], b: [10, 0.16, 1.1, 0.94] },
+  slash: { up: 0.07, hit: 0.12, hold: 0.08, A: [-0.9, 2.05], a: [-1.35, 2.45], b: [9, 0.24, 1.12, 0.9] },   // v2.21.3 出手多 1～2 格（手機 30 格／秒時以前只有 3 格）
+  heavy: { up: 0.1, hit: 0.15, hold: 0.1, A: [-0.35, 2.3], a: [-2.5, 2.75], b: [8, 0.3, 1.16, 0.84] },
+  iai: { up: 0.05, hit: 0.11, hold: 0.1, A: [-1.7, 1.85], a: [-2.1, 2.2], b: [13, 0.2, 1.14, 0.9] },
+  thrust: { up: 0.06, hit: 0.09, hold: 0.07, len: [8, 19], b: [10, 0.16, 1.1, 0.94] },
   shoot: { kick: 0.05, back: 0.3, len: [15, 10], b: [-6, -0.09] },
   cast: { up: 0.08, hold: 0.12, A: 1.05, a: 0.95, b: [5, 0.06, 0.95, 1.09] },
   ARM: 15, restA: 2.73, rest: 0.22, minBack: 0.16,
 };
 const HERO_STYLE = { sword: 'slash', claw: 'slash', axe: 'heavy', mace: 'heavy', sceptre: 'slash', dagger: 'thrust', katana: 'iai', bow: 'shoot', wand: 'cast', staff: 'cast' };
 const ease = x => x * x * (3 - 2 * x), lerp = (a, b, k) => a + (b - a) * k;
+const easeOut = x => 1 - (1 - x) * (1 - x);   // v2.21.3 出手用：一開始最快、慢慢停住（以前前後都慢，舉到頂、劈到底各停一下，看起來一頓一頓）
+const angLerp = (a, b, k) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * k; };
 // v2.21 位移動作（使用者：閃避時人物很僵硬）
 //   翻滾（盜賊、弓箭手）＝縮成一團往前滾一圈（繞身體中心轉 360 度）
 //   躍擊（戰士）＝起跳前蹲、空中拉長前傾、落地壓扁（跳多高照遊戲原本的 pl.hop）
@@ -410,24 +412,24 @@ function heroAttackPose(pl) {
     const S = H.shoot, k = t < S.kick ? t / S.kick : Math.max(0, 1 - (t - S.kick) / Math.max(S.back, back));
     if (k <= 0 && !(pl.act > 0)) return P0;
     const e = ease(k), hold = pl.act > 0 ? 1 : ease(Math.min(1, k * 3));
-    return { dx: S.b[0] * e * f, dy: 0, rot: S.b[1] * e * f, sx: 1, sy: 1, w: { A: lerp(H.restA, aimA, hold), len: lerp(H.ARM, lerp(S.len[0], S.len[1], e), hold), aim: pl.aim, bow: 1 } };
+    return { dx: S.b[0] * e * f, dy: 0, rot: S.b[1] * e * f, sx: 1, sy: 1, w: { A: lerp(H.restA, aimA, hold), len: lerp(H.ARM, lerp(S.len[0], S.len[1], e), hold), aim: pl.aim, pt: hold, a: H.rest } };
   }
   const S = H[style];
   const up = S.up, hit = S.hit || 0, hold = S.hold, t1 = up + hit, t2 = t1 + hold, t3 = t2 + back;
   if (t >= t3) return P0;
   const [b0, b1, b2, b3] = S.b, rA = H.restA, ra = H.rest;
   if (style === 'cast') {   // 施法：手臂往前上方一指、法杖跟著指出去，身體往上提再往前推
-    const k = t < up ? ease(t / up) : t < t2 ? 1 : 1 - ease((t - t2) / back);
+    const k = t < up ? easeOut(t / up) : t < t2 ? 1 : 1 - ease((t - t2) / back);
     return { dx: b0 * k * f, dy: -3 * k, rot: b1 * k * f, sx: lerp(1, b2, k), sy: lerp(1, b3, k), w: { A: lerp(rA, S.A, k), len: H.ARM, a: lerp(ra, S.a, k) } };
   }
   if (style === 'thrust') {   // 突刺：手臂對準目標，先縮回來、再整隻刺出去
-    const k = t < up ? -ease(t / up) : t < t1 ? -1 + 2 * ease((t - up) / hit) : t < t2 ? 1 : 1 - ease((t - t2) / back);
-    const point = t < t2 ? 1 : 1 - ease((t - t2) / back), len = k < 0 ? lerp(H.ARM, S.len[0], -k) : lerp(H.ARM, S.len[1], k), kB = Math.max(0, k);
-    return { dx: (b0 * kB + 2 * Math.min(0, k)) * f, dy: 0, rot: b1 * kB * f, sx: lerp(1, b2, kB), sy: lerp(1, b3, kB), w: { A: lerp(rA, aimA, point), len, aim: point > 0.5 ? pl.aim : null, a: ra } };
+    const k = t < up ? -easeOut(t / up) : t < t1 ? -1 + 2 * easeOut((t - up) / hit) : t < t2 ? 1 : 1 - ease((t - t2) / back);
+    const point = t < up ? easeOut(t / up) : t < t2 ? 1 : 1 - ease((t - t2) / back), len = k < 0 ? lerp(H.ARM, S.len[0], -k) : lerp(H.ARM, S.len[1], k), kB = Math.max(0, k);
+    return { dx: (b0 * kB + 2 * Math.min(0, k)) * f, dy: 0, rot: b1 * kB * f, sx: lerp(1, b2, kB), sy: lerp(1, b3, kB), w: { A: lerp(rA, aimA, point), len, aim: pl.aim, pt: point, a: ra } };   // pt＝刀尖對準目標的程度（0～1 慢慢轉過去，以前是一瞬間跳過去）
   }
   let A, a, kB;   // kB＝身體踏多出去（0～1）
-  if (t < up) { const k = ease(t / up); A = lerp(rA, S.A[0], k); a = lerp(ra, S.a[0], k); kB = 0; }                           // 起手：手從身前往上繞到頭後面
-  else if (t < t1) { const k = ease((t - up) / hit); A = lerp(S.A[0], S.A[1], k); a = lerp(S.a[0], S.a[1], k); kB = k; }        // 出手：手臂連刀一起劈到身前下方，身體同時踏步
+  if (t < up) { const k = easeOut(t / up); A = lerp(rA, S.A[0], k); a = lerp(ra, S.a[0], k); kB = 0; }                        // 起手：手從身前往上繞到頭後面
+  else if (t < t1) { const k = easeOut((t - up) / hit); A = lerp(S.A[0], S.A[1], k); a = lerp(S.a[0], S.a[1], k); kB = ease((t - up) / hit); }   // 出手：手臂連刀一起劈到身前下方（一開始最快），身體同時踏步
   else if (t < t2) { const o = Math.sin((t - t1) / hold * Math.PI) * 0.1; A = S.A[1] + o * 0.5; a = S.a[1] + o; kB = 1; }        // 收招：刀停在下面微微晃
   else { const k = ease((t - t2) / back); A = lerp(S.A[1], rA, k); a = lerp(S.a[1], ra, k); kB = 1 - k; }                     // 回正
   const anticip = t < up ? ease(t / up) : 0;   // 起手時身體先往後收一點點
@@ -439,10 +441,10 @@ function drawHeroSprite(g, pl, feet, moving, pst) {
   const fr = heroFrame(heroKey(G.P), HERO.H, f < 0, fx);
   const step = run ? Math.sin(t * 15) : 0, bob = run ? -Math.abs(step) * 3 : 0;
   const breathe = run ? 1 : 1 + Math.sin(t * 2.2) * 0.012, tilt = run ? 0.07 * f : 0;
-  const A = heroAttackPose(pl);
-  const ox = Math.round(pl.x + A.dx), oy = Math.round(feet + A.dy);
-  const R = A.spin ? 0 : tilt + A.rot, sx = A.sx, sy = (A.spin ? 1 : breathe) * A.sy;
-  g.save(); g.translate(Math.round(A.dx), Math.round(A.dy));
+  const t0Prev = pl._atT0, A0 = heroAttackPose(pl), A = A0.spin ? A0 : heroPoseSmooth(pl, A0, tilt, f, pl._atT0 !== t0Prev);
+  const ox = pl.x + A.dx, oy = feet + A.dy;   // v2.21.3 不再四捨五入到整格：位移很小時以前會一格一格跳
+  const R = A.spin ? 0 : A.R, sx = A.sx, sy = (A.spin ? 1 : breathe) * A.sy;
+  g.save(); g.translate(A.dx, A.dy);
   if (!A.spin) drawDollOffhand(g, pl, feet, bob, true);   // 翻滾時武器、副手先收起來（不然會浮在空中）
   g.restore();
   const EQ = G.P.equip, uniq = EQ && Object.keys(EQ).some(k => EQ[k] && EQ[k].rarity === 'unique');
@@ -454,16 +456,56 @@ function drawHeroSprite(g, pl, feet, moving, pst) {
   g.drawImage(fr, -fr.width / 2, -fr.height + bob);
   g.restore();
   if (A.spin) return { w: fr.width, h: fr.height };
-  g.save(); g.translate(Math.round(A.dx), Math.round(A.dy)); drawDollOffhand(g, pl, feet, bob, false); g.restore();
+  g.save(); g.translate(A.dx, A.dy); drawDollOffhand(g, pl, feet, bob, false); g.restore();
   // 手＝肩膀＋手臂（角度 A、長度 len）→ 跟著身體一起縮放、前傾、踏步；休息時剛好落在圖上手的位置
-  const H = HERO_ATK, hand = HERO_HAND[G.P.cls] || [8, 20], W = A.w || { A: H.restA, len: H.ARM, a: H.rest };
+  const H = HERO_ATK, hand = HERO_HAND[G.P.cls] || [8, 20];
   const shX = hand[0] - Math.sin(H.restA) * H.ARM, shY = -hand[1] + Math.cos(H.restA) * H.ARM;   // 肩膀（從休息時的手往回推）
-  const lx = (shX + Math.sin(W.A) * W.len) * f, ly = shY - Math.cos(W.A) * W.len + bob;
+  const lx = (shX + Math.sin(A.armA) * A.len) * f, ly = shY - Math.cos(A.armA) * A.len + bob;
   const px = lx * sx, py = ly * sy, c = Math.cos(R), s = Math.sin(R);
   const hxW = ox + c * px - s * py, hyW = oy + s * px + c * py;
-  const rot = W.bow ? W.aim : W.aim != null ? W.aim + Math.PI / 2 : R + f * W.a;
-  drawDollWeapon(g, pl, feet, bob, { x: hxW, y: hyW, rot, aimBow: !!W.bow });
+  // v2.21.3 刀影：這一格和上一格之間武器轉很多（揮很快、或手機一秒只畫 30 格）→ 中間補幾把半透明的刀，看起來是連續揮過去
+  const WP = pl._wPrev, cur = { x: hxW, y: hyW, rot: A.wr, t, f };
+  if (WP && WP.f === f && t - WP.t > 0 && t - WP.t < 0.1) {
+    const d = angLerp(WP.rot, A.wr, 1) - WP.rot, n = Math.min(HERO_GHOST.max, Math.floor(Math.abs(d) / HERO_GHOST.step));
+    if (n > 0 && (typeof CFG === 'undefined' || CFG.juice !== false)) {   // 設定裡關掉「打擊特效加強」就不畫
+      const a0 = g.globalAlpha;
+      for (let i = 1; i <= n; i++) { const k = i / (n + 1); g.globalAlpha = a0 * HERO_GHOST.alpha * k; drawDollWeapon(g, pl, feet, bob, { x: lerp(WP.x, hxW, k), y: lerp(WP.y, hyW, k), rot: WP.rot + d * k, bowRest: 1 - A.bw }); }
+      g.globalAlpha = a0;
+    }
+  }
+  pl._wPrev = cur;
+  drawDollWeapon(g, pl, feet, bob, { x: hxW, y: hyW, rot: A.wr, bowRest: 1 - A.bw });
   return { w: fr.width, h: fr.height };
+}
+const HERO_GHOST = { step: 0.3, max: 4, alpha: 0.45 };   // 每轉 0.3 弧度補一把，最多 4 把；越接近現在的越不透明
+// v2.21.3 動作變順（使用者：動作還是有點卡）
+//   以前會「跳」的地方：①連續攻擊時每一下從頭算，身體、手臂瞬間跳回起手（最明顯）
+//   ②匕首、弓在「對準目標」和「放下」之間一瞬間切換　③開始跑、停下來時身體一下子前傾
+//   做法：每一格記住上一格畫出來的姿勢 ——
+//     ・新的一下開始時，從「現在的姿勢」在 HERO_SMOOTH.blend 秒內接到新招式（不跳回原點）
+//     ・其他所有數值都用很短的緩衝（HERO_SMOOTH.tau 秒）追上目標，一格內的跳動變成兩三格滑過去
+//   轉身（左右翻面）、翻滾不緩衝：那是整個圖翻過去，本來就該瞬間
+const HERO_SMOOTH = { blend: 0.09, tau: 0.022 };
+function heroPoseSmooth(pl, A, tilt, f, restart) {
+  const H = HERO_ATK, W = A.w || { A: H.restA, len: H.ARM, a: H.rest };
+  const R = tilt + A.rot, pt = W.pt != null ? W.pt : 0;
+  const wpn = G.P.equip && G.P.equip.weapon, isBow = !!(wpn && BASE_BY_ID[wpn.base] && BASE_BY_ID[wpn.base].cls === 'bow');
+  // 武器角度：放下時跟著手臂（R＋a），對準時指向目標，中間照 pt 慢慢轉
+  const wr = isBow ? angLerp(0, W.aim != null ? W.aim : 0, pt) : angLerp(R + f * (W.a != null ? W.a : H.rest), (W.aim != null ? W.aim : 0) + Math.PI / 2, pt);
+  const tgt = { dx: A.dx, dy: A.dy, R, sx: A.sx, sy: A.sy, armA: W.A, len: W.len, wr, bw: isBow ? pt : 0 };
+  const T = G.time, S = pl._pose, ok = S && S.f === f && S.cls === G.P.cls && T - S.t >= 0 && T - S.t < 0.25;
+  if (!ok) { pl._pose = Object.assign({ f, cls: G.P.cls, t: T }, tgt); pl._poseX = null; return Object.assign({}, A, tgt); }
+  if (restart) pl._poseX = { from: Object.assign({}, S), t0: T };   // 新的一下：記住現在的姿勢，從這裡接過去
+  const X = pl._poseX;
+  if (X) {
+    const k = Math.min(1, (T - X.t0) / HERO_SMOOTH.blend), e = ease(k);
+    for (const key in tgt) tgt[key] = key === 'wr' || key === 'R' ? angLerp(X.from[key], tgt[key], e) : lerp(X.from[key], tgt[key], e);
+    if (k >= 1) pl._poseX = null;
+  }
+  const dt = T - S.t, al = dt <= 0 ? 0 : 1 - Math.exp(-dt / HERO_SMOOTH.tau);
+  if (dt > 0) for (const key in tgt) S[key] = key === 'wr' || key === 'R' ? angLerp(S[key], tgt[key], al) : lerp(S[key], tgt[key], al);
+  S.t = T;
+  return Object.assign({}, A, { dx: S.dx, dy: S.dy, R: S.R, sx: S.sx, sy: S.sy, armA: S.armA, len: S.len, wr: S.wr, bw: S.bw });
 }
 
 // ---------- render.js drawPlayer 呼叫的接口 ----------
