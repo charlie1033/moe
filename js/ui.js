@@ -681,8 +681,10 @@ const UI = {
     // 拖放、提示、右鍵拿下
     $('#skills').querySelectorAll('[data-gem]').forEach(el => {
       el.onpointerdown = e => { if (e.button === 2) return; e.preventDefault(); this.gemDragStart(e, el.dataset.gem, el.querySelector('img') && el.querySelector('img').src); };
-      el.onmouseenter = e => this.showTip(this.gemTip(el.dataset.gem), e.clientX, e.clientY);
-      el.onmousemove = e => this.moveTip(e); el.onmouseleave = () => this.hideTip();
+      if (!Touch.on) {   // v2.20.17 手機不跳浮動說明（點一下改成說明卡，gemcard.js）
+        el.onmouseenter = e => this.showTip(this.gemTip(el.dataset.gem), e.clientX, e.clientY);
+        el.onmousemove = e => this.moveTip(e); el.onmouseleave = () => this.hideTip();
+      }
       el.oncontextmenu = e => { e.preventDefault(); this.gemRemove(el.dataset.gem); };
     });
     $('#skills').querySelectorAll('[data-drop]').forEach(el => {
@@ -690,7 +692,11 @@ const UI = {
       // v2.18.2 空的孔（大格、小格）和寶石袋也接住「點一下」：手上選了寶石，再點空孔就放進去（手機以前只能用拖的）
       if (!el.dataset.gem) el.onclick = e => {
         if (e.target.closest('[data-gem]') || e.target.closest('button')) return;
-        if (!this.gemPick) { if (/^sup:/.test(el.dataset.drop) && typeof SupQuick !== 'undefined') SupQuick.open(el.dataset.drop, el); return; }   // v2.19.14 空的習慣孔：跳出可以裝的清單（supquick.js）
+        if (!this.gemPick) {
+          if (/^sup:/.test(el.dataset.drop) && typeof SupQuick !== 'undefined') SupQuick.open(el.dataset.drop, el);   // v2.19.14 空的習慣孔：跳出可以裝的清單（supquick.js）
+          else if (/^skill:/.test(el.dataset.drop) && typeof GemCard !== 'undefined') GemCard.pickFor(+el.dataset.drop.split(':')[1]);   // v2.20.17 空的大格：挑一顆技能寶石放進來（gemcard.js）
+          return;
+        }
         if (this.gemAccepts(this.gemPick, el.dataset.drop)) { this.gemDrop(this.gemPick, el.dataset.drop); this.gemPick = null; this.refreshSkills(); }
         else if (el.dataset.drop !== 'bag') { this.gemDrop(this.gemPick, el.dataset.drop); }   // 放錯格：說明要放哪裡
       };
@@ -764,6 +770,8 @@ const UI = {
       const target = document.elementFromPoint(ev.clientX, ev.clientY);
       const drop = target && target.closest('[data-drop]');
       if (d.moved) { if (drop) this.gemDrop(payload, drop.dataset.drop); this.gemPick = null; this.refreshSkills(); return; }
+      // v2.20.17 手機：手上沒選寶石時，點一下寶石＝打開說明卡（大字、有按鈕，gemcard.js）
+      if (!this.gemPick && Touch.on && typeof GemCard !== 'undefined') { GemCard.open(payload); return; }
       // v2.19.14 手上沒選寶石、點一下已經裝好的習慣：跳出「換成別顆／拿下來」清單（supquick.js）
       if (!this.gemPick && /^link:/.test(payload) && typeof SupQuick !== 'undefined') { const [, i, k] = payload.split(':'); SupQuick.open(`sup:${i}:${k}`, target && target.closest('[data-gem]')); return; }
       // 只點一下：如果手上已經選了寶石、點到的是可以放的格子 → 放進去；不然就選起這顆

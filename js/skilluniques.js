@@ -9,17 +9,19 @@
 //   ・根脈腰帶（腰帶）     荊棘綻放會把範圍裡的敵人往中間拖
 //   ・碎骨之靴（鞋子）     骨矛殺死敵人時，屍體炸出 3 片骨刺往外飛（各 50% 傷害）
 //   ・毒牙手套（手套）     中毒的敵人死掉時，原地炸開一團毒霧（3 秒，毒素傷害＝牠最大生命的 6%／跳，會中毒）
+//  v2.20.17 傳奇精修：數字調強（炎環冠 4 顆 60%、回音箭 75%、霜心 4 秒 40%、碎骨之靴 4 片 60%、群鴉彈 3 次、雷鳴多彈 3 次、
+//    隕石之瞳 3 顆 60%、永凍之心 60% 範圍 75、百影 4 把 3 秒 80%、毒雨 4 秒 50%、狼王 10 秒最多 4 隻）；上面寫的舊數字以這行為準
 //  做法：每件傳奇帶一個旗標（S.flags.xxx），效果在這個檔案裡用 Hook 'cast'／'update'／'kill' 實作
 // =============================================================
 for (const f of ['skelBomb', 'fireSplit', 'arrowEcho', 'quake3', 'novaGround', 'thornPull', 'spearShatter', 'poisonSpread']) FLAG_STATS.add(f);
 Object.assign(STAT_TEXT, {
   skelBomb: () => '召喚骷髏變成自爆骷髏：撞到敵人就爆炸（範圍火焰傷害＝骷髏攻擊的 5 倍），爆炸後消失',
-  fireSplit: () => '火球術爆炸後，往外噴出 3 顆小火球（各 40% 傷害）',
-  arrowEcho: () => '箭命中後，朝附近另一個敵人射出回音箭（50% 傷害）',
+  fireSplit: () => '火球術爆炸後，往外噴出 4 顆小火球（各 60% 傷害）',
+  arrowEcho: () => '箭命中後，朝附近另一個敵人射出回音箭（75% 傷害）',
   quake3: () => '每放 3 次近戰技能，第 3 下震出一圈衝擊波（武器物理傷害 ×1.5）',
-  novaGround: () => '冰霜新星會在地上留下持續 3 秒的冰霜地（冰冷傷害、冰緩）',
+  novaGround: () => '冰霜新星會在地上留下持續 4 秒的冰霜地（冰冷傷害、冰緩）',
   thornPull: () => '荊棘綻放會把範圍裡的敵人往中間拖',
-  spearShatter: () => '骨矛殺死敵人時，屍體炸出 3 片骨刺往外飛（各 50% 傷害）',
+  spearShatter: () => '骨矛殺死敵人時，屍體炸出 4 片骨刺往外飛（各 60% 傷害）',
   poisonSpread: () => '中毒的敵人死亡時炸開毒霧（3 秒，每跳造成牠最大生命 6% 的毒素傷害）',
 });
 const SKILL_UNIQUES = [
@@ -40,7 +42,7 @@ Hook.on('cast', (sid, c) => {
   const sk = SKILLS[sid], pl = G.pl; if (!sk || !pl) return;
   if (sid === 'nova' && F('novaGround')) {
     const v = c && c.d && c.d.cold && c.d.cold[1] ? c.d.cold : [5, 9];
-    G.azones.push({ sid: 'frostground', x: pl.x, y: pl.y, r: (sk.radius || 120) * (c && c.areaMul || 1) * 0.8, t: 0, dur: 3, tick: 0.5, next: 0, pk: { d: { cold: [v[0] * 0.25, v[1] * 0.25] }, crit: 0, multi: 150, ail: {} }, color: '#a8ecff', chill: true });
+    G.azones.push({ sid: 'frostground', x: pl.x, y: pl.y, r: (sk.radius || 120) * (c && c.areaMul || 1) * 0.8, t: 0, dur: 4, tick: 0.5, next: 0, pk: { d: { cold: [v[0] * 0.4, v[1] * 0.4] }, crit: 0, multi: 150, ail: {} }, color: '#a8ecff', chill: true });
   }
   if (F('quake3') && sk.tags.includes('melee') && ++_q3 % 3 === 0) {
     const w = G.S.weapon || { phys: [5, 10] }, R = 110;
@@ -62,20 +64,20 @@ Hook.on('update', dt => {
       for (const m of hits) {
         if (F('arrowEcho') && p.sprite === 'arrow' && !p.echo && !p.fromMinion && p.color !== '#e8dcc0') {
           let best = null, bd = 260; for (const o of G.mons) { if (o.dead || o === m) continue; const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
-          if (best) { const a = Math.atan2(best.y - m.y, best.x - m.x); G.projs.push({ team: 'ally', x: m.x, y: m.y, vx: Math.cos(a) * 600, vy: Math.sin(a) * 600, r: 4, life: 0.6, pk: scalePk(p.pk, 0.5), pierce: 0, hit: new Set([m]), sprite: 'arrow', color: '#c8f0ff', echo: true }); }
+          if (best) { const a = Math.atan2(best.y - m.y, best.x - m.x); G.projs.push({ team: 'ally', x: m.x, y: m.y, vx: Math.cos(a) * 600, vy: Math.sin(a) * 600, r: 4, life: 0.6, pk: scalePk(p.pk, 0.75), pierce: 0, hit: new Set([m]), sprite: 'arrow', color: '#c8f0ff', echo: true }); }
         }
         if (F('spearShatter') && m.dead && p.color === '#e8dcc0' && !p.shard) {
-          for (let k = 0; k < 3; k++) { const a = Math.random() * Math.PI * 2; G.projs.push({ team: 'ally', x: m.x, y: m.y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, r: 4, life: 0.45, pk: scalePk(p.pk, 0.5), pierce: 1, hit: new Set([m]), sprite: 'arrow', color: '#e8dcc0', shard: true }); }
+          for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.random() * 0.8; G.projs.push({ team: 'ally', x: m.x, y: m.y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, r: 4, life: 0.45, pk: scalePk(p.pk, 0.6), pierce: 1, hit: new Set([m]), sprite: 'arrow', color: '#e8dcc0', shard: true }); }
           burst(m.x, m.y, '#e8dcc0', 12, 160);
         }
       }
     }
     if (F('fireSplit') && p.sprite === 'fireball' && !p.mini) seen.set(p, { x: p.x, y: p.y, pk: p.pk, vx: p.vx, vy: p.vy });
   }
-  // 火球消失（爆炸）了 → 噴 3 顆小火球
+  // 火球消失（爆炸）了 → 噴 4 顆小火球（v2.20.17）
   for (const [p, s] of _fb) if (!seen.has(p)) {
     const a0 = Math.atan2(s.vy, s.vx);
-    for (const k of [-1, 0, 1]) { const a = a0 + Math.PI + k * 0.9; G.projs.push({ team: 'ally', x: s.x - Math.cos(a0) * 10, y: s.y - Math.sin(a0) * 10, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, r: 5, life: 0.45, pk: scalePk(s.pk, 0.4), pierce: 0, hit: new Set(), explode: 34, sprite: 'fireball', color: '#ff9a50', mini: true }); }
+    for (const k of [-1.5, -0.5, 0.5, 1.5]) { const a = a0 + Math.PI + k * 0.7; G.projs.push({ team: 'ally', x: s.x - Math.cos(a0) * 10, y: s.y - Math.sin(a0) * 10, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, r: 5, life: 0.45, pk: scalePk(s.pk, 0.6), pierce: 0, hit: new Set(), explode: 34, sprite: 'fireball', color: '#ff9a50', mini: true }); }
   }
   _fb = seen;
   // 自爆骷髏
@@ -115,17 +117,17 @@ Hook.on('kill', m => {
 // =============================================================
 for (const f of ['spiritChain', 'golemBurst', 'wolfPack', 'arcMore', 'meteorTriple', 'iceShatter', 'whirlHaste', 'warcryPull', 'iaiWave', 'knivesOrbit', 'rainLinger', 'rollCrit']) FLAG_STATS.add(f);
 Object.assign(STAT_TEXT, {
-  spiritChain: () => '召喚靈體的暗影彈命中後，再彈跳到附近 2 個敵人',
+  spiritChain: () => '召喚靈體的暗影彈命中後，再彈跳到附近 3 個敵人',
   golemBurst: () => '石魔像倒下時炸開（範圍物理傷害），留下 4 秒讓敵人變慢的碎石地',
-  wolfPack: () => '靈狼咬死敵人時，召來一隻 8 秒的小狼（最多同時 3 隻）',
-  arcMore: () => '電弧多彈跳 2 次',
-  meteorTriple: () => '隕石術落下時，周圍再落下 2 顆小隕石（各 50% 傷害）',
-  iceShatter: () => '冰霜之矛命中時炸出冰晶（範圍 40% 傷害）',
+  wolfPack: () => '靈狼咬死敵人時，召來一隻 10 秒的小狼（最多同時 4 隻）',
+  arcMore: () => '電弧多彈跳 3 次',
+  meteorTriple: () => '隕石術落下時，周圍再落下 3 顆小隕石（各 60% 傷害）',
+  iceShatter: () => '冰霜之矛命中時炸出冰晶（範圍 60% 傷害）',
   whirlHaste: () => '施放旋風斬時，移動速度 +40%',
   warcryPull: () => '戰吼會把附近的敵人拉到你身邊',
   iaiWave: () => `武士用${ctl('dodgeKey')}「一閃」之後，原地再放出一圈劍氣（武器傷害 ×2）`,
-  knivesOrbit: () => '丟飛刀時，3 把飛刀繞著你轉 2 秒，碰到敵人就割',
-  rainLinger: () => '毒雨箭的落點冒毒 3 秒',
+  knivesOrbit: () => '丟飛刀時，4 把飛刀繞著你轉 3 秒，碰到敵人就割',
+  rainLinger: () => '毒雨箭的落點冒毒 4 秒',
   rollCrit: () => '翻滾或位移後 2 秒內，下一次攻擊必定暴擊',
 });
 const SKILL_UNIQUES2 = [
@@ -146,21 +148,22 @@ for (const u of SKILL_UNIQUES2) if (!UNIQUE_BY_ID[u.id] && BASE_BY_ID[u.base]) {
 const pkOf = (c, k = 1) => ({ d: Object.fromEntries(Object.entries((c && c.d) || {}).map(([e, v]) => [e, [v[0] * k, v[1] * k]])), crit: (c && c.crit) || 5, multi: (c && c.multi) || 150, ail: (c && c.ail) || {} });
 // 雷鳴指環：電弧多彈 2 次（能力重算時調整，拿掉就恢復）
 const _arcChains = SKILLS.arc ? SKILLS.arc.chains || 0 : 0;
-Hook.on('build', () => { if (SKILLS.arc) SKILLS.arc.chains = _arcChains + (F('arcMore') ? 2 : 0); });
+Hook.on('build', () => { if (SKILLS.arc) SKILLS.arc.chains = _arcChains + (F('arcMore') ? 3 : 0); });
 let _lastCast = { sid: null, t: -9 }, _orbit = null;
 Hook.on('cast', (sid, c) => {
   const pl = G.pl, sk = SKILLS[sid]; if (!pl || !sk) return; _lastCast = { sid, t: G.time };
   if (G._rollCritT > 0 && sk.tags.includes('attack')) setTimeout(() => { G._rollCritT = 0; onBuildChanged(); }, 0);   // 影步：這一下用掉
   if (F('rollCrit') && sk.tags.includes('movement')) { G._rollCritT = 2; setTimeout(() => onBuildChanged(), 0); }
   if (sid === 'meteor' && F('meteorTriple')) {
-    for (const s of [-1, 1]) { const a = Math.random() * Math.PI * 2, x = input.wx + Math.cos(a) * 80 * s, y = input.wy + Math.sin(a) * 60; if (shotWallAt(x, y)) continue;
-      G.strikes.push({ x, y, r: (sk.radius || 90) * 0.6, t: -(sk.delay || 0.8) - 0.25 * (s + 2), pk: pkOf(c, 0.5), kind: 'meteor', color: sk.color, kb: 1.2 }); }
+    const a0 = Math.random() * Math.PI * 2;
+    for (const s of [0, 1, 2]) { const a = a0 + s * Math.PI * 2 / 3, x = input.wx + Math.cos(a) * 85, y = input.wy + Math.sin(a) * 65; if (shotWallAt(x, y)) continue;
+      G.strikes.push({ x, y, r: (sk.radius || 90) * 0.6, t: -(sk.delay || 0.8) - 0.2 * (s + 1), pk: pkOf(c, 0.6), kind: 'meteor', color: sk.color, kb: 1.2 }); }
   }
   if (sid === 'warcry' && F('warcryPull')) for (const m of G.mons) { if (m.dead || m.boss || m.hidden) continue; const d = dist(m, pl); if (d < 300 && d > 40) { const k = (d - 40) / d * 0.85; const p = nearestFloor(m.x - (m.x - pl.x) * k, m.y - (m.y - pl.y) * k); m.x = p.x; m.y = p.y; m.aggro = true; burst(m.x, m.y, '#ff6050', 6, 90); } }
   if (sid === 'iai' && F('iaiWave')) setTimeout(() => { if (!G.pl || G.pl.dead) return; const w = G.S.weapon || { phys: [5, 10] }, R = 120, P0 = G.pl; G.fx.push({ k: 'ring', x: P0.x, y: P0.y, r: R, t: 0, dur: 0.3, color: '#f0d090', fill: 'rgba(240,208,144,0.18)' });
     for (const m of G.mons) if (!m.dead && !m.hidden && dist(m, P0) <= R + m.r) hitMonster(m, { d: { phys: [w.phys[0] * 2, w.phys[1] * 2] }, crit: 10, multi: 150, ail: {} }, false, P0, 1.2); }, 250);
-  if (sid === 'knives' && F('knivesOrbit')) _orbit = { t: 2, pk: pkOf(c, 0.6), hit: new Map() };
-  if (sid === 'rain' && F('rainLinger')) { const v = (c && c.d && c.d.phys) || [3, 6]; G.azones.push({ sid: 'rainpoison', x: input.wx, y: input.wy, r: (sk.radius || 80) * ((c && c.areaMul) || 1), t: 0, dur: 3, tick: 0.5, next: 0.3, pk: { d: { chaos: [v[0] * 0.35, v[1] * 0.35] }, crit: 0, multi: 150, ail: { poison: 60 } }, color: '#90d060' }); }
+  if (sid === 'knives' && F('knivesOrbit')) _orbit = { t: 3, pk: pkOf(c, 0.8), hit: new Map() };
+  if (sid === 'rain' && F('rainLinger')) { const v = (c && c.d && c.d.phys) || [3, 6]; G.azones.push({ sid: 'rainpoison', x: input.wx, y: input.wy, r: (sk.radius || 80) * ((c && c.areaMul) || 1), t: 0, dur: 4, tick: 0.5, next: 0.3, pk: { d: { chaos: [v[0] * 0.5, v[1] * 0.5] }, crit: 0, multi: 150, ail: { poison: 60 } }, color: '#90d060' }); }
 });
 let _golems = new Set(), _dodgeCd = 0;
 Hook.on('update', dt => {
@@ -171,14 +174,14 @@ Hook.on('update', dt => {
     if (F('spiritChain') && p.fromMinion && p.sprite === 'shadow') {
       const n = p.hit.size; if (n && n !== (p._cn || 0)) { p._cn = n;
         const m = [...p.hit][n - 1];
-        if ((p.bounce || 0) < 2) { let best = null, bd = 220; for (const o of G.mons) { if (o.dead || p.hit.has(o) || o.hidden) continue; const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
+        if ((p.bounce || 0) < 3) { let best = null, bd = 220; for (const o of G.mons) { if (o.dead || p.hit.has(o) || o.hidden) continue; const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
           if (best) { const a = Math.atan2(best.y - m.y, best.x - m.x); G.projs.push(Object.assign({}, p, { x: m.x, y: m.y, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, life: 0.8, hit: new Set(p.hit), bounce: (p.bounce || 0) + 1, _cn: p.hit.size })); } }
       }
     }
     if (F('iceShatter') && p.team === 'ally' && p.sprite === 'iceshard' && !p.fromMinion) {
       const n = p.hit.size; if (n && n !== (p._in || 0)) { const ms = [...p.hit].slice(p._in || 0); p._in = n;
-        for (const m of ms) { const R = 60; G.fx.push({ k: 'ring', x: m.x, y: m.y, r: R, t: 0, dur: 0.3, color: '#a8e8ff', fill: 'rgba(168,232,255,0.2)' }); burst(m.x, m.y, '#d8f6ff', 10, 150);
-          for (const o of G.mons) if (!o.dead && o !== m && dist(o, m) <= R + o.r) hitMonster(o, scalePk(p.pk, 0.4), false, m, 0.6); } }
+        for (const m of ms) { const R = 75; G.fx.push({ k: 'ring', x: m.x, y: m.y, r: R, t: 0, dur: 0.3, color: '#a8e8ff', fill: 'rgba(168,232,255,0.2)' }); burst(m.x, m.y, '#d8f6ff', 10, 150);
+          for (const o of G.mons) if (!o.dead && o !== m && dist(o, m) <= R + o.r) hitMonster(o, scalePk(p.pk, 0.6), false, m, 0.6); } }
     }
   }
   // 巨像之心：石魔像倒下
@@ -201,7 +204,7 @@ Hook.on('update', dt => {
   // 百影手套：飛刀繞身
   if (_orbit) {
     _orbit.t -= dt; if (_orbit.t <= 0) _orbit = null;
-    else for (let k = 0; k < 3; k++) { const a = G.time * 7 + k * Math.PI * 2 / 3, x = pl.x + Math.cos(a) * 46, y = pl.y + Math.sin(a) * 34;
+    else for (let k = 0; k < 4; k++) { const a = G.time * 7 + k * Math.PI / 2, x = pl.x + Math.cos(a) * 46, y = pl.y + Math.sin(a) * 34;
       for (const m of G.mons) { if (m.dead || m.hidden || Math.hypot(m.x - x, m.y - y) > m.r + 10) continue; const last = _orbit.hit.get(m) || -9; if (G.time - last > 0.3) { _orbit.hit.set(m, G.time); hitMonster(m, _orbit.pk, false, pl, 0.3); } } }
   }
   // 影步之靴：翻滾冷卻剛開始＝剛翻滾
@@ -214,12 +217,12 @@ Hook.on('build', () => { if (G._rollCritT > 0 && G.S) G.S.crit_inc = (G.S.crit_i
 Hook.on('kill', m => {
   if (!F('wolfPack')) return;
   const wolf = G.mins.find(mn => mn.mtype === 'wolf' && mn.temp === undefined && mn.life > 0 && dist(mn, m) < 80);
-  if (wolf && G.mins.filter(x => x.temp !== undefined).length < 3) { const p = randomFloorNear(m.x, m.y, 30); G.mins.push(Object.assign({}, wolf, { x: p.x, y: p.y, life: wolf.maxLife, temp: 8, atkCD: 0.3 })); burst(p.x, p.y, '#a0e0a8', 14, 140); }
+  if (wolf && G.mins.filter(x => x.temp !== undefined && x.mtype === 'wolf').length < 4) { const p = randomFloorNear(m.x, m.y, 30); G.mins.push(Object.assign({}, wolf, { x: p.x, y: p.y, life: wolf.maxLife, temp: 10, atkCD: 0.3 })); burst(p.x, p.y, '#a0e0a8', 14, 140); }
 });
 Hook.on('drawWorld', g => {
   if (!_orbit || !G.pl) return; const pl = G.pl;
   g.save(); g.fillStyle = '#d8e0e8'; g.strokeStyle = '#4a5260'; g.lineWidth = 1;
-  for (let k = 0; k < 3; k++) { const a = G.time * 7 + k * Math.PI * 2 / 3, x = pl.x + Math.cos(a) * 46, y = pl.y + Math.sin(a) * 34 - 8;
+  for (let k = 0; k < 4; k++) { const a = G.time * 7 + k * Math.PI / 2, x = pl.x + Math.cos(a) * 46, y = pl.y + Math.sin(a) * 34 - 8;
     g.save(); g.translate(x, y); g.rotate(a + Math.PI); g.beginPath(); g.moveTo(0, -9); g.lineTo(3, 4); g.lineTo(-3, 4); g.closePath(); g.fill(); g.stroke(); g.restore(); }
   g.restore();
 });

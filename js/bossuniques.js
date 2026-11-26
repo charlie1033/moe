@@ -13,6 +13,7 @@
 //   樹心之衣（樹王）      站著不動超過 1 秒，每秒回復 3% 生命
 //   法老權杖（沙漠法老）  每放第 5 次法術，游標位置落下一道雷（範圍 90，主技能 ×2 的閃電傷害，會感電）
 //   凝視深淵（虛空之眼）  敵人死掉時 10% 機率（精英 50%）留下一隻凝視之眼 4 秒，每 0.6 秒朝附近敵人射暗影彈（最多 4 隻）
+//  v2.20.17 傳奇精修：灰燼法杖改每第 3 次、法老權杖每第 4 次（×2.5）、霜牙 6 片、獸吼每 15 隻 +25%、凝視之眼 20%（精英 60%）5 秒最多 5 隻；上面寫的舊數字以這行為準
 //  「主技能」＝技能欄第一個能用的技能算好的傷害（法師、召喚也吃得到）
 //  資料：效果旗標 S.flags.bu_xxx（看身上裝備的 uniqueId）；暫存狀態放在這個檔案的變數裡，不存檔
 // =============================================================
@@ -20,22 +21,22 @@ const BOSS_UNIQ_FX = {
   u_bonecrown: ['bu_raise', '殺死精英時，牠會變成亡魂站起來替你打 10 秒（最多 3 隻）'],
   u_kingwrath: ['bu_quake', '殺死精英時，原地震出衝擊波（範圍 130）'],
   u_lavaheart: ['bu_erupt', '被打到時身邊炸出熔岩，燒傷附近的敵人（每 2 秒一次）'],
-  u_ashstaff: ['bu_ashnova', '每放第 4 次法術，身邊爆出一圈灰燼新星'],
-  u_frostfang: ['bu_shard', '被冰緩的敵人死掉時，碎成 4 片冰刺往外飛'],
+  u_ashstaff: ['bu_ashnova', '每放第 3 次法術，身邊爆出一圈灰燼新星'],
+  u_frostfang: ['bu_shard', '被冰緩的敵人死掉時，碎成 6 片冰刺往外飛'],
   u_frostgrip: ['bu_frosttrail', '翻滾時在起點留下 3 秒冰霜地'],
   u_silk: ['bu_web', '殺死敵人時噴出蛛網：附近的敵人變慢 60%（2 秒）'],
-  u_kingfang: ['bu_roar', '每殺 20 隻發出獸吼：8 秒內攻擊、施法速度 +20%'],
+  u_kingfang: ['bu_roar', '每殺 15 隻發出獸吼：8 秒內攻擊、施法速度 +25%'],
   u_claw: ['bu_pinch', '格擋時夾住附近一隻敵人 1 秒，讓牠動不了'],
   u_brew: ['bu_fog', '生命掉到 35% 以下時，身邊冒出 4 秒毒霧（每 8 秒一次）'],
   u_heartwood: ['bu_root', '站著不動超過 1 秒，每秒回復 3% 生命'],
-  u_pharaoh: ['bu_bolt', '每放第 5 次法術，游標位置落下一道雷'],
-  u_gaze: ['bu_eye', '敵人死掉時有機會留下一隻凝視之眼，替你射暗影彈 4 秒'],
+  u_pharaoh: ['bu_bolt', '每放第 4 次法術，瞄準的位置落下一道雷'],
+  u_gaze: ['bu_eye', '敵人死掉時有機會留下一隻凝視之眼，替你射暗影彈 5 秒'],
 };
 for (const id in BOSS_UNIQ_FX) STAT_TEXT[BOSS_UNIQ_FX[id][0]] = (t => () => t)(BOSS_UNIQ_FX[id][1]);
 const BF = k => G.S && G.S.flags && G.S.flags[k];
 Hook.on('stats', (S, P) => {
   for (const k in P.equip || {}) { const it = P.equip[k], fx = it && BOSS_UNIQ_FX[it.uniqueId]; if (fx) S.flags[fx[0]] = true; }
-  if (_buRoarT > 0) { S.aspd_inc += 20; S.cspd_inc += 20; }
+  if (_buRoarT > 0) { S.aspd_inc += 25; S.cspd_inc += 25; }
 });
 ITEM_TIP_EXTRA.push(it => { const fx = BOSS_UNIQ_FX[it.uniqueId]; return fx ? `<div class="tip-mod c-unique">★ ${fx[1]}</div>` : ''; });
 // 主技能的傷害（縮放 k 倍），沒有就用武器
@@ -61,17 +62,17 @@ Hook.on('kill', m => {
     burst(m.x, m.y, '#c8f0c8', 18, 150);
   }
   if (elite && BF('bu_quake')) { buAoe(m.x, m.y, 130, buPk(1.5), '#e8c890', 1.4); G.shake = Math.max(G.shake, 4); }
-  if (BF('bu_shard') && m.chill > 0) for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.random() * 0.5;
+  if (BF('bu_shard') && m.chill > 0) for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.random() * 0.5;
     G.projs.push({ team: 'ally', x: m.x, y: m.y, vx: Math.cos(a) * 480, vy: Math.sin(a) * 480, r: 4, life: 0.5, pk: buPk(0.5, 'cold'), pierce: 1, hit: new Set([m]), sprite: 'arrow', color: '#a8e8ff' }); }
   if (BF('bu_web')) { for (const o of G.mons) if (!o.dead && o !== m && dist(o, m) < 90 + o.r) { o.chill = Math.max(o.chill || 0, 2); o.chillAmt = Math.max(o.chillAmt || 0, 0.6); } burst(m.x, m.y, '#e8e8e8', 10, 120); }
-  if (BF('bu_roar') && ++_buKills % 20 === 0) { const was = _buRoarT > 0; _buRoarT = 8; if (!was) onBuildChanged(); UI.msg('獸吼！8 秒內攻擊、施法速度 +20%', '#ffb070'); G.fx.push({ k: 'ring', x: pl.x, y: pl.y, r: 120, t: 0, dur: 0.4, color: '#ffb070', fill: 'rgba(255,176,112,0.15)' }); }
-  if (BF('bu_eye') && _buEyes.length < 4 && Math.random() < (elite ? 0.5 : 0.1)) _buEyes.push({ x: m.x, y: m.y - 10, t: 4, cd: 0.2 });
+  if (BF('bu_roar') && ++_buKills % 15 === 0) { const was = _buRoarT > 0; _buRoarT = 8; if (!was) onBuildChanged(); UI.msg('獸吼！8 秒內攻擊、施法速度 +25%', '#ffb070'); G.fx.push({ k: 'ring', x: pl.x, y: pl.y, r: 120, t: 0, dur: 0.4, color: '#ffb070', fill: 'rgba(255,176,112,0.15)' }); }
+  if (BF('bu_eye') && _buEyes.length < 5 && Math.random() < (elite ? 0.6 : 0.2)) _buEyes.push({ x: m.x, y: m.y - 10, t: 5, cd: 0.2 });
 });
 Hook.on('cast', (sid, c) => {
   const sk = SKILLS[sid], pl = G.pl; if (!sk || !pl || !sk.tags.includes('spell')) return;
   _buSpells++;
-  if (BF('bu_ashnova') && _buSpells % 4 === 0) { const f = c && c.d && c.d.fire ? { d: { fire: [c.d.fire[0] * 1.2, c.d.fire[1] * 1.2] }, crit: c.crit || 5, multi: c.multi || 150, ail: { ignite: 30 } } : buPk(1, 'fire'); buAoe(pl.x, pl.y, 140, f, '#ff9a50'); burst(pl.x, pl.y, '#5a4a40', 20, 200); }
-  if (BF('bu_bolt') && _buSpells % 5 === 0) { const x = input.wx, y = input.wy, pk = buPk(2, 'light'); pk.ail = { shock: 40 }; buAoe(x, y, 90, pk, '#fff080'); burst(x, y, '#fff080', 24, 220); G.shake = Math.max(G.shake, 3); Sfx.play('boom', 0.4); }
+  if (BF('bu_ashnova') && _buSpells % 3 === 0) { const f = c && c.d && c.d.fire ? { d: { fire: [c.d.fire[0] * 1.2, c.d.fire[1] * 1.2] }, crit: c.crit || 5, multi: c.multi || 150, ail: { ignite: 30 } } : buPk(1, 'fire'); buAoe(pl.x, pl.y, 140, f, '#ff9a50'); burst(pl.x, pl.y, '#5a4a40', 20, 200); }
+  if (BF('bu_bolt') && _buSpells % 4 === 0) { const x = input.wx, y = input.wy, pk = buPk(2.5, 'light'); pk.ail = { shock: 40 }; buAoe(x, y, 90, pk, '#fff080'); burst(x, y, '#fff080', 24, 220); G.shake = Math.max(G.shake, 3); Sfx.play('boom', 0.4); }
 });
 Hook.on('update', dt => {
   const pl = G.pl, S = G.S; if (!pl || !S || G.dead) return;
