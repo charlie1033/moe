@@ -129,7 +129,8 @@
     // 頓格：重擊或暴擊時畫面停一瞬間，增加打擊感
     if (!CFG.hitstop) G.hitstop = 0;   // v2.4 設定可以關掉頓格
     G.fpsN = (G.fpsN || 0) + 1; if (now - (G.fpsT || 0) > 500) { G.fps = Math.round(G.fpsN * 1000 / (now - (G.fpsT || now - 500))); G.fpsN = 0; G.fpsT = now; }
-    if (G.hitstop > 0) G.hitstop -= dt;
+    if (G.hsAt != null && G.time >= G.hsAt) { if (CFG.hitstop) G.hitstop = Math.max(G.hitstop || 0, G.hsAmt || 0); G.hsAt = null; G.hsAmt = 0; }   // 等刀揮到才頓
+    if (G.hitstop > 0) { G.hitstop -= dt; if (G.state === 'play' && G.P) update(dt * 0.12); }   // v2.20.19 頓格不全停，放很慢 → 不會看起來像當掉
     else if (G.state === 'play' && G.P) { Touch.tick(); update(dt); }
     render();
     if (UI.treeOpen) TreeView.draw();

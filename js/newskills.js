@@ -69,7 +69,7 @@ const NEW_CAST = {
         let da = Math.abs(((Math.atan2(m.y - pl.y, m.x - pl.x) - a) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
         if (da <= sk.arc / 2 || d < m.r + 14) { hitMonster(m, hk, false, pl, k === sk.hits - 1 ? 1.6 : 0.5); list.push(m); }
       }
-      if (list.length) G.hitstop = Math.max(G.hitstop || 0, k === sk.hits - 1 ? 0.05 : 0.02);
+      if (list.length && k === sk.hits - 1) hitStop(0.045, 0.04, true);
       G.fx.push({ k: 'slash', x: pl.x, y: pl.y - 6, a: a + (k % 2 ? 0.5 : -0.5), r: sk.range, t: 0, dur: 0.15, color: k === sk.hits - 1 ? '#fff4c0' : sk.color, arc: sk.arc });
       pl.swing = 0.18; Sfx.play(k === sk.hits - 1 ? 'heavy' : 'swing');
     } });

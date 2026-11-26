@@ -925,7 +925,7 @@ function castSkill(sid, c) {
         if (d > range + m.r) continue;
         let da = Math.atan2(m.y - pl.y, m.x - pl.x) - ang;
         while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
-        if (Math.abs(da) <= sk.arc / 2 || d < m.r + 14) { hitMonster(m, pk, false, pl, 1.4); hitList.push(m); G.hitstop = Math.max(G.hitstop || 0, 0.035); }
+        if (Math.abs(da) <= sk.arc / 2 || d < m.r + 14) { hitMonster(m, pk, false, pl, 1.4); hitList.push(m); }
       }
       G.fx.push({ k: 'slash', x: pl.x, y: pl.y, ang, r: range, arc: sk.arc, t: 0, dur: 0.16, color: '#fff0d0' });
       aftershock(hitList, pk);
@@ -938,7 +938,7 @@ function castSkill(sid, c) {
       const hitList = [];
       for (const m of G.mons) if (!m.dead && Math.hypot(m.x - cx, m.y - cy) <= R + m.r) { hitMonster(m, pk, false, { x: cx, y: cy }, 1.8); any = true; hitList.push(m); }
       aftershock(hitList, pk);
-      if (any) G.hitstop = Math.max(G.hitstop || 0, 0.05);
+      if (any) hitStop(0.04, HITSTOP.melee);
       G.fx.push({ k: 'ring', x: cx, y: cy, r: R, t: 0, dur: 0.3, color: '#e0b070', fill: 'rgba(200,150,80,0.25)' });
       burst(cx, cy, '#a08060', 18, 160);
       G.shake = Math.max(G.shake, 4);
@@ -1019,7 +1019,7 @@ function castSkill(sid, c) {
       }
       pl.x = tx; pl.y = ty;
       G.fx.push({ k: 'line', x1: sx, y1: sy, x2: tx, y2: ty, t: 0, dur: 0.25, color: '#fff4c0', w: 5 });
-      if (any) { G.hitstop = Math.max(G.hitstop || 0, 0.06); G.shake = Math.max(G.shake, 3); }
+      if (any) { hitStop(0.045); G.shake = Math.max(G.shake, 3); }
       break;
     }
     case 'zone': { // 荊棘綻放、暴風雪：在地上留下持續傷害區域
@@ -1075,7 +1075,7 @@ function updateStrikes(dt) {
     s.done = true;
     if (s.single && !s.single.dead) hitMonster(s.single, s.pk, false, s, s.kb);
     else for (const m of G.mons) if (!m.dead && Math.hypot(m.x - s.x, m.y - s.y) <= s.r + m.r) hitMonster(m, s.pk, false, s, s.kb);
-    if (s.kind === 'meteor') { Sfx.play("boom"); G.fx.push({ k: 'ring', x: s.x, y: s.y, r: s.r, t: 0, dur: 0.4, color: '#ffc080', fill: 'rgba(255,100,30,0.4)' }); burst(s.x, s.y, '#ff7030', 40, 320); G.shake = Math.max(G.shake, 7); G.hitstop = Math.max(G.hitstop || 0, 0.06); }
+    if (s.kind === 'meteor') { Sfx.play("boom"); G.fx.push({ k: 'ring', x: s.x, y: s.y, r: s.r, t: 0, dur: 0.4, color: '#ffc080', fill: 'rgba(255,100,30,0.4)' }); burst(s.x, s.y, '#ff7030', 40, 320); G.shake = Math.max(G.shake, 7); hitStop(0.05, 0, true); }
     else if (s.kind === 'rain') {
       G.fx.push({ k: 'ring', x: s.x, y: s.y, r: s.r, t: 0, dur: 0.2, color: s.color, fill: 'rgba(140,210,90,0.18)' });
       for (let i = 0; i < 10; i++) { const lx = s.x + rnd(-s.r, s.r) * 0.8, ly = s.y + rnd(-s.r, s.r) * 0.6; G.fx.push({ k: 'line', x1: lx - 8, y1: ly - 30, x2: lx, y2: ly, t: 0, dur: 0.15, color: '#e8e0b0', w: 2 }); }
@@ -1095,6 +1095,17 @@ function updateStrikes(dt) {
 }
 
 // ---------- 傷害：玩家打怪 ----------
+// v2.20.19 頓格統一走這裡（使用者：連砍還是一卡一卡的）
+//   以前每砍中一下都整個畫面停住，而且停在刀還沒揮下去的那一刻 → 看起來像卡頓
+//   現在：① 一般命中不頓，只有暴擊／重擊才頓 ② 等刀真的揮到（delay 秒後）才頓 ③ 0.35 秒內只頓一次 ④ 頓的時候不是全停，是放很慢（見主迴圈）
+const HITSTOP = { gap: 0.35, max: 0.05, melee: 0.09 };
+function hitStop(s, delay, force) {
+  if (!(s > 0)) return;
+  if (!force && G.time - (G.lastStop == null ? -9 : G.lastStop) < HITSTOP.gap) return;
+  G.lastStop = G.time; s = Math.min(HITSTOP.max, s);
+  if (delay > 0) { G.hsAt = G.time + delay; G.hsAmt = Math.max(G.hsAmt || 0, s); }
+  else G.hitstop = Math.max(G.hitstop || 0, s);
+}
 function hitMonster(m, pk, fromMinion, src, kb = 1) {
   if (m.dead || m.hidden) return;   // v2.15.3 鑽在地底的怪打不到
   const S = G.S;
@@ -1136,7 +1147,7 @@ function hitMonster(m, pk, fromMinion, src, kb = 1) {
   m.squash = crit || big ? 0.14 : 0.09;
   G.fx.push({ k: 'spark', x: m.x, y: m.y - m.r * 0.4, a: src ? Math.atan2(m.y - src.y, m.x - src.x) : rnd(0, 6.28), t: 0, dur: crit ? 0.2 : 0.13, color: crit ? '#fff0a0' : col, big: crit || big });
   // v2.7.10 頓格節流：0.25 秒內只頓一次；投射物（遠程）只有暴擊才頓、而且比較短 → 穿刺箭一次打很多隻時不會一直卡住
-  if (!fromMinion) { if ((G.time - (G.lastStop || -9)) > 0.25) { const hs = src === G.pl ? (crit ? 0.06 : big ? 0.035 : 0.012) : (crit ? 0.025 : 0); if (hs) { G.hitstop = Math.max(G.hitstop || 0, hs); G.lastStop = G.time; } } Sfx.play(crit ? 'crit' : 'hit'); } else Sfx.play('hit', 0.45);
+  if (!fromMinion) { const hs = src === G.pl ? (crit ? 0.045 : big ? 0.03 : 0) : (crit ? 0.02 : 0); if (hs) hitStop(hs, src === G.pl ? HITSTOP.melee : 0); Sfx.play(crit ? 'crit' : 'hit'); } else Sfx.play('hit', 0.45);
   if (crit) G.shake = Math.max(G.shake, 3.5); else if (big && !fromMinion) G.shake = Math.max(G.shake, 1.6);
   const leech = pk.leech ?? S.leech;
   const mleech = pk.mleech ?? S.mleech;
@@ -1396,7 +1407,7 @@ function damagePlayer(parts, opts = {}) {
   if (pl.es > 0) { const a = Math.min(pl.es, total); pl.es -= a; total -= a; }
   pl.life -= total;
   pl.esDelay = 2;
-  if (!opts.dot) { Sfx.play('hurt', Math.min(1.4, 0.5 + total / S.maxLife * 4)); if (total > S.maxLife * 0.2) G.hitstop = Math.max(G.hitstop || 0, 0.05); }   // v2.3 被重擊時也頓一下
+  if (!opts.dot) { Sfx.play('hurt', Math.min(1.4, 0.5 + total / S.maxLife * 4)); if (total > S.maxLife * 0.2) hitStop(0.05, 0, true); }   // v2.3 被重擊時也頓一下
   if (!opts.dot && total > S.maxLife * 0.08) { G.shake = Math.max(G.shake, 4); G.hurt = 0.35; }
   if (!opts.dot) { pl.flash = 0.1; G.texts.push({ x: pl.x + rnd(-6, 6), y: pl.y - 28, txt: (parts.crit ? '暴擊 ' : '') + Math.max(1, Math.round(total + 0.001)), color: parts.crit ? '#ff3030' : '#ff6060', size: parts.crit ? 15 : 12, t: 0, dur: 0.7 }); }
   if (pl.life <= 0) playerDie();
